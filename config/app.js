@@ -2,11 +2,9 @@ const express = require("express");
 const path = require("path");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
-const MongoStore = require("connect-mongo");
-const mongoose = require("mongoose");
+const pgSession = require('connect-pg-simple')(session);
 const morgan = require("morgan");
 const { createSecurityMiddleware } = require("./security");
-const { HAS_MONGO } = require("./database");
 
 const app = express();
 const isVercel = Boolean(process.env.VERCEL);
@@ -68,16 +66,33 @@ if (!isVercel) {
     }
   };
 
-  if (HAS_MONGO) {
-    sessionOptions.store = MongoStore.create({
-      mongoUrl: process.env.MONGODB_URI,
-      collectionName: "sessions",
-      // Увеличим таймауты для Vercel
-      touchAfter: 24 * 3600, // 24 часа
-      autoRemove: 'native',
-      ttl: 14 * 24 * 3600 // 14 дней
-    });
-  }
+  // Используем PostgreSQL для хранения сессий
+  const { Sequelize } = require("sequelize");
+  const sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: "postgres",
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    }
+  });
+
+  sessionOptions.store = new pgSession({
+    prisma: null, // We're using Sequelize directly
+    conObject: {
+      host: process.env.PGHOST || 'ep-red-butterfly-apjzonog-pooler.c-7.us-east-1.aws.neon.tech',
+      port: process.env.PGPORT || 5432,
+      database: process.env.PGDATABASE || 'alba',
+      user: process.env.PGUSER || 'neondb_owner',
+      password: process.env.PGPASSWORD || 'npg_e2t6KmLJGHqv',
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    },
+    tableName: 'sessions' // Название таблицы для хранения сессий
+  });
 
   app.use(cookieParser());
   app.use(session(sessionOptions));

@@ -1,7 +1,7 @@
 // Главный файл приложения
 require("dotenv").config();
 const express = require("express"); // важно для Vercel
-const { connectMongoDB } = require("./config/database");
+const { sequelize, testConnection } = require("./config/database");
 const { app } = require("./config/app"); // берём готовый app из config/app.js
 const routes = require("./routes/index");
 const { checkConfiguration } = require("./services/emailService");
@@ -75,13 +75,9 @@ module.exports = app;
 if (require.main === module) {
   (async () => {
     try {
-      // Подключение к MongoDB при старте
-      const { isConnected } = await connectMongoDB();
-      if (!isConnected) {
-        console.error("❌ Нет подключения к MongoDB");
-      } else {
-        console.log("✅ MongoDB подключена");
-      }
+      // Подключение к PostgreSQL при старте
+      await testConnection();
+      console.log("✅ PostgreSQL подключена");
 
       // Проверка конфигурации email
       checkConfiguration();
@@ -91,12 +87,12 @@ if (require.main === module) {
         console.log(`Сервер запущен на http://localhost:${PORT}`);
       });
     } catch (err) {
-      console.error("❌ Ошибка подключения к MongoDB:", err);
+      console.error("❌ Ошибка подключения к PostgreSQL:", err);
 
       // Запускаем сервер даже при ошибке подключения
       const PORT = process.env.PORT || 3000;
       server.listen(PORT, () => {
-        console.log(`Сервер запущен на http://localhost:${PORT} (без MongoDB)`);
+        console.log(`Сервер запущен на http://localhost:${PORT} (без PostgreSQL)`);
       });
     }
   })();
