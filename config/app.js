@@ -30,15 +30,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Подключение к БД для Vercel serverless
-if (isVercel && HAS_MONGO) {
-  const { connectMongoDB } = require("./database");
+const USE_POSTGRES = process.env.DATABASE_URL !== undefined;
+
+if (USE_POSTGRES) {
+  const { sequelize } = require("./database");
   app.use(async (req, res, next) => {
     try {
-      const { isConnected } = await connectMongoDB();
-      req.dbConnected = isConnected;
+      await sequelize.authenticate();
+      req.dbConnected = true;
       next();
     } catch (err) {
-      console.error("❌ Ошибка подключения к MongoDB в Vercel:", err.message);
+      console.error("❌ Ошибка подключения к PostgreSQL в Vercel:", err.message);
       req.dbConnected = false;
       next();
     }
