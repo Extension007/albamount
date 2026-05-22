@@ -48,7 +48,10 @@ router.post('/codes', requireAdmin, csrfProtection, async (req, res, next) => {
 
 router.get('/codes', requireAdmin, async (req, res, next) => {
   try {
-    const codes = await require('../models/Code').find().sort({ createdAt: -1 }).limit(100).exec();
+    const codes = await require('../models/Code').findAll({
+      order: [['createdAt', 'DESC']],
+      limit: 100
+    });
     res.json({ success: true, codes });
   } catch (err) {
     next(err);
@@ -56,7 +59,7 @@ router.get('/codes', requireAdmin, async (req, res, next) => {
 });
 
 // ALBA
-router.post('/alba/grant', requireAdmin, async (req, res, next) => {
+router.post('/alba/grant', requireAdmin, csrfProtection, async (req, res, next) => {
   try {
     const { userId, amount, reason } = req.body;
     if (!userId || amount == null || !reason) return res.status(400).json({ success: false, message: 'userId, amount, reason required' });
@@ -76,7 +79,7 @@ router.post('/alba/grant', requireAdmin, async (req, res, next) => {
 });
 
 // Grant ALBA by login (username)
-router.post('/alba/grant-by-login', requireAdmin, async (req, res) => {
+router.post('/alba/grant-by-login', requireAdmin, csrfProtection, async (req, res) => {
   try {
     const { login, amount, reason, comment } = req.body;
     if (!login || !amount || !reason) {
@@ -269,21 +272,25 @@ router.get('/referrals/stats', requireAuth, async (req, res) => {
 // Get ALBA transactions history
 router.get('/alba/transactions-history', requireAdmin, async (req, res) => {
   try {
-    const { limit = 50, skip = 0 } = req.query;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const skip = parseInt(req.query.skip, 10) || 0;
     const AlbaTransaction = require('../models/AlbaTransaction');
-    
-    // Get transactions with related user info
-    const transactions = await AlbaTransaction.find({})
-      .sort({ createdAt: -1 })
-      .skip(parseInt(skip))
-      .limit(parseInt(limit))
-      .populate('userId', 'username email')
-      .populate('relatedUserId', 'username email'); // This would be the target user for admin grants
-    
+    const User = require('../models/User');
+
+    const { rows: transactions, count: total } = await AlbaTransaction.findAndCountAll({
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit,
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'username', 'email'] },
+        { model: User, as: 'relatedUser', attributes: ['id', 'username', 'email'] }
+      ]
+    });
+
     res.json({
       success: true,
       transactions,
-      total: await AlbaTransaction.countDocuments({})
+      total
     });
   } catch (err) {
     console.error('Error fetching ALBA transactions:', err);
@@ -307,7 +314,7 @@ router.get('/alba/transactions', requireAuth, async (req, res, next) => {
 });
 
 // LEGACY PAID FLOW - ADMIN ONLY
-router.post('/payments/alba', requireAdmin, async (req, res, next) => {
+router.post('/payments/alba', requireAdmin, csrfProtection, async (req, res, next) => {
   try {
     const { paymentType, cardType, cardId, userId } = req.body;
     if (paymentType !== 'upgrade_to_paid' || !cardType || !cardId || !userId) {
@@ -339,13 +346,35 @@ router.post('/payments/alba', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.post('/users/confirm-paid', requireAdmin, async (req, res, next) => {
+async function upgradeCardToPaid(cardType, cardId, activationCodeId = null) {
+  const Product = require('../models/Product');
+  const Banner = require('../models/Banner');
+  const Model = cardType === 'banner' ? Banner : Product;
+  const card = await Model.findByPk(cardId);
+  if (!card) return null;
+
+  await Model.update(
+    {
+      tier: 'paid',
+      tierRequested: 'paid',
+      paymentStatus: 'paid',
+      activationCodeId: activationCodeId || card.activationCodeId,
+      status: 'approved',
+      editCount: 0
+    },
+    { where: { id: cardId } }
+  );
+
+  return Model.findByPk(cardId);
+}
+
+router.post('/users/confirm-paid', requireAdmin, csrfProtection, async (req, res, next) => {
   try {
     const { userId, cardType, cardId, issueActivationCode = true } = req.body;
     if (!userId || !cardType || !cardId) return res.status(400).json({ success: false, message: 'userId, cardType, cardId required' });
 
     const User = require('../models/User');
-    const user = await User.findById(userId).exec();
+    const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     let activationCode = null;
@@ -353,22 +382,17 @@ router.post('/users/confirm-paid', requireAdmin, async (req, res, next) => {
       activationCode = await issuePaymentActivationCode({ userId, cardType, cardId, createdBy: req.user._id });
     }
 
-    user.tier = 'paid';
-    user.tierRequested = 'paid';
-    user.paymentStatus = 'paid';
-    user.activationCodeId = activationCode?._id || null;
-    user.status = 'approved';
-    user.editCount = 0;
-    await user.save();
+    const card = await upgradeCardToPaid(cardType, cardId, activationCode?.id || null);
+    if (!card) return res.status(404).json({ success: false, message: 'Card not found' });
 
     await notifyUser(userId, { type: 'paid_confirmed', cardType, cardId, activationCode: activationCode?.code });
-    res.json({ success: true, user, activationCode: activationCode?.code });
+    res.json({ success: true, user, card, activationCode: activationCode?.code });
   } catch (err) {
     next(err);
   }
 });
 
-router.post('/users/activate-paid', requireAuth, async (req, res, next) => {
+router.post('/users/activate-paid', requireAuth, csrfProtection, async (req, res, next) => {
   try {
     assertVerified(req.user);
     const { activationCode } = req.body;
@@ -377,18 +401,11 @@ router.post('/users/activate-paid', requireAuth, async (req, res, next) => {
     const result = await consumePaymentActivationCode({ userId: req.user._id, activationCode });
     if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
 
-    const User = require('../models/User');
-    const user = await User.findById(req.user._id).exec();
-    user.tier = 'paid';
-    user.tierRequested = 'paid';
-    user.paymentStatus = 'paid';
-    user.activationCodeId = result.code._id;
-    user.status = 'approved';
-    user.editCount = 0;
-    await user.save();
+    const card = await upgradeCardToPaid(result.code.type, result.code.cardId, result.code.id);
+    if (!card) return res.status(404).json({ success: false, message: 'Card not found' });
 
     await notifyUser(req.user._id, { type: 'paid_activated', activationCode });
-    res.json({ success: true, user });
+    res.json({ success: true, card });
   } catch (err) {
     next(err);
   }

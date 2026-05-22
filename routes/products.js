@@ -1,24 +1,25 @@
 const express = require("express");
 const router = express.Router();
 
-const mongoose = require("mongoose");
-const Product = require("../models/Product");
-const Banner = require("../models/Banner");
-const Category = require("../models/Category");
-const User = require("../models/User");
-const Statistics = require("../models/Statistics");
-const { HAS_MONGO, hasMongo } = require("../config/database");
+const Product = require("../config/database").Product;
+const Banner = require("../config/database").Banner;
+const Category = require("../config/database").Category;
+const User = require("../config/database").User;
+const Statistics = require("../config/database").Statistics;
+const { USE_POSTGRES, sequelize } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS } = require("../config/app");
+const { Op } = require("sequelize");
 
 function resolveSelectedCategoryDisplay(selected, hasDbAccess, categoryFlat) {
   if (!selected || selected === "all") return "all";
-  if (!mongoose.Types.ObjectId.isValid(selected)) return selected;
-  if (!hasDbAccess) return "Категория";
-  const match = Object.values(categoryFlat || {}).find(
-    (item) => item && item._id && item._id.toString() === selected
-  );
-  return match && match.name ? match.name : "Неизвестная категория";
-}
+    // Check if selected is numeric ID (new integer IDs)
+    if (typeof selected !== 'string' || !/^\d+$/.test(selected)) return selected;
+    if (!hasDbAccess) return "Категория";
+    const match = Object.values(categoryFlat || {}).find(
+      (item) => item && item.id && item.id.toString() === selected
+    );
+    return match && match.name ? match.name : "Неизвестная категория";
+  }
 
 // Страница товаров
 router.get("/", async (req, res) => {
@@ -33,7 +34,7 @@ router.get("/", async (req, res) => {
     const categoryKeys = CATEGORY_KEYS || [];
 
     const isVercel = Boolean(process.env.VERCEL);
-    const hasDbAccess = isVercel ? req.dbConnected : HAS_MONGO;
+    const hasDbAccess = isVercel ? req.dbConnected : USE_POSTGRES;
 
     if (!hasDbAccess) {
       const selectedCategoryDisplay = resolveSelectedCategoryDisplay(selected, hasDbAccess);
@@ -60,19 +61,20 @@ router.get("/", async (req, res) => {
 
     // Фильтры только для товаров
     const productsFilter = {
-      $and: [
-        { $or: [{ status: "approved" }, { status: { $exists: false } }, { status: null }] },
-        { $or: [{ type: "product" }, { type: { $exists: false } }, { type: null }] }
+      [Op.and]: [
+        { [Op.or]: [ { status: "approved" }, { status: null } ] },
+        { [Op.or]: [ { type: "product" }, { type: null } ] },
+        { deleted: false }
       ]
     };
 
     if (selected && selected !== 'all') {
-      // Если выбранная категория - это ObjectId (новая система), используем categoryId
-      if (mongoose.Types.ObjectId.isValid(selected)) {
-        productsFilter.$and.push({ categoryId: selected });
+      // Если выбранная категория - это numeric ID (новая система), используем categoryId
+      if (/^\d+$/.test(selected)) {
+        productsFilter[Op.and].push({ categoryId: parseInt(selected, 10) });
       } else {
         // Для обратной совместимости - старые строковые категории
-        productsFilter.$and.push({ category: selected });
+        productsFilter[Op.and].push({ category: selected });
       }
     }
 
@@ -83,27 +85,38 @@ router.get("/", async (req, res) => {
 
     // Запросы
     const [products, services, banners, visitors, users] = await Promise.all([
-      Product.find(productsFilter).sort({ _id: -1 }).maxTimeMS(5000),
-      Product.find({ type: "service", status: "approved" }).sort({ _id: -1 }).maxTimeMS(5000),
-      Banner.find({ status: "approved" }).sort({ _id: -1 }).maxTimeMS(5000),
-      Statistics.findOneAndUpdate(
-        { key: "visitors" },
-        { $inc: { value: 1 } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      ),
-      User.countDocuments()
+      Product.findAll({
+        where: productsFilter,
+        order: [['id', 'DESC']],
+        raw: true,
+        nest: true
+      }),
+      Product.findAll({
+        where: { type: "service", status: "approved", deleted: false },
+        order: [['id', 'DESC']],
+        raw: true,
+        nest: true
+      }),
+      Banner.findAll({
+        where: { status: "approved" },
+        order: [['id', 'DESC']],
+        raw: true,
+        nest: true
+      }),
+      Statistics.increment('value', { by: 1, where: { key: "visitors" } }).then(() => Statistics.findByPk("visitors")),
+      User.count()
     ]);
 
     const visitorCount = visitors ? visitors.value : 0;
     const userCount = users || 0;
 
-    const userId = req.user?._id?.toString();
-    const votedMap = {};
-    [...products, ...services].forEach(p => {
-      if (Array.isArray(p.voters) && p.voters.map(v => v.toString()).includes(userId)) {
-        votedMap[p._id.toString()] = true;
-      }
-    });
+     const userId = req.user?._id?.toString();
+     const votedMap = {};
+     [...products, ...services].forEach(p => {
+       if (Array.isArray(p.voters) && p.voters.map(v => v.toString()).includes(userId)) {
+         votedMap[p.id.toString()] = true;
+       }
+     });
 
     res.render("index", {
       products,

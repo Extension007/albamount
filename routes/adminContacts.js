@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const ContactInfo = require("../models/ContactInfo");
-const { HAS_MONGO } = require("../config/database");
+const { USE_POSTGRES } = require("../config/database");
 const { requireAdmin } = require("../middleware/auth");
 const { csrfToken, csrfProtection } = require("../middleware/csrf");
 const { notifyAdmin } = require("../services/adminNotificationService");
@@ -13,17 +13,17 @@ const conditionalCsrfToken = csrfToken;
 // Страница управления контактами (только для админов)
 router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
+    if (!USE_POSTGRES) return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
 
     // Получаем все контакты
-    const contacts = await ContactInfo.find().sort({ type: 1, updatedAt: -1 });
+    const contacts = await ContactInfo.findAll({ order: [['type', 'ASC'], ['updatedAt', 'DESC']] });
 
     // Получаем статистику для отображения в шапке
     const Statistics = require("../models/Statistics");
     const User = require("../models/User");
     const [visitors, users] = await Promise.all([
-      Statistics.findOne({ key: "visitors" }),
-      User.countDocuments()
+      Statistics.findOne({ where: { key: "visitors" } }),
+      User.count()
     ]);
 
     const visitorCount = visitors ? visitors.value : 0;
@@ -47,7 +47,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
 // Добавление контакта (админом)
 router.post("/create", requireAdmin, csrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
 
     const { type, email, phone, description } = req.body;
 
@@ -112,7 +112,7 @@ router.post("/create", requireAdmin, csrfProtection, async (req, res) => {
 // Обновление контакта (админом)
 router.post("/:id/update", requireAdmin, csrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
 
     const { id } = req.params;
     const { type, email, phone, description } = req.body;
@@ -142,11 +142,8 @@ router.post("/:id/update", requireAdmin, csrfProtection, async (req, res) => {
     
     updateData.updatedAt = Date.now(); // Обновляем время последнего изменения
 
-    const contact = await ContactInfo.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true } // Возвращаем обновленный документ и запускаем валидацию
-    );
+     await ContactInfo.update(updateData, { where: { id } });
+     const contact = await ContactInfo.findByPk(id);
 
     if (!contact) {
       return res.status(404).json({ 
@@ -155,13 +152,13 @@ router.post("/:id/update", requireAdmin, csrfProtection, async (req, res) => {
       });
     }
 
-    // Отправляем уведомление администратору об обновлении контакта
-    try {
-      await notifyAdmin(
-        'Обновление контактной информации',
-        `Администратор обновил контактную информацию.`,
-        {
-          'ID контакта': contact._id.toString(),
+     // Отправляем уведомление администратору об обновлении контакта
+     try {
+       await notifyAdmin(
+         'Обновление контактной информации',
+         `Администратор обновил контактную информацию.`,
+         {
+           'ID контакта': contact.id.toString(),
           'Тип': contact.type,
           'Email': contact.email,
           'Телефон': contact.phone || 'Не указан',
@@ -191,7 +188,7 @@ router.post("/:id/update", requireAdmin, csrfProtection, async (req, res) => {
 // Удаление контакта (админом)
 router.post("/:id/delete", requireAdmin, csrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
 
     const { id } = req.params;
 
@@ -203,7 +200,7 @@ router.post("/:id/delete", requireAdmin, csrfProtection, async (req, res) => {
       });
     }
 
-    const contact = await ContactInfo.findById(id);
+     const contact = await ContactInfo.findByPk(id);
 
     if (!contact) {
       return res.status(404).json({ 
@@ -212,7 +209,7 @@ router.post("/:id/delete", requireAdmin, csrfProtection, async (req, res) => {
       });
     }
 
-    await ContactInfo.findByIdAndDelete(id);
+     await ContactInfo.destroy({ where: { id } });
 
     // Отправляем уведомление администратору об удалении контакта
     try {

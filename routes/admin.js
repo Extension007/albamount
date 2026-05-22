@@ -1,29 +1,20 @@
-// Роуты для админ-панели
 const express = require("express");
 const router = express.Router();
-const Product = require("../models/Product");
-const Banner = require("../models/Banner");
-const User = require("../models/User");
-const Statistics = require("../models/Statistics");
-const { HAS_MONGO } = require("../config/database");
+const Product = require("../config/database").Product;
+const Banner = require("../config/database").Banner;
+const VideoPost = require("../config/database").VideoPost;
+const Category = require("../config/database").Category;
+const Statistics = require("../config/database").Statistics;
+const { Op } = require("sequelize");
+const { USE_POSTGRES } = require("../config/database");
 const { requireAdmin, requireAuth } = require("../middleware/auth");
 const { productLimiter } = require("../middleware/rateLimiter");
 const { validateProduct, validateProductId, validateService, validateServiceId, validateBanner, validateBannerId, validateModeration } = require("../middleware/validators");
-const { csrfToken } = require("../middleware/csrf");
-const VideoPost = require("../models/VideoPost");
-const csrfProtection = require('csurf')({ cookie: true });
-const { upload, mobileOptimization } = require("../utils/upload");
-const { createProduct, updateProduct, deleteProduct } = require("../services/productService");
-const { deleteImages, deleteImage } = require("../utils/imageUtils");
-const { CATEGORY_LABELS } = require("../config/categories");
-const mongoose = require("mongoose");
-const { notifyAdmin } = require("../services/adminNotificationService");
+const { csrfProtection, csrfToken } = require("../middleware/csrf");
+const { upload } = require("../utils/upload");
 
-const isVercel = Boolean(process.env.VERCEL);
-
-// Условный CSRF middleware для Vercel
-const conditionalCsrfToken = isVercel ? (req, res, next) => next() : csrfToken;
-const conditionalCsrfProtection = isVercel ? (req, res, next) => next() : require('csurf')({ cookie: true });
+const conditionalCsrfToken = csrfToken;
+const conditionalCsrfProtection = csrfProtection;
 
 // Middleware для обработки ошибок multer
 function handleMulterError(err, req, res, next) {
@@ -43,102 +34,126 @@ function handleMulterError(err, req, res, next) {
 // Админка (главная страница)
 router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
+    if (!USE_POSTGRES) return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
     
     // Разделяем товары и услуги (исключаем удаленные)
-    const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, users] = await Promise.all([
-      Product.find({
-        deleted: { $ne: true },
-        $or: [
-          { type: "product" },
-          { type: { $exists: false } },
-          { type: null }
-        ]
-      })
-        .sort({ _id: -1 })
-        .populate("owner", "username email"),
+     const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, users] = await Promise.all([
+       Product.findAll({
+         where: {
+           deleted: false,
+           [Op.or]: [
+             { type: "product" },
+             { type: null }
+           ]
+         },
+         order: [['id', 'DESC']],
+         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+       }),
 
-      Product.find({
-        deleted: { $ne: true },
-        type: "service"
-      })
-        .sort({ _id: -1 })
-        .populate("owner", "username email"),
+       Product.findAll({
+         where: {
+           deleted: false,
+           type: "service"
+         },
+         order: [['id', 'DESC']],
+         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+       }),
 
-      Product.find({
-        deleted: { $ne: true },
-        $and: [
-          { owner: { $ne: null, $exists: true } },
-          {
-            $or: [
-              { status: "pending" },
-              { status: { $exists: false } },
-              { status: null }
-            ]
-          },
-          {
-            $or: [
-              { type: "product" },
-              { type: { $exists: false } },
-              { type: null }
-            ]
-          }
-        ]
-      })
-        .sort({ _id: -1 })
-        .populate("owner", "username email"),
+       Product.findAll({
+         where: {
+           deleted: false,
+           [Op.and]: [
+             { ownerId: { [Op.not]: null } },
+             {
+               [Op.or]: [
+                 { status: "pending" },
+                 { status: null }
+               ]
+             },
+             {
+               [Op.or]: [
+                 { type: "product" },
+                 { type: null }
+               ]
+             }
+           ]
+         },
+         order: [['id', 'DESC']],
+         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+       }),
 
-      Product.find({
-        deleted: { $ne: true },
-        $and: [
-          { owner: { $ne: null, $exists: true } },
-          {
-            $or: [
-              { status: "pending" },
-              { status: { $exists: false } },
-              { status: null }
-            ]
-          },
-          { type: "service" }
-        ]
-      })
-        .sort({ _id: -1 })
-        .populate("owner", "username email"),
+       Product.findAll({
+         where: {
+           deleted: false,
+           [Op.and]: [
+             { ownerId: { [Op.not]: null } },
+             {
+               [Op.or]: [
+                 { status: "pending" },
+                 { status: null }
+               ]
+             },
+             { type: "service" }
+           ]
+         },
+         order: [['id', 'DESC']],
+         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+       }),
 
-      Banner.find()
-        .sort({ _id: -1 })
-        .populate("owner", "username email"),
+       Banner.findAll({
+         order: [['id', 'DESC']],
+         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+       }),
 
-      Banner.find({
-        $and: [
-          { owner: { $ne: null, $exists: true } },
-          {
-            $or: [
-              { status: "pending" },
-              { status: { $exists: false } },
-              { status: null }
-            ]
-          }
-        ]
-      })
-        .sort({ _id: -1 })
-        .populate("owner", "username email"),
+       Banner.findAll({
+         where: {
+           [Op.and]: [
+             { ownerId: { [Op.not]: null } },
+             {
+               [Op.or]: [
+                 { status: "pending" },
+                 { status: null }
+               ]
+             }
+           ]
+         },
+         order: [['id', 'DESC']],
+         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+       }),
 
-      VideoPost.find()
-        .sort({ _id: -1 })
-        .populate("userId", "username email"),
+       VideoPost.findAll({
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+       }),
 
-      VideoPost.find({ status: "pending" })
-        .sort({ _id: -1 })
-        .populate("userId", "username email"),
+       VideoPost.findAll({
+         where: {
+           status: "pending"
+        },
+        order: [['id', 'DESC']],
+        include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+        raw: true,
+        nest: true
+       }),
 
-      Statistics.findOneAndUpdate(
-        { key: "visitors" },
-        { $inc: { value: 1 } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      ),
+       Statistics.increment('value', { by: 1, where: { key: 'visitors' } })
+         .then(() => Statistics.findByPk('visitors')),
 
-      User.countDocuments()
+       User.count()
     ]);
     
     console.log(`📋 Всего товаров: ${allProducts.length}`);
@@ -186,14 +201,14 @@ router.post("/products", requireAdmin, async (req, res) => {
 // Удаление товара (soft delete)
 router.post("/products/:id/delete", requireAdmin, conditionalCsrfProtection, validateProductId, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
     
     // Получаем информацию о товаре до удаления для уведомления
-    const product = await Product.findById(req.params.id);
+     const product = await Product.findByPk(req.params.id);
     
     await deleteProduct(req.params.id);
     
@@ -228,12 +243,12 @@ router.post("/products/:id/delete", requireAdmin, conditionalCsrfProtection, val
 // Редактирование товара (форма)
 router.get("/products/:id/edit", requireAdmin, validateProductId, conditionalCsrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
-    const product = await Product.findById(req.params.id);
+     const product = await Product.findByPk(req.params.id);
     if (!product || product.deleted) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(404).json({ success: false, message: "Товар не найден" });
@@ -254,7 +269,7 @@ router.get("/products/:id/edit", requireAdmin, validateProductId, conditionalCsr
 
 // Редактирование товара (сохранение)
 router.post("/products/:id/edit", requireAdmin, productLimiter, upload, handleMulterError, csrfProtection, validateProductId, validateProduct, async (req, res) => {
-  if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+  if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
   try {
     const updateData = {
       name: req.body.name,
@@ -272,17 +287,17 @@ router.post("/products/:id/edit", requireAdmin, productLimiter, upload, handleMu
       current_images: req.body.current_images
     };
 
-    await updateProduct(req.params.id, updateData, req.files || [], {});
+     await updateProduct(req.params.id, updateData, req.files || [], {});
 
-    // Получаем обновленный продукт для редиректа
-    const updated = await Product.findById(req.params.id);
+     // Получаем обновленный продукт для редиректа
+     const updated = await Product.findByPk(req.params.id);
 
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) {
-      return res.json({ success: true, message: "Товар успешно обновлен" });
-    }
-    // Перенаправляем на страницу редактирования
-    res.redirect(`/admin/products/${updated._id}/edit`);
+     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
+     if (wantsJson) {
+       return res.json({ success: true, message: "Товар успешно обновлен" });
+     }
+     // Перенаправляем на страницу редактирования
+     res.redirect(`/admin/products/${updated.id}/edit`);
   } catch (err) {
     console.error("❌ Ошибка редактирования товара:", err);
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -296,28 +311,28 @@ router.post("/products/:id/edit", requireAdmin, productLimiter, upload, handleMu
 // Модерация: одобрить карточку
 router.post("/products/:id/approve", requireAdmin, conditionalCsrfProtection, validateProductId, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: "approved", rejection_reason: "" },
-      { new: true }
-    );
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+     await Product.update(
+       { status: "approved", rejection_reason: "" },
+       { where: { id: req.params.id } }
+     );
+     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: "Карточка не найдена" });
     
     // Отправляем уведомление администратору о модерации
     try {
-      await notifyAdmin(
-        'Модерация товара - Одобрение',
-        `Администратор одобрил товар.`,
-        {
-          'ID товара': product._id.toString(),
-          'Название': product.name,
-          'Тип': product.type || 'product',
-          'Статус': 'approved',
-          'Одобрено администратором': req.user?.username || 'Неизвестно',
-          'Дата одобрения': new Date().toLocaleString('ru-RU')
-        }
-      );
+       await notifyAdmin(
+         'Модерация товара - Одобрение',
+         `Администратор одобрил товар.`,
+         {
+           'ID товара': product.id.toString(),
+           'Название': product.name,
+           'Тип': product.type || 'product',
+           'Статус': 'approved',
+           'Одобрено администратором': req.user?.username || 'Неизвестно',
+           'Дата одобрения': new Date().toLocaleString('ru-RU')
+         }
+       );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
@@ -332,7 +347,7 @@ router.post("/products/:id/approve", requireAdmin, conditionalCsrfProtection, va
 // Модерация: отклонить карточку
 router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, validateProductId, validateModeration, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const { adminComment, rejectionReason } = req.body;
 
     // P1: Validate required fields for reject
@@ -343,20 +358,20 @@ router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, val
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
 
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: "rejected", adminComment, rejection_reason: rejectionReason },
-      { new: true }
-    );
+     await Product.update(
+       { status: "rejected", adminComment, rejection_reason: rejectionReason },
+       { where: { id: req.params.id } }
+     );
+     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: "Карточка не найдена" });
 
-    // Отправляем уведомление администратору о модерации
-    try {
-      await notifyAdmin(
-        'Модерация товара - Отклонение',
-        `Администратор отклонил товар.`,
-        {
-          'ID товара': product._id.toString(),
+     // Отправляем уведомление администратору о модерации
+     try {
+       await notifyAdmin(
+         'Модерация товара - Отклонение',
+         `Администратор отклонил товар.`,
+         {
+           'ID товара': product.id.toString(),
           'Название': product.name,
           'Тип': product.type || 'product',
           'Статус': 'rejected',
@@ -380,16 +395,16 @@ router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, val
 // Блокировка карточки (скрытие с главной страницы)
 router.post("/products/:id/toggle-visibility", requireAdmin, conditionalCsrfProtection, validateProductId, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const product = await Product.findById(req.params.id);
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: "Карточка не найдена" });
     
-    const newStatus = product.status === "approved" ? "rejected" : "approved";
-    const updated = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: newStatus, rejection_reason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
-      { new: true }
-    );
+     const newStatus = product.status === "approved" ? "rejected" : "approved";
+     await Product.update(
+       { status: newStatus, rejection_reason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
+       { where: { id: req.params.id } }
+     );
+     const updated = await Product.findByPk(req.params.id);
     
     res.json({ success: true, status: updated.status, message: newStatus === "rejected" ? "Карточка заблокирована" : "Карточка разблокирована" });
   } catch (err) {
@@ -401,8 +416,8 @@ router.post("/products/:id/toggle-visibility", requireAdmin, conditionalCsrfProt
 // Блокировка/Разблокировка баннера
 router.post("/banners/:id/toggle-visibility", requireAdmin, conditionalCsrfProtection, validateBannerId, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const banner = await Banner.findById(req.params.id);
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+     const banner = await Banner.findByPk(req.params.id);
     if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
     
     // Переключаем статус
@@ -423,21 +438,21 @@ router.post("/banners/:id/toggle-visibility", requireAdmin, conditionalCsrfProte
 // Модерация баннеров: одобрить баннер
 router.post("/banners/:id/approve", requireAdmin, conditionalCsrfProtection, validateBannerId, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const banner = await Banner.findByIdAndUpdate(
-      req.params.id,
-      { status: "approved", rejection_reason: "" },
-      { new: true }
-    );
-    if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
-    
-    // Отправляем уведомление администратору о модерации
-    try {
-      await notifyAdmin(
-        'Модерация баннера - Одобрение',
-        `Администратор одобрил баннер.`,
-        {
-          'ID баннера': banner._id.toString(),
+     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+     await Banner.update(
+        { status: "approved", rejection_reason: "" },
+        { where: { id: req.params.id } }
+      );
+      const banner = await Banner.findByPk(req.params.id);
+     if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
+     
+     // Отправляем уведомление администратору о модерации
+     try {
+       await notifyAdmin(
+         'Модерация баннера - Одобрение',
+         `Администратор одобрил баннер.`,
+         {
+           'ID баннера': banner.id.toString(),
           'Заголовок': banner.title,
           'Статус': 'approved',
           'Одобрен администратором': req.user?.username || 'Неизвестно',
@@ -458,7 +473,7 @@ router.post("/banners/:id/approve", requireAdmin, conditionalCsrfProtection, val
 // Модерация баннеров: отклонить баннер
 router.post("/banners/:id/reject", requireAdmin, conditionalCsrfProtection, validateBannerId, validateModeration, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const { adminComment, rejectionReason } = req.body;
 
     // P1: Validate required fields for reject
@@ -469,20 +484,20 @@ router.post("/banners/:id/reject", requireAdmin, conditionalCsrfProtection, vali
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
 
-    const banner = await Banner.findByIdAndUpdate(
-      req.params.id,
-      { status: "rejected", adminComment, rejection_reason: rejectionReason },
-      { new: true }
-    );
+     await Banner.update(
+       { status: "rejected", adminComment, rejection_reason: rejectionReason },
+       { where: { id: req.params.id } }
+     );
+     const banner = await Banner.findByPk(req.params.id);
     if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
 
-    // Отправляем уведомление администратору о модерации
-    try {
-      await notifyAdmin(
-        'Модерация баннера - Отклонение',
-        `Администратор отклонил баннер.`,
-        {
-          'ID баннера': banner._id.toString(),
+     // Отправляем уведомление администратору о модерации
+     try {
+       await notifyAdmin(
+         'Модерация баннера - Отклонение',
+         `Администратор отклонил баннер.`,
+         {
+           'ID баннера': banner.id.toString(),
           'Заголовок': banner.title,
           'Статус': 'rejected',
           'Причина отклонения': rejectionReason,
@@ -505,25 +520,25 @@ router.post("/banners/:id/reject", requireAdmin, conditionalCsrfProtection, vali
 // Модерация: одобрить услугу
 router.post("/services/:id/approve", requireAdmin, conditionalCsrfProtection, validateServiceId, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const service = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: "approved", rejection_reason: "" },
-      { new: true }
-    );
-    if (!service) return res.status(404).json({ success: false, message: "Услуга не найдена" });
-    // Проверяем, что это действительно услуга
-    if (service.type !== "service") {
-      return res.status(400).json({ success: false, message: "Это не услуга" });
-    }
-    
-    // Отправляем уведомление администратору о модерации
-    try {
-      await notifyAdmin(
-        'Модерация услуги - Одобрение',
-        `Администратор одобрил услугу.`,
-        {
-          'ID услуги': service._id.toString(),
+     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+      await Product.update(
+        { status: "approved", rejection_reason: "" },
+        { where: { id: req.params.id } }
+      );
+      const service = await Product.findByPk(req.params.id);
+     if (!service) return res.status(404).json({ success: false, message: "Услуга не найдена" });
+     // Проверяем, что это действительно услуга
+     if (service.type !== "service") {
+       return res.status(400).json({ success: false, message: "Это не услуга" });
+     }
+     
+     // Отправляем уведомление администратору о модерации
+     try {
+       await notifyAdmin(
+         'Модерация услуги - Одобрение',
+         `Администратор одобрил услугу.`,
+         {
+           'ID услуги': service.id.toString(),
           'Название': service.name,
           'Тип': service.type || 'service',
           'Статус': 'approved',
@@ -545,7 +560,7 @@ router.post("/services/:id/approve", requireAdmin, conditionalCsrfProtection, va
 // Модерация: отклонить услугу
 router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, validateServiceId, validateModeration, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const { adminComment, rejectionReason } = req.body;
 
     // P1: Validate required fields for reject
@@ -556,24 +571,24 @@ router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, val
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
 
-    const service = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: "rejected", adminComment, rejection_reason: rejectionReason },
-      { new: true }
-    );
+     await Product.update(
+       { status: "rejected", adminComment, rejection_reason: rejectionReason },
+       { where: { id: req.params.id } }
+     );
+     const service = await Product.findByPk(req.params.id);
     if (!service) return res.status(404).json({ success: false, message: "Услуга не найдена" });
     // Проверяем, что это действительно услуга
     if (service.type !== "service") {
       return res.status(400).json({ success: false, message: "Это не услуга" });
     }
 
-    // Отправляем уведомление администратору о модерации
-    try {
-      await notifyAdmin(
-        'Модерация услуги - Отклонение',
-        `Администратор отклонил услугу.`,
-        {
-          'ID услуги': service._id.toString(),
+     // Отправляем уведомление администратору о модерации
+     try {
+       await notifyAdmin(
+         'Модерация услуги - Отклонение',
+         `Администратор отклонил услугу.`,
+         {
+           'ID услуги': service.id.toString(),
           'Название': service.name,
           'Тип': service.type || 'service',
           'Статус': 'rejected',
@@ -597,8 +612,8 @@ router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, val
 // Блокировка услуги (скрытие с главной страницы)
 router.post("/services/:id/toggle-visibility", requireAdmin, conditionalCsrfProtection, validateServiceId, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const service = await Product.findById(req.params.id);
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+     const service = await Product.findByPk(req.params.id);
     if (!service) return res.status(404).json({ success: false, message: "Услуга не найдена" });
     
     // Проверяем, что это действительно услуга
@@ -606,12 +621,12 @@ router.post("/services/:id/toggle-visibility", requireAdmin, conditionalCsrfProt
       return res.status(400).json({ success: false, message: "Это не услуга" });
     }
     
-    const newStatus = service.status === "approved" ? "rejected" : "approved";
-    const updated = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: newStatus, rejection_reason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
-      { new: true }
-    );
+     const newStatus = service.status === "approved" ? "rejected" : "approved";
+     await Product.update(
+       { status: newStatus, rejection_reason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
+       { where: { id: req.params.id } }
+     );
+     const updated = await Product.findByPk(req.params.id);
     
     res.json({ success: true, status: updated.status, message: newStatus === "rejected" ? "Услуга заблокирована" : "Услуга разблокирована" });
   } catch (err) {
@@ -623,12 +638,12 @@ router.post("/services/:id/toggle-visibility", requireAdmin, conditionalCsrfProt
 // Редактирование услуги (форма)
 router.get("/services/:id/edit", requireAdmin, validateServiceId, conditionalCsrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
-    const service = await Product.findById(req.params.id);
+     const service = await Product.findByPk(req.params.id);
     if (!service || service.deleted) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(404).json({ success: false, message: "Услуга не найдена" });
@@ -656,9 +671,9 @@ router.get("/services/:id/edit", requireAdmin, validateServiceId, conditionalCsr
 
 // Редактирование услуги (сохранение)
 router.post("/services/:id/edit", requireAdmin, productLimiter, upload, handleMulterError, csrfProtection, validateServiceId, validateService, async (req, res) => {
-  if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+  if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
   try {
-    const service = await Product.findById(req.params.id);
+     const service = await Product.findByPk(req.params.id);
     if (!service) {
       return res.status(404).json({ success: false, message: "Услуга не найдена" });
     }
@@ -684,17 +699,17 @@ router.post("/services/:id/edit", requireAdmin, productLimiter, upload, handleMu
       current_images: req.body.current_images
     };
 
-    await updateProduct(req.params.id, updateData, req.files || [], {});
+     await updateProduct(req.params.id, updateData, req.files || [], {});
 
-    // Получаем обновленную услугу для редиректа
-    const updated = await Product.findById(req.params.id);
-
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) {
-      return res.json({ success: true, message: "Услуга успешно обновлена" });
-    }
-    // Перенаправляем на страницу редактирования
-    res.redirect(`/admin/services/${updated._id}/edit`);
+     // Получаем обновленную услугу для редиректа
+     const updated = await Product.findByPk(req.params.id);
+     
+     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
+     if (wantsJson) {
+       return res.json({ success: true, message: "Услуга успешно обновлена" });
+     }
+     // Перенаправляем на страницу редактирования
+     res.redirect(`/admin/services/${updated.id}/edit`);
   } catch (err) {
     console.error("❌ Ошибка редактирования услуги:", err);
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -708,12 +723,12 @@ router.post("/services/:id/edit", requireAdmin, productLimiter, upload, handleMu
 // Удаление услуги (soft delete)
 router.post("/services/:id/delete", requireAdmin, conditionalCsrfProtection, validateServiceId, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
-    const service = await Product.findById(req.params.id);
+     const service = await Product.findByPk(req.params.id);
     if (!service) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(404).json({ success: false, message: "Услуга не найдена" });
@@ -760,23 +775,26 @@ router.post("/services/:id/delete", requireAdmin, conditionalCsrfProtection, val
 // Каталог товаров
 router.get("/products", requireAdmin, csrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
     
     // Получаем все товары (type: "product" или без type)
-    const products = await Product.find({
-      deleted: { $ne: true },
-      $or: [
-        { type: "product" },
-        { type: { $exists: false } },
-        { type: null }
-      ]
-    })
-      .sort({ createdAt: -1 })
-      .populate("owner", "username email");
+     const products = await Product.findAll({
+       where: {
+         deleted: false,
+         [Op.or]: [
+           { type: "product" },
+           { type: null }
+         ]
+       },
+       order: [['id', 'DESC']],
+       include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+       raw: true,
+       nest: true
+     })
     
     // Генерируем CSRF токен для формы и API запросов
     const csrfTokenValue = res.locals.csrfToken || '';
@@ -797,19 +815,23 @@ router.get("/products", requireAdmin, csrfToken, async (req, res) => {
 // Каталог услуг
 router.get("/services", requireAdmin, csrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
     
     // Получаем все услуги (type: "service")
-    const services = await Product.find({ 
-      type: "service",
-      deleted: { $ne: true }
-    })
-      .sort({ createdAt: -1 })
-      .populate("owner", "username email");
+     const services = await Product.findAll({ 
+       where: {
+         type: "service",
+         deleted: false
+       },
+       order: [['id', 'DESC']],
+       include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
+       raw: true,
+       nest: true
+     })
     
     // Генерируем CSRF токен для формы и API запросов
     const csrfTokenValue = res.locals.csrfToken || '';
@@ -829,16 +851,19 @@ router.get("/services", requireAdmin, csrfToken, async (req, res) => {
 // Каталог баннеров
 router.get("/banners", requireAdmin, csrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
     
     // Получаем все баннеры (для админа показываем все, не только published)
-    const banners = await Banner.find()
-      .sort({ createdAt: -1 })
-      .populate("owner", "username email");
+      const banners = await Banner.findAll({
+        order: [['createdAt', 'DESC']],
+        include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+        raw: true,
+        nest: true
+      })
     
     // Генерируем CSRF токен для формы и API запросов
     const csrfTokenValue = res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '');
@@ -857,7 +882,7 @@ router.get("/banners", requireAdmin, csrfToken, async (req, res) => {
 
 // Добавление баннера (админом)
 router.post("/banners", requireAdmin, productLimiter, upload, handleMulterError, csrfProtection, validateBanner, async (req, res) => {
-  if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+  if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
   try {
     const { title, description, price, link, video_url, category, status } = req.body;
     
@@ -903,7 +928,7 @@ router.post("/banners", requireAdmin, productLimiter, upload, handleMulterError,
     
     const banner = await Banner.create(bannerData);
     
-    console.log("✅ Баннер создан:", { id: banner._id, title: banner.title });
+     console.log("✅ Баннер создан:", { id: banner.id, title: banner.title });
     
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) {
@@ -923,12 +948,12 @@ router.post("/banners", requireAdmin, productLimiter, upload, handleMulterError,
 // Редактирование баннера (форма)
 router.get("/banners/:id/edit", requireAdmin, validateBannerId, csrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
-    const banner = await Banner.findById(req.params.id);
+     const banner = await Banner.findByPk(req.params.id);
     if (!banner) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(404).json({ success: false, message: "Баннер не найден" });
@@ -938,21 +963,21 @@ router.get("/banners/:id/edit", requireAdmin, validateBannerId, csrfToken, async
     // Генерируем CSRF токен для формы и API запросов
     const csrfTokenValue = res.locals.csrfToken || '';
     
-    res.render("products/edit", { 
-      product: {
-        _id: banner._id,
-        name: banner.title,
-        description: banner.description,
-        price: banner.price,
-        link: banner.link,
-        video_url: banner.video_url,
-        category: banner.category,
-        images: banner.images || [],
-        image_url: banner.image_url,
-        status: banner.status,
-        owner: banner.owner,
-        type: "banner"
-      }, 
+     res.render("products/edit", { 
+       product: {
+         id: banner.id,
+         name: banner.title,
+         description: banner.description,
+         price: banner.price,
+         link: banner.link,
+         video_url: banner.video_url,
+         category: banner.category,
+         images: banner.images || [],
+         image_url: banner.image_url,
+         status: banner.status,
+         owner: banner.owner,
+         type: "banner"
+       },
       mode: "admin", 
       csrfToken: csrfTokenValue 
     });
@@ -966,9 +991,9 @@ router.get("/banners/:id/edit", requireAdmin, validateBannerId, csrfToken, async
 
 // Редактирование баннера (сохранение)
 router.post("/banners/:id/edit", requireAdmin, productLimiter, upload, handleMulterError, csrfProtection, validateBannerId, validateBanner, async (req, res) => {
-  if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
+  if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
   try {
-    const banner = await Banner.findById(req.params.id);
+     const banner = await Banner.findByPk(req.params.id);
     if (!banner) {
       return res.status(404).json({ success: false, message: "Баннер не найден" });
     }
@@ -1006,10 +1031,10 @@ router.post("/banners/:id/edit", requireAdmin, productLimiter, upload, handleMul
     await banner.save();
 
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) {
-      return res.json({ success: true, message: "Баннер успешно обновлен" });
-    }
-    res.redirect(`/admin/banners/${banner._id}/edit`);
+     if (wantsJson) {
+       return res.json({ success: true, message: "Баннер успешно обновлен" });
+     }
+     res.redirect(`/admin/banners/${banner.id}/edit`);
   } catch (err) {
     console.error("❌ Ошибка редактирования баннера:", err);
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -1023,13 +1048,13 @@ router.post("/banners/:id/edit", requireAdmin, productLimiter, upload, handleMul
 // Удаление баннера (POST для форм)
 router.post("/banners/:id/delete", requireAdmin, conditionalCsrfProtection, validateBannerId, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+     if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
       return res.status(400).send("Неверный формат ID баннера");
@@ -1039,7 +1064,7 @@ router.post("/banners/:id/delete", requireAdmin, conditionalCsrfProtection, vali
     console.log("🗑️ Удаление баннера", { bannerId });
 
     // Найти баннер в базе
-    const banner = await Banner.findById(bannerId);
+     const banner = await Banner.findByPk(bannerId);
     if (!banner) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(404).json({ success: false, message: "Баннер не найден" });
@@ -1064,7 +1089,7 @@ router.post("/banners/:id/delete", requireAdmin, conditionalCsrfProtection, vali
     }
 
     // Удалить баннер из БД
-    await Banner.findByIdAndDelete(bannerId);
+     await Banner.destroy({ where: { id: bannerId } });
 
     // Отправляем уведомление администратору об удалении баннера
     try {
@@ -1097,11 +1122,11 @@ router.post("/banners/:id/delete", requireAdmin, conditionalCsrfProtection, vali
 // Удаление баннера (DELETE для API)
 router.delete("/banners/:id", requireAdmin, conditionalCsrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       return res.status(503).json({ success: false, message: 'Недоступно: нет БД' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+     if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
 
@@ -1109,7 +1134,7 @@ router.delete("/banners/:id", requireAdmin, conditionalCsrfProtection, async (re
     console.log("🗑️ Удаление баннера", { bannerId });
 
     // Найти баннер в базе
-    const banner = await Banner.findById(bannerId);
+     const banner = await Banner.findByPk(bannerId);
     if (!banner) {
       return res.status(404).json({ success: false, message: "Баннер не найден" });
     }
@@ -1130,7 +1155,7 @@ router.delete("/banners/:id", requireAdmin, conditionalCsrfProtection, async (re
     }
 
     // Полное удаление из MongoDB
-    await Banner.findByIdAndDelete(bannerId);
+     await Banner.destroy({ where: { id: bannerId } });
 
     console.log(`✅ Баннер ${bannerId} полностью удален из БД`);
 
@@ -1148,7 +1173,7 @@ router.delete("/banners/:id", requireAdmin, conditionalCsrfProtection, async (re
 // Управление категориями
 router.get("/categories", requireAdmin, conditionalCsrfToken, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
     }
 
@@ -1171,7 +1196,7 @@ const { listPending, listAll, moderate } = require('../services/videoService');
 // Модерация видео: одобрить
 router.post('/videos/:id/approve', requireAdmin, conditionalCsrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const { moderate } = require('../services/videoService');
     const video = await moderate({ id: req.params.id, action: 'approve', adminComment: req.body.adminComment || '' });
     if (!video) return res.status(404).json({ success: false, message: "Видео не найдено" });
@@ -1179,17 +1204,17 @@ router.post('/videos/:id/approve', requireAdmin, conditionalCsrfProtection, asyn
     // Отправляем уведомление администратору о модерации
     try {
       const { notifyAdmin } = require('../services/adminNotificationService');
-      await notifyAdmin(
-        'Модерация видео - Одобрение',
-        `Администратор одобрил видео.`,
-        {
-          'ID видео': video._id.toString(),
-          'Название': video.title,
-          'Статус': 'approved',
-          'Одобрено администратором': req.user?.username || 'Неизвестно',
-          'Дата одобрения': new Date().toLocaleString('ru-RU')
-        }
-      );
+       await notifyAdmin(
+         'Модерация видео - Одобрение',
+         `Администратор одобрил видео.`,
+         {
+           'ID видео': video.id.toString(),
+           'Название': video.title,
+           'Статус': 'approved',
+           'Одобрено администратором': req.user?.username || 'Неизвестно',
+           'Дата одобрения': new Date().toLocaleString('ru-RU')
+         }
+       );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
@@ -1204,7 +1229,7 @@ router.post('/videos/:id/approve', requireAdmin, conditionalCsrfProtection, asyn
 // Модерация видео: отклонить
 router.post('/videos/:id/reject', requireAdmin, conditionalCsrfProtection, validateModeration, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const { moderate } = require('../services/videoService');
     const { adminComment, rejectionReason } = req.body;
 
@@ -1222,19 +1247,19 @@ router.post('/videos/:id/reject', requireAdmin, conditionalCsrfProtection, valid
     // Отправляем уведомление администратору о модерации
     try {
       const { notifyAdmin } = require('../services/adminNotificationService');
-      await notifyAdmin(
-        'Модерация видео - Отклонение',
-        `Администратор отклонил видео.`,
-        {
-          'ID видео': video._id.toString(),
-          'Название': video.title,
-          'Статус': 'rejected',
-          'Причина отклонения': rejectionReason,
-          'Комментарий администратора': adminComment,
-          'Отклонено администратором': req.user?.username || 'Неизвестно',
-          'Дата отклонения': new Date().toLocaleString('ru-RU')
-        }
-      );
+       await notifyAdmin(
+         'Модерация видео - Отклонение',
+         `Администратор отклонил видео.`,
+         {
+           'ID видео': video.id.toString(),
+           'Название': video.title,
+           'Статус': 'rejected',
+           'Причина отклонения': rejectionReason,
+           'Комментарий администратора': adminComment,
+           'Отклонено администратором': req.user?.username || 'Неизвестно',
+           'Дата отклонения': new Date().toLocaleString('ru-RU')
+         }
+       );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
@@ -1249,16 +1274,16 @@ router.post('/videos/:id/reject', requireAdmin, conditionalCsrfProtection, valid
 // Блокировка видео (переключение статуса)
 router.post('/videos/:id/toggle-visibility', requireAdmin, conditionalCsrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) return res.status(503).json({ success: false, message: "Нет БД" });
-    const video = await VideoPost.findById(req.params.id);
+    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
+     const video = await VideoPost.findByPk(req.params.id);
     if (!video) return res.status(404).json({ success: false, message: "Видео не найдено" });
     
-    const newStatus = video.status === "approved" ? "rejected" : "approved";
-    const updated = await VideoPost.findByIdAndUpdate(
-      req.params.id,
-      { status: newStatus, rejectionReason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
-      { new: true }
-    );
+     const newStatus = video.status === "approved" ? "rejected" : "approved";
+     await VideoPost.update(
+       { status: newStatus, rejectionReason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
+       { where: { id: req.params.id } }
+     );
+     const updated = await VideoPost.findByPk(req.params.id);
     
     res.json({ success: true, status: updated.status, message: newStatus === "rejected" ? "Видео заблокировано" : "Видео разблокировано" });
   } catch (err) {
@@ -1270,7 +1295,7 @@ router.post('/videos/:id/toggle-visibility', requireAdmin, conditionalCsrfProtec
 // Удаление видео
 router.post('/videos/:id/delete', requireAdmin, conditionalCsrfProtection, async (req, res) => {
   try {
-    if (!HAS_MONGO) {
+    if (!USE_POSTGRES) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
@@ -1280,7 +1305,7 @@ router.post('/videos/:id/delete', requireAdmin, conditionalCsrfProtection, async
     console.log("🗑️ Удаление видео", { videoId });
 
     // Найти видео в базе
-    const video = await VideoPost.findById(videoId);
+     const video = await VideoPost.findByPk(videoId);
     if (!video) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(404).json({ success: false, message: "Видео не найдено" });
@@ -1288,7 +1313,7 @@ router.post('/videos/:id/delete', requireAdmin, conditionalCsrfProtection, async
     }
 
     // Удалить видео из БД
-    await VideoPost.findByIdAndDelete(videoId);
+     await VideoPost.destroy({ where: { id: videoId } });
 
     console.log("✅ Видео удалено:", { videoId });
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");

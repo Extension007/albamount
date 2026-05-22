@@ -1,29 +1,26 @@
 // Сервис для работы с товарами
+const { Op } = require("sequelize");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
+const User = require("../models/User");
+const Entitlement = require("../models/Entitlement");
 const { CATEGORY_KEYS } = require("../config/constants");
 const { processUploadedFiles, deleteProductImages } = require("./imageService");
-const mongoose = require("mongoose");
 const { getAvailableEntitlementsCount, consumeEntitlement } = require("./albaService");
-const Entitlement = require("../models/Entitlement");
 
 async function resolveCategoryData(category) {
   if (!category) return { categoryId: null, categoryValue: "" };
   if (CATEGORY_KEYS.includes(category)) {
     return { categoryId: null, categoryValue: category };
   }
-  if (mongoose.Types.ObjectId.isValid(category)) {
-    const categoryId = new mongoose.Types.ObjectId(category);
-    let categoryValue = "";
-    try {
-      const categoryDoc = await Category.findById(categoryId).select("name").lean();
-      if (categoryDoc && categoryDoc.name) {
-        categoryValue = categoryDoc.name;
-      }
-    } catch (err) {
-      console.warn("⚠️ Не удалось загрузить категорию по ID:", category);
+  // Simple check if it looks like a UUID/hex string
+  if (typeof category === 'string' && /^[a-f0-9]{32,}$/i.test(category)) {
+    const categoryDoc = await Category.findByPk(category, {
+      attributes: ['id', 'name']
+    });
+    if (categoryDoc) {
+      return { categoryId: categoryDoc.id, categoryValue: categoryDoc.name };
     }
-    return { categoryId, categoryValue };
   }
   return { categoryId: null, categoryValue: "" };
 }
@@ -73,22 +70,10 @@ async function createProduct(data, files = []) {
     contact_method: contact_method ? contact_method.trim() : ""
   };
 
-  // Преобразуем ownerId в ObjectId
-  let owner = null;
-  if (ownerId) {
-    if (mongoose.isValidObjectId && mongoose.isValidObjectId(ownerId)) {
-      owner = new mongoose.Types.ObjectId(ownerId);
-    } else if (mongoose.Types.ObjectId.isValid(ownerId)) {
-      owner = new mongoose.Types.ObjectId(ownerId);
-    } else {
-      owner = ownerId;
-    }
-  }
-
   const productData = {
     name: name.trim(),
     description: description ? description.trim() : "",
-    price: Number(price) || 0,
+    price: String(Number(price) || 0),
     link: link ? link.trim() : "",
     video_url: video_url ? video_url.trim() : "",
     images,
@@ -96,9 +81,8 @@ async function createProduct(data, files = []) {
     contacts,
     category: categoryValue,
     categoryId,
-    categoryId,
     type: typeValue,
-    owner,
+    ownerId: ownerId || null,
     status,
     likes: 0,
     dislikes: 0
@@ -116,13 +100,13 @@ async function createProduct(data, files = []) {
  * @returns {Promise<Object>} - Обновленный товар
  */
 async function updateProduct(productId, data, files = [], options = {}) {
-  const product = await Product.findById(productId);
+  const product = await Product.findByPk(productId);
   if (!product) {
     throw new Error("Товар не найден");
   }
 
   // Проверка прав (если указан ownerId)
-  if (options.ownerId && product.owner && product.owner.toString() !== options.ownerId.toString()) {
+  if (options.ownerId && product.ownerId && product.ownerId.toString() !== options.ownerId.toString()) {
     throw new Error("Нет прав для редактирования этого товара");
   }
 
@@ -264,11 +248,11 @@ async function updateProduct(productId, data, files = [], options = {}) {
     status: "pending" // Всегда сбрасываем на модерацию при редактировании
   };
 
-  return await Product.findByIdAndUpdate(
-    productId,
-    { $set: updateData },
-    { new: true, runValidators: true }
-  );
+   await Product.update(
+     updateData,
+     { where: { id: productId } }
+   );
+   return await Product.findByPk(productId);
 }
 
 /**
@@ -278,13 +262,13 @@ async function updateProduct(productId, data, files = [], options = {}) {
  * @returns {Promise<Object>} - Удаленный товар
  */
 async function deleteProduct(productId, options = {}) {
-  const product = await Product.findById(productId);
+  const product = await Product.findByPk(productId);
   if (!product) {
     throw new Error("Товар не найден");
   }
 
   // Проверка прав (если указан ownerId)
-  if (options.ownerId && product.owner && product.owner.toString() !== options.ownerId.toString()) {
+  if (options.ownerId && product.ownerId && product.ownerId.toString() !== options.ownerId.toString()) {
     throw new Error("Нет прав для удаления этого товара");
   }
 
@@ -293,12 +277,12 @@ async function deleteProduct(productId, options = {}) {
     await deleteProductImages(product.images);
   }
 
-  // Soft delete
-  return await Product.findByIdAndUpdate(
-    productId,
-    { $set: { deleted: true, status: "rejected" } },
-    { new: true }
-  );
+   // Soft delete
+   await Product.update(
+     { deleted: true, status: "rejected" },
+     { where: { id: productId } }
+   );
+   return await Product.findByPk(productId);
 }
 
 /**
@@ -315,17 +299,21 @@ async function getProducts(filters = {}, options = {}) {
   } = options;
 
   // Добавляем фильтр для soft delete
-  filters.deleted = { $ne: true };
+  filters.deleted = false;
 
   const skip = (page - 1) * limit;
 
   const [products, total] = await Promise.all([
-    Product.find(filters)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .populate("owner", "username email"),
-    Product.countDocuments(filters)
+    Product.findAll({
+      where: filters,
+      order: [['id', 'DESC']],
+      offset: skip,
+      limit: limit,
+      include: [{ model: User, as: 'owner', attributes: ['id', 'username', 'email'] }],
+      raw: true,
+      nest: true
+    }),
+    Product.count({ where: filters })
   ]);
 
   return {
@@ -344,64 +332,71 @@ async function getProducts(filters = {}, options = {}) {
  * @returns {Promise<Object>} - Created product or error
  */
 async function createProductWithEntitlementCheck(data, files = [], user) {
-  const { type = 'product' } = data;
+   const { type = 'product' } = data;
 
-  // Validate user is verified
-  if (!user || !user.emailVerified) {
-    throw new Error('User must be verified to create products');
-  }
+   // Validate user is verified
+   if (!user || !user.emailVerified) {
+     throw new Error('User must be verified to create products');
+   }
 
-  // Check if user already has a base card of this type
-  const existingBaseCards = await Product.countDocuments({
-    owner: user._id,
-    type,
-    deleted: { $ne: true },
-    $or: [
-      { tier: { $exists: false } },
-      { tier: 'free' }
-    ]
-  });
+   // Check if user already has a base card of this type
+   const existingBaseCards = await Product.count({
+     where: {
+       ownerId: user._id || user.id,
+       type,
+       deleted: false,
+       [Op.or]: [
+         { tier: null },
+         { tier: 'free' }
+       ]
+     }
+   });
 
-  // Check if user has any purchased cards of this type
-  const existingPurchasedCards = await Product.countDocuments({
-    owner: user._id,
-    type,
-    deleted: { $ne: true },
-    tier: 'paid'
-  });
+   // Check if user has any purchased cards of this type
+   const existingPurchasedCards = await Product.count({
+     where: {
+       ownerId: user._id || user.id,
+       type,
+       deleted: false,
+       tier: 'paid'
+     }
+   });
 
-  const totalCardsOfType = existingBaseCards + existingPurchasedCards;
+   const totalCardsOfType = existingBaseCards + existingPurchasedCards;
 
-  if (totalCardsOfType >= 1 && existingBaseCards >= 1) {
-    // User already has base card, check for available entitlements
-    const availableEntitlements = await getAvailableEntitlementsCount(user._id, type);
+   if (totalCardsOfType >= 1 && existingBaseCards >= 1) {
+     // User already has base card, check for available entitlements
+     const userId = user._id || user.id;
+     const availableEntitlements = await getAvailableEntitlementsCount(userId, type);
 
-    if (availableEntitlements <= 0) {
-      throw new Error(`No available entitlements for ${type} creation. Purchase more entitlements.`);
-    }
+     if (availableEntitlements <= 0) {
+       throw new Error(`No available entitlements for ${type} creation. Purchase more entitlements.`);
+     }
 
-    // Find and consume an available entitlement
-    const entitlementToConsume = await Entitlement.findOne({
-      owner: user._id,
-      type,
-      status: 'available'
-    }).sort({ createdAt: 1 }); // Use oldest entitlement first
+     const entitlementToConsume = await Entitlement.findOne({
+       where: {
+         ownerId: userId,
+         type,
+         status: 'available'
+       },
+       order: [['createdAt', 'ASC']]
+     });
 
     if (!entitlementToConsume) {
       throw new Error(`No available entitlements found for ${type} creation`);
     }
 
-    // Consume the entitlement
-    const consumeResult = await consumeEntitlement(entitlementToConsume._id);
-    if (!consumeResult.ok) {
-      throw new Error(`Failed to consume entitlement: ${consumeResult.message}`);
-    }
+     // Consume the entitlement
+     const consumeResult = await consumeEntitlement(entitlementToConsume.id);
+     if (!consumeResult.ok) {
+       throw new Error(`Failed to consume entitlement: ${consumeResult.message}`);
+     }
 
-    // Create product as purchased
-    data.tier = 'paid';
-    data.status = 'pending';
-    const product = await createProduct(data, files);
-    return { product, entitlementConsumed: true, entitlementId: entitlementToConsume._id };
+     // Create product as purchased
+     data.tier = 'paid';
+     data.status = 'pending';
+     const product = await createProduct(data, files);
+     return { product, entitlementConsumed: true, entitlementId: entitlementToConsume.id };
   } else {
     // Create base product (first one is free)
     data.tier = 'free';
@@ -420,13 +415,13 @@ async function createProductWithEntitlementCheck(data, files = [], user) {
  * @returns {Promise<Object>} - Updated product or error
  */
 async function updateProductWithEditLimits(productId, data, files = [], options = {}) {
-  const product = await Product.findById(productId);
+  const product = await Product.findByPk(productId);
   if (!product) {
     throw new Error("Product not found");
   }
 
   // Check ownership
-  if (options.ownerId && product.owner && product.owner.toString() !== options.ownerId.toString()) {
+  if (options.ownerId && product.ownerId && product.ownerId.toString() !== options.ownerId.toString()) {
     throw new Error("No rights to edit this product");
   }
 

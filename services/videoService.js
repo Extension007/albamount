@@ -1,4 +1,5 @@
 const VideoPost = require('../models/VideoPost');
+const User = require('../models/User');
 
 function normalizeGenres(input) {
   if (!input) return [];
@@ -9,7 +10,7 @@ function normalizeGenres(input) {
 
 async function createVideo({ user, payload }) {
   return VideoPost.create({
-    userId: user._id,
+    userId: user.id,
     nickname: payload.nickname || user.username || '',
     videoUrl: payload.videoUrl,
     platform: payload.platform || '',
@@ -21,21 +22,34 @@ async function createVideo({ user, payload }) {
 }
 
 async function listPublic({ genres=[] }) {
-  const q = { status: 'approved' };
-  if (genres.length) q.genres = { $in: genres };
-  return VideoPost.find(q).sort({ createdAt:-1 }).limit(100).exec();
+  const where = { status: 'approved' };
+  if (genres.length) where.genres = { [Op.contains]: genres };
+  return VideoPost.findAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    limit: 100
+  });
 }
 
 async function listPending() {
-  return VideoPost.find({ status: 'pending' }).sort({ createdAt: -1 }).populate('userId', 'username email').exec();
+  return VideoPost.findAll({
+    where: { status: 'pending' },
+    include: [{ model: User, as: 'user', attributes: ['username', 'email'] }],
+    order: [['createdAt', 'DESC']]
+  });
 }
 
 async function listAll() {
-  return VideoPost.find().sort({ createdAt: -1 }).populate('userId', 'username email').exec();
+  return VideoPost.findAll({
+    include: [{ model: User, as: 'user', attributes: ['username', 'email'] }],
+    order: [['createdAt', 'DESC']]
+  });
 }
 
 async function findById(id) {
-  return VideoPost.findById(id).populate('userId', 'username email').exec();
+  return VideoPost.findByPk(id, {
+    include: [{ model: User, as: 'user', attributes: ['username', 'email'] }]
+  });
 }
 
 async function moderate({ id, action, adminComment, rejectionReason }) {
@@ -43,11 +57,13 @@ async function moderate({ id, action, adminComment, rejectionReason }) {
   if (action === 'approve') { update.status='approved'; update.adminComment=adminComment||''; update.rejectionReason=''; }
   if (action === 'reject') { update.status='rejected'; update.adminComment=adminComment||''; update.rejectionReason=rejectionReason||''; }
   if (action === 'block')  { update.status='blocked'; update.adminComment=adminComment||''; update.rejectionReason=rejectionReason||''; }
-  return VideoPost.findByIdAndUpdate(id, { $set:update }, { new:true }).exec();
+  
+  await VideoPost.update(update, { where: { id } });
+  return VideoPost.findByPk(id);
 }
 
 async function vote({ id, voterKey, vote }) {
-  const doc = await VideoPost.findById(id).exec();
+  const doc = await VideoPost.findByPk(id);
   if (!doc) return { ok:false, status:404, message:'Not found' };
   if (doc.status !== 'approved') return { ok:false, status:403, message:'Voting allowed only for approved videos' };
   if (doc.voters.find(v=>v.key===voterKey)) return { ok:false, status:409, message:'Already voted' };

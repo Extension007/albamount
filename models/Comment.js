@@ -1,60 +1,81 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const commentSchema = new mongoose.Schema({
+const Comment = sequelize.define('Comment', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
   cardId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    refPath: 'cardType' // Динамическая ссылка на Product или Service
+    type: DataTypes.STRING(50),
+    allowNull: false
   },
   cardType: {
-    type: String,
-    required: true,
-    enum: ['Product', 'Service', 'Banner'] // Тип карточки
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    validate: {
+      isIn: [['Product', 'Service', 'Banner']]
+    }
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'User'
+    type: DataTypes.STRING(50),
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   text: {
-    type: String,
-    required: true,
-    maxlength: 1000,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: false,
+    validate: {
+      len: [1, 1000]
+    }
   },
   deleted: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
-}, { timestamps: true });
+}, {
+  indexes: [
+    { fields: ['card_id', 'card_type'] },
+    { fields: ['user_id'] },
+    { fields: ['created_at'] },
+    { fields: ['deleted'] }
+  ],
+  tableName: 'comments'
+});
 
-// Индексы для оптимизации
-commentSchema.index({ cardId: 1, cardType: 1 });
-commentSchema.index({ userId: 1 });
-commentSchema.index({ createdAt: -1 });
-commentSchema.index({ deleted: 1 });
-
-// Статические методы
-commentSchema.statics.getCommentsByCard = function(cardId, cardType, page = 1, limit = 20) {
+// Static method to get comments by card with pagination
+Comment.getCommentsByCard = async function(cardId, cardType, page = 1, limit = 20) {
   const skip = (page - 1) * limit;
-  return this.find({
-    cardId,
-    cardType,
-    deleted: { $ne: true }
-  })
-  .populate('userId', 'username')
-  .sort({ createdAt: -1 })
-  .skip(skip)
-  .limit(limit)
-  .lean();
-};
-
-commentSchema.statics.getCommentCount = function(cardId, cardType) {
-  return this.countDocuments({
-    cardId,
-    cardType,
-    deleted: { $ne: true }
+  return this.findAll({
+    where: {
+      cardId,
+      cardType,
+      deleted: false
+    },
+    include: [{
+      model: require('../models/User'),
+      as: 'user',
+      attributes: ['id', 'username']
+    }],
+    order: [['createdAt', 'DESC']],
+    offset: skip,
+    limit: limit,
+    raw: true
   });
 };
 
-module.exports = mongoose.model("Comment", commentSchema);
+Comment.getCommentCount = async function(cardId, cardType) {
+  return this.count({
+    where: {
+      cardId,
+      cardType,
+      deleted: false
+    }
+  });
+};
+
+module.exports = Comment;

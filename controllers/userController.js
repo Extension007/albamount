@@ -17,9 +17,10 @@ exports.getMe = async (req, res) => {
       });
     }
 
-    // Fetch fresh user data from database
-    const user = await User.findById(userFromRequest._id)
-      .select('_id username email role emailVerified createdAt updatedAt albaBalance refBonusGranted');
+     // Fetch fresh user data from database
+     const user = await User.findByPk(userFromRequest._id, {
+       attributes: ['_id', 'username', 'email', 'role', 'emailVerified', 'createdAt', 'updatedAt', 'albaBalance', 'refBonusGranted']
+     });
     
     if (!user) {
       return res.status(404).json({ 
@@ -28,33 +29,33 @@ exports.getMe = async (req, res) => {
       });
     }
 
-    logger.info({
-      msg: 'api_me_success',
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-      emailVerified: user.emailVerified === true,
-      albaBalance: user.albaBalance,
-      refBonusGranted: user.refBonusGranted === true,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    });
+     logger.info({
+       msg: 'api_me_success',
+       userId: user.id.toString(),
+       email: user.email,
+       role: user.role,
+       emailVerified: user.emailVerified === true,
+       albaBalance: user.albaBalance,
+       refBonusGranted: user.refBonusGranted === true,
+       createdAt: user.createdAt,
+       updatedAt: user.updatedAt
+     });
 
-    // Return fresh user data from database
-    res.json({
-      success: true,
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        albaBalance: user.albaBalance,
-        refBonusGranted: user.refBonusGranted
-      }
-    });
+     // Return fresh user data from database
+     res.json({
+       success: true,
+       user: {
+         _id: user.id,
+         username: user.username,
+         email: user.email,
+         role: user.role,
+         emailVerified: user.emailVerified,
+         createdAt: user.createdAt,
+         updatedAt: user.updatedAt,
+         albaBalance: user.albaBalance,
+         refBonusGranted: user.refBonusGranted
+       }
+     });
   } catch (error) {
     logger.error({
       msg: 'api_me_error',
@@ -83,12 +84,14 @@ exports.updateProfile = async (req, res) => {
 
     const { username } = req.body;
     
-    if (username) {
-      // Check if username is already taken by another user
-      const existingUser = await User.findOne({ 
-        username, 
-        _id: { $ne: userFromRequest._id } 
-      });
+     if (username) {
+       // Check if username is already taken by another user
+       const existingUser = await User.findOne({ 
+         where: { 
+           username, 
+           _id: { $ne: userFromRequest._id } 
+         }
+       });
       
       if (existingUser) {
         return res.status(400).json({ 
@@ -99,28 +102,29 @@ exports.updateProfile = async (req, res) => {
     }
 
     // Update user in database
-    const updatedUser = await User.findByIdAndUpdate(
-      userFromRequest._id,
+    const [updatedCount, updatedUsers] = await User.update(
       { ...(username && { username }) },
-      { new: true, select: '_id username role emailVerified' }
+      { where: { id: userFromRequest.id }, returning: true }
     );
-
-    if (!updatedUser) {
+    
+    if (updatedCount === 0) {
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 
       });
     }
+    
+    const updatedUser = updatedUsers[0];
 
-    res.json({
-      success: true,
-      user: {
-        _id: updatedUser._id,
-        username: updatedUser.username,
-        role: updatedUser.role,
-        emailVerified: updatedUser.emailVerified
-      }
-    });
+     res.json({
+       success: true,
+       user: {
+         _id: updatedUser.id,
+         username: updatedUser.username,
+         role: updatedUser.role,
+         emailVerified: updatedUser.emailVerified
+       }
+     });
   } catch (error) {
     console.error('Error updating user profile:', error);
     res.status(500).json({ 

@@ -1,12 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const Banner = require("../models/Banner");
 const User = require("../models/User");
 const Statistics = require("../models/Statistics");
-const { HAS_MONGO, hasMongo } = require("../config/database");
+const { USE_POSTGRES } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS } = require("../config/app");
 
 // Страница "О нас"
@@ -22,7 +21,7 @@ router.get("/", async (req, res) => {
     const categoryKeys = CATEGORY_KEYS || [];
 
     const isVercel = Boolean(process.env.VERCEL);
-    const hasDbAccess = isVercel ? req.dbConnected : HAS_MONGO;
+    const hasDbAccess = isVercel ? req.dbConnected : USE_POSTGRES;
 
     if (!hasDbAccess) {
       return res.render("index", {
@@ -47,30 +46,44 @@ router.get("/", async (req, res) => {
     }
 
     // Запросы - минимальная загрузка для страницы "О нас"
-    const [products, services, banners, visitors, users] = await Promise.all([
-      Product.find({ status: "approved" }).sort({ _id: -1 }).limit(5).maxTimeMS(5000), // Минимум для фона
-      Product.find({ type: "service", status: "approved" }).sort({ _id: -1 }).limit(5).maxTimeMS(5000), // Минимум для фона
-      Banner.find({ status: "approved" }).sort({ _id: -1 }).maxTimeMS(5000),
-      Statistics.findOneAndUpdate(
-        { key: "visitors" },
-        { $inc: { value: 1 } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      ),
-      User.countDocuments()
+    const [products, services, banners, visitorRecord, users] = await Promise.all([
+      Product.findAll({
+        where: { status: "approved" },
+        order: [['id', 'DESC']],
+        limit: 5,
+        raw: true,
+        nest: true
+      }),
+      Product.findAll({
+        where: { type: "service", status: "approved" },
+        order: [['id', 'DESC']],
+        limit: 5,
+        raw: true,
+        nest: true
+      }),
+      Banner.findAll({
+        where: { status: "approved" },
+        order: [['id', 'DESC']],
+        raw: true,
+        nest: true
+      }),
+      Statistics.increment('value', { by: 1, where: { key: "visitors" } })
+        .then(() => Statistics.findByPk("visitors")),
+      User.count()
     ]);
 
-    const visitorCount = visitors ? visitors.value : 0;
+    const visitorCount = visitorRecord ? visitorRecord.value : 0;
     const userCount = users || 0;
 
-    const userId = req.user?._id?.toString();
-    const votedMap = {};
-    [...products, ...services].forEach(p => {
-      if (Array.isArray(p.voters) && p.voters.map(v => v.toString()).includes(userId)) {
-        votedMap[p._id.toString()] = true;
-      }
-    });
+     const userId = req.user?._id?.toString();
+     const votedMap = {};
+     [...products, ...services].forEach(p => {
+       if (Array.isArray(p.voters) && p.voters.map(v => v.toString()).includes(userId)) {
+         votedMap[p.id.toString()] = true;
+       }
+     });
 
-    res.render("about", {
+    res.render("index", {
       products,
       services,
       banners,
@@ -87,11 +100,11 @@ router.get("/", async (req, res) => {
       categories,
       selectedCategory: selected || "all",
       csrfToken: req.csrfToken ? req.csrfToken() : '',
-      activeTab: 'about' // Указываем активную вкладку
+      activeTab: 'about'
     });
   } catch (err) {
-    console.error("❌ Ошибка:", err);
-    res.status(500).send("Временная ошибка сервера");
+    console.error("❌ Ошибка на странице О нас:", err);
+    res.status(500).send("Ошибка сервера");
   }
 });
 

@@ -1,155 +1,153 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-// Модель для универсального дерева категорий
-const categorySchema = new mongoose.Schema({
+const Category = sequelize.define('Category', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
   name: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 100
+    type: DataTypes.STRING,
+    allowNull: false
   },
   parentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
-    default: null
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'categories',
+      key: 'id'
+    }
   },
   type: {
-    type: String,
-    enum: ['product', 'service', 'banner', 'all'],
-    default: 'all'
+    type: DataTypes.STRING(20),
+    defaultValue: 'all',
+    validate: {
+      isIn: [['product', 'service', 'banner', 'all']]
+    }
   },
   icon: {
-    type: String,
-    default: '',
-    maxlength: 50
+    type: DataTypes.STRING(50),
+    defaultValue: ''
   },
   description: {
-    type: String,
-    default: '',
-    maxlength: 500
+    type: DataTypes.STRING(500),
+    defaultValue: ''
   },
   order: {
-    type: Number,
-    default: 0
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null
+  createdById: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   }
-}, { timestamps: true });
-
-// Индексы для оптимизации
-categorySchema.index({ parentId: 1 });
-categorySchema.index({ type: 1 });
-categorySchema.index({ isActive: 1 });
-categorySchema.index({ parentId: 1, type: 1 });
-categorySchema.index({ order: 1 });
-
-// Виртуальное поле для полного пути
-categorySchema.virtual('path').get(function() {
-  return this._path || this._id.toString();
+}, {
+  indexes: [
+    { fields: ['parent_id'] },
+    { fields: ['type'] },
+    { fields: ['active'] },
+    { fields: ['parent_id', 'type'] },
+    { fields: ['order'] }
+  ],
+  tableName: 'categories'
 });
 
-// Метод для получения дерева категорий
-categorySchema.statics.getTree = async function(type = 'all', includeInactive = false) {
-  const filter = includeInactive ? {} : { isActive: true };
-
-  if (type !== 'all') {
-    filter.$or = [
-      { type: type },
-      { type: 'all' }
-    ];
-  }
-
-  const categories = await this.find(filter)
-    .sort({ order: 1, name: 1 })
-    .lean();
-
-  // Строим дерево
-  const categoryMap = new Map();
+// Build tree from flat list
+function buildTree(categories) {
+  const map = new Map();
   const roots = [];
 
-  // Сначала создаем карту всех категорий
+  // First pass: create map
   categories.forEach(cat => {
-    categoryMap.set(cat._id.toString(), {
-      ...cat,
-      children: [],
-      path: cat._id.toString()
-    });
+    map.set(cat.id, { ...cat, children: [] });
   });
 
-  // Затем строим дерево
+  // Second pass: assign children
   categories.forEach(cat => {
-    const catWithChildren = categoryMap.get(cat._id.toString());
-
-    if (cat.parentId) {
-      const parentId = cat.parentId.toString();
-      const parent = categoryMap.get(parentId);
-      if (parent) {
-        parent.children.push(catWithChildren);
-        catWithChildren.path = `${parent.path}.${cat._id.toString()}`;
-      }
+    const node = map.get(cat.id);
+    if (cat.parentId && map.has(cat.parentId)) {
+      map.get(cat.parentId).children.push(node);
     } else {
-      roots.push(catWithChildren);
+      roots.push(node);
     }
   });
 
   return roots;
+}
+
+Category.getTree = async function(type = 'all', includeInactive = false) {
+  const where = includeInactive ? {} : { isActive: true };
+  if (type !== 'all') {
+    where.type = type;
+  }
+  const categories = await this.findAll({
+    where,
+    order: [['order', 'ASC'], ['name', 'ASC']],
+    raw: true
+  });
+  return buildTree(categories);
 };
 
-// Метод для получения плоского списка с путями
-categorySchema.statics.getFlatList = async function(type = 'all', includeInactive = false) {
-  const tree = await this.getTree(type, includeInactive);
+Category.getFlatList = async function(type = 'all', includeInactive = false) {
+  const where = includeInactive ? {} : { isActive: true };
+  if (type !== 'all') {
+    where.type = type;
+  }
+  if (type !== 'all') {
+    where.type = type;
+  }
+  const categories = await this.findAll({
+    where,
+    attributes: ['id', 'name', 'icon', 'type', 'parentId'],
+    order: [['order', 'ASC'], ['name', 'ASC']],
+    raw: true
+  });
 
   const result = {};
 
-  function flatten(categories, prefix = '') {
-    categories.forEach(cat => {
-      const fullPath = prefix ? `${prefix}.${cat._id.toString()}` : cat._id.toString();
-      result[fullPath] = {
-        _id: cat._id,
+  function flatten(cats, prefix = '') {
+    cats.forEach(cat => {
+      const path = cat.id.toString();
+      result[path] = {
+        _id: cat.id,
+        id: cat.id, // Add both for compatibility
         name: cat.name,
-        icon: cat.icon,
+        icon: cat.icon || '',
         type: cat.type,
-        path: fullPath
+        path: path
       };
-
       if (cat.children && cat.children.length > 0) {
-        flatten(cat.children, fullPath);
+        flatten(cat.children, path);
       }
     });
-  }
+  };
 
+  const tree = buildTree(categories);
   flatten(tree);
   return result;
 };
 
-// Метод для поиска категории по пути
-categorySchema.statics.findByPath = async function(path, type = 'all') {
+Category.findByPath = async function(path, type = 'all') {
   if (!path) return null;
-
   const parts = path.split('.');
-  let currentCategory = null;
-
+  let current = null;
   for (const part of parts) {
-    const filter = { _id: part };
+    const id = parseInt(part, 10);
+    const where = { id };
     if (type !== 'all') {
-      filter.$or = [
-        { type: type },
-        { type: 'all' }
-      ];
+      where.type = type;
     }
-
-    currentCategory = await this.findOne(filter);
-    if (!currentCategory) break;
+    current = await this.findOne({ where, raw: true });
+    if (!current) break;
   }
-
-  return currentCategory;
+  return current;
 };
 
-module.exports = mongoose.model('Category', categorySchema);
+module.exports = Category;

@@ -37,7 +37,9 @@ async function getUserFromRequestAsync(req) {
     try {
       // Всегда получаем свежие данные из базы данных
       const User = require('../models/User');
-      const freshUser = await User.findById(userId).select('_id username role emailVerified');
+      const freshUser = await User.findByPk(userId, {
+        attributes: ['id', 'username', 'role', 'emailVerified']
+      });
       
       if (freshUser) {
         // Проверяем, отличаются ли данные в токене от базы
@@ -61,14 +63,14 @@ async function getUserFromRequestAsync(req) {
             sessionOutOfSync
           });
           
-          // Генерируем новый JWT с актуальными данными из базы
-          const { generateToken } = require('../config/jwt');
-          const updatedTokenData = {
-            _id: freshUser._id.toString(),
-            username: freshUser.username,
-            role: freshUser.role,
-            emailVerified: freshUser.emailVerified
-          };
+         // Генерируем новый JWT с актуальными данными из базы
+           const { generateToken } = require('../config/jwt');
+           const updatedTokenData = {
+             _id: freshUser.id.toString(),
+             username: freshUser.username,
+             role: freshUser.role,
+             emailVerified: freshUser.emailVerified
+           };
           
           const newToken = generateToken(updatedTokenData);
           if (req.res) {
@@ -81,13 +83,13 @@ async function getUserFromRequestAsync(req) {
           }
         }
         
-        // Возвращаем свежие данные из базы данных
-        return {
-          _id: freshUser._id.toString(),
-          username: freshUser.username,
-          role: freshUser.role,
-          emailVerified: freshUser.emailVerified
-        };
+         // Возвращаем свежие данные из базы данных
+         return {
+           _id: freshUser.id.toString(),
+           username: freshUser.username,
+           role: freshUser.role,
+           emailVerified: freshUser.emailVerified
+         };
       }
     } catch (error) {
       logger.error({
@@ -176,22 +178,21 @@ function requireUser(req, res, next) {
 function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
   return (req, res, next) => {
     (async () => {
-      try {
-        const mongoose = require('mongoose');
-        const Product = require('../models/Product');
-        const Banner = require('../models/Banner');
+   try {
+     const Product = require('../models/Product');
+     const Banner = require('../models/Banner');
+     
+     const Model = modelName === 'Banner' ? Banner : Product;
+     const itemId = req.params[paramName];
         
-        const Model = modelName === 'Banner' ? Banner : Product;
-        const itemId = req.params[paramName];
-        
-        if (!mongoose.Types.ObjectId.isValid(itemId)) {
+         if (!/^[a-f0-9]{32,}$/i.test(itemId)) {
           if (wantsJsonResponse(req)) {
             return res.status(400).json({ success: false, error: "Bad Request", message: "Неверный формат ID" });
           }
           return res.status(400).send("Неверный формат ID");
         }
 
-        const item = await Model.findById(itemId);
+         const item = await Model.findByPk(itemId);
         if (!item) {
           if (wantsJsonResponse(req)) {
             return res.status(404).json({ success: false, error: "Not Found", message: "Карточка не найдена" });
@@ -209,7 +210,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
 
         // Проверяем владельца
         const userId = user?._id?.toString();
-        const ownerId = item.owner?.toString();
+        const ownerId = (item.ownerId || item.owner)?.toString();
 
         if (!userId || userId !== ownerId) {
           if (wantsJsonResponse(req)) {

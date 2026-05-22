@@ -7,82 +7,84 @@ const REFERRAL_BONUS_ALBA = parseInt(process.env.REFERRAL_BONUS_ALBA) || 10;
 
 async function grantReferralBonusIfEligible({ UserModel, user }) {
   // Log referral bonus check
-  console.log(`Checking referral bonus eligibility for user ${user._id}`);
+  console.log(`Checking referral bonus eligibility for user ${user.id}`);
 
   if (user.emailVerified !== true) {
-    console.log(`User ${user._id} is not email verified, skipping referral bonus`);
+    console.log(`User ${user.id} is not email verified, skipping referral bonus`);
     return;
   }
   
-  if (!user.referredBy) {
-    console.log(`User ${user._id} has no referrer, skipping referral bonus`);
-    return;
-  }
-  
-  if (user.refBonusGranted === true) {
-    console.log(`User ${user._id} already received referral bonus, skipping`);
-    return;
-  }
+   if (!user.referredBy) {
+     console.log(`User ${user.id} has no referrer, skipping referral bonus`);
+     return;
+   }
+   
+   if (user.refBonusGranted === true) {
+     console.log(`User ${user.id} already received referral bonus, skipping`);
+     return;
+   }
 
-  // Check if referral bonus was already granted (idempotent check)
-  const existingTransaction = await AlbaTransaction.findOne({
-    type: 'earn',
-    reason: 'referral_bonus',
-    relatedUserId: user._id
-  });
+   // Check if referral bonus was already granted (idempotent check)
+   const existingTransaction = await AlbaTransaction.findOne({
+     where: {
+       type: 'earn',
+       reason: 'referral_bonus',
+       relatedUserId: user.id
+     }
+   });
 
-  if (existingTransaction) {
-    console.log(`Referral bonus already granted for user ${user._id}, skipping`);
-    user.refBonusGranted = true;
-    await user.save();
-    return;
-  }
+   if (existingTransaction) {
+     console.log(`Referral bonus already granted for user ${user.id}, skipping`);
+     user.refBonusGranted = true;
+     await user.save();
+     return;
+   }
 
-  // Check for self-referral
-  if (user.referredBy.toString() === user._id.toString()) {
-    console.log(`Self-referral detected for user ${user._id}, skipping bonus`);
-    return;
-  }
+   // Check for self-referral
+   if (user.referredBy.toString() === user.id.toString()) {
+     console.log(`Self-referral detected for user ${user.id}, skipping bonus`);
+     return;
+   }
 
   // Generate unique eventId for this referral
   const eventId = randomUUID();
 
-  // Grant referral bonus
-  try {
-    await earnReferralBonus({
-      UserModel,
-      referrerUserId: user.referredBy,
-      referredUserId: user._id,
-      amount: REFERRAL_BONUS_ALBA
+   // Grant referral bonus
+   try {
+     await earnReferralBonus({
+       UserModel,
+       referrerUserId: user.referredBy,
+       referredUserId: user.id,
+       amount: REFERRAL_BONUS_ALBA
+     });
+
+     // Create transaction record for referrer
+     await AlbaTransaction.create({
+       userId: user.referredBy,
+       amount: REFERRAL_BONUS_ALBA,
+       type: 'earn',
+       reason: 'referral_bonus',
+       relatedUserId: user.id,
+       meta: {
+         eventId,
+         referralType: 'one-time',
+         referredUserId: user.id
+       }
     });
 
-    // Create transaction record for referrer
-    await AlbaTransaction.create({
-      userId: user.referredBy,
-      amount: REFERRAL_BONUS_ALBA,
-      type: 'earn',
-      reason: 'referral_bonus',
-      relatedUserId: user._id,
-      meta: {
-        eventId,
-        referralType: 'one-time',
-        referredUserId: user._id
-      }
-    });
+     // Grant bonus to the referred user (new user) as well
+     const REFERRED_USER_BONUS = 5; // Fixed amount for referred user
+     await addTx(UserModel, {
+       userId: user.id,
+       amount: REFERRED_USER_BONUS,
+       type: 'earn',
+       reason: 'referred_user_bonus',
+       relatedUserId: user.referredBy
+     });
 
-    // Grant bonus to the referred user (new user) as well
-    const REFERRED_USER_BONUS = 5; // Fixed amount for referred user
-    await addTx(UserModel, {
-      userId: user._id,
-      amount: REFERRED_USER_BONUS,
-      type: 'earn',
-      reason: 'referred_user_bonus',
-      relatedUserId: user.referredBy
-    });
-
-    // Create transaction record for referred user
-    await AlbaTransaction.create({
-      userId: user._id,
+     // Create transaction record for referred user
+     await AlbaTransaction.create({
+       userId: user.id,
       amount: REFERRED_USER_BONUS,
       type: 'earn',
       reason: 'referred_user_bonus',
@@ -94,14 +96,14 @@ async function grantReferralBonusIfEligible({ UserModel, user }) {
       }
     });
 
-    console.log(`Referral bonus granted: referrer=${user.referredBy}, newUser=${user._id}, referrer_amount=${REFERRAL_BONUS_ALBA}, referred_amount=${REFERRED_USER_BONUS}, txId=${eventId}`);
+     console.log(`Referral bonus granted: referrer=${user.referredBy}, newUser=${user.id}, referrer_amount=${REFERRAL_BONUS_ALBA}, referred_amount=${REFERRED_USER_BONUS}, txId=${eventId}`);
 
-    user.refBonusGranted = true;
+     user.refBonusGranted = true;
     await user.save();
-  } catch (error) {
-    console.error(`Error granting referral bonus for user ${user._id}:`, error);
-    throw error;
-  }
+   } catch (error) {
+     console.error(`Error granting referral bonus for user ${user.id}:`, error);
+     throw error;
+   }
 }
 
 /**
@@ -115,7 +117,7 @@ async function grantReferralBonusIfEligible({ UserModel, user }) {
 async function setReferralBinding({ UserModel, userId, referrerId }) {
   console.log(`Setting referral binding: userId=${userId}, referrerId=${referrerId}`);
 
-  const user = await UserModel.findById(userId);
+   const user = await UserModel.findByPk(userId);
   if (!user) {
     console.log(`User not found: ${userId}`);
     return { ok: false, status: 404, message: 'User not found' };
@@ -134,7 +136,7 @@ async function setReferralBinding({ UserModel, userId, referrerId }) {
   }
 
   // Check if referrer exists
-  const referrer = await UserModel.findById(referrerId);
+   const referrer = await UserModel.findByPk(referrerId);
   if (!referrer) {
     console.log(`Referrer not found: ${referrerId}`);
     return { ok: false, status: 404, message: 'Referrer not found' };
@@ -156,17 +158,20 @@ async function setReferralBinding({ UserModel, userId, referrerId }) {
  */
 async function getReferralStats(userId) {
   // Count successful referrals
-  const successfulReferrals = await AlbaTransaction.countDocuments({
-    userId,
-    type: 'earn',
-    reason: 'referral_bonus'
+  const successfulReferrals = await AlbaTransaction.count({
+    where: {
+      userId,
+      type: 'earn',
+      reason: 'referral_bonus'
+    }
   });
 
-  // Get total ALBA earned from referrals
-  const referralTransactions = await AlbaTransaction.find({
-    userId,
-    type: 'earn',
-    reason: 'referral_bonus'
+  const referralTransactions = await AlbaTransaction.findAll({
+    where: {
+      userId,
+      type: 'earn',
+      reason: 'referral_bonus'
+    }
   });
 
   const totalAlbaFromReferrals = referralTransactions.reduce((sum, tx) => sum + tx.amount, 0);

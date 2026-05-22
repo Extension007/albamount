@@ -1,14 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const mongoose = require("mongoose");
-const Product = require("../models/Product");
-const Banner = require("../models/Banner");
-const User = require("../models/User");
-const Statistics = require("../models/Statistics");
-const Category = require("../models/Category");
-const cloudinary = require("cloudinary").v2;
-const { HAS_MONGO, hasMongo } = require("../config/database");
+const Product = require("../config/database").Product;
+const Banner = require("../config/database").Banner;
+const Category = require("../config/database").Category;
+const User = require("../config/database").User;
+const { USE_POSTGRES, hasMongo } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
 
 // Авторизация
@@ -47,45 +44,47 @@ router.get("/", async (req, res) => {
     const categoryKeys = CATEGORY_KEYS || [];
 
     const isVercel = Boolean(process.env.VERCEL);
-    const hasDbAccess = isVercel ? req.dbConnected : HAS_MONGO;
+    const hasDbAccess = isVercel ? req.dbConnected : USE_POSTGRES;
 
-    console.log('🔧 Отладка категории:', {
-      selected,
-      isVercel,
-      hasDbAccess,
-      isValidObjectId: selected ? mongoose.Types.ObjectId.isValid(selected) : false
-    });
+     console.log('🔧 Отладка категории:', {
+       selected,
+       isVercel,
+       hasDbAccess,
+        isValidObjectId: selected ? /^\d+$/.test(selected) : false
+     });
 
-    // Определяем отображаемое название выбранной категории
-    let selectedCategoryDisplay = selected || "all";
-    if (selected && selected !== 'all') {
-      // Проверяем, является ли selected названием категории (не ID)
-      // Если да, то используем его напрямую
-      if (!mongoose.Types.ObjectId.isValid(selected)) {
-        console.log('📝 Selected является названием категории:', selected);
-        selectedCategoryDisplay = selected;
-      } else if (hasDbAccess) {
-        try {
-          console.log('🔍 Ищем категорию по ID:', selected);
-          // Ищем категорию по ID и получаем ее название
-          const category = await Category.findById(selected).select('name').lean();
-          console.log('📋 Найденная категория:', category);
-          if (category && category.name) {
-            selectedCategoryDisplay = category.name;
-            console.log('✅ Используем название категории:', selectedCategoryDisplay);
-          } else {
-            console.warn('⚠️ Категория не найдена или без названия');
-            selectedCategoryDisplay = "Неизвестная категория";
+      // Определяем отображаемое название выбранной категории
+      let selectedCategoryDisplay = selected || "all";
+      if (selected && selected !== 'all') {
+        // Проверяем, является ли selected numeric ID (новые целочисленные ID категорий)
+        // Если да, то ищем категорию по ID
+        if (/^\d+$/.test(selected)) {
+          console.log('📝 Selected является numeric ID категории:', selected);
+          if (hasDbAccess) {
+            try {
+              console.log('🔍 Ищем категорию по ID:', selected);
+              const category = await Category.findByPk(parseInt(selected, 10));
+              console.log('📋 Найденная категория:', category ? category.toJSON() : null);
+              if (category && category.name) {
+                selectedCategoryDisplay = category.name;
+                console.log('✅ Используем название категории:', selectedCategoryDisplay);
+              } else {
+                console.warn('⚠️ Категория не найдена или без названия');
+                selectedCategoryDisplay = "Неизвестная категория";
+              }
+            } catch (err) {
+              console.warn('❌ Ошибка поиска категории:', selected, err.message);
+              selectedCategoryDisplay = "Ошибка загрузки категории";
+            }
           }
-        } catch (err) {
-          console.warn('❌ Ошибка поиска категории:', selected, err.message);
-          selectedCategoryDisplay = "Ошибка загрузки категории";
+        } else {
+          // Если это название категории (старый формат), используем напрямую
+          selectedCategoryDisplay = selected;
         }
       } else {
         console.log('⏭️ Нет доступа к БД, оставляем ID');
         selectedCategoryDisplay = "Категория"; // Fallback когда нет доступа к БД
       }
-    }
     console.log('📝 Финальное selectedCategoryDisplay:', selectedCategoryDisplay);
 
     if (!hasDbAccess) {
@@ -112,32 +111,28 @@ router.get("/", async (req, res) => {
 
     // Фильтры
     const productsFilter = {
-      $and: [
-        { $or: [{ status: "approved" }, { status: { $exists: false } }, { status: null }] },
-        { $or: [{ type: "product" }, { type: { $exists: false } }, { type: null }] }
-      ]
+      status: "approved",
+      type: "product"
     };
     const servicesFilter = {
-      $and: [
-        { $or: [{ status: "approved" }, { status: { $exists: false } }, { status: null }] },
-        { type: "service" }
-      ]
+      status: "approved",
+      type: "service"
     };
 
     if (selected && selected !== 'all') {
       // Если выбранная категория - это ObjectId, используем categoryId напрямую
-      if (mongoose.Types.ObjectId.isValid(selected)) {
-        productsFilter.$and.push({ categoryId: selected });
-        servicesFilter.$and.push({ categoryId: selected });
+       if (/^[a-f0-9]{32,}$/i.test(selected)) {
+        productsFilter.categoryId = selected;
+        servicesFilter.categoryId = selected;
       } else {
         // Если это название категории, найдем ее ID
         try {
           console.log('🔍 Ищем ID категории по названию:', selected);
-          const category = await Category.findOne({ name: selected }).select('_id').lean();
+          const category = await Category.findOne({ where: { name: selected } });
           if (category) {
-            console.log('✅ Найден ID категории:', category._id);
-            productsFilter.$and.push({ categoryId: category._id });
-            servicesFilter.$and.push({ categoryId: category._id });
+            console.log('✅ Найден ID категории:', category.id);
+            productsFilter.categoryId = category.id;
+            servicesFilter.categoryId = category.id;
           } else {
             console.warn('⚠️ Категория с названием не найдена:', selected);
             // Не применяем фильтр, показываем все товары
@@ -151,32 +146,33 @@ router.get("/", async (req, res) => {
 
     // Запросы
     const [products, services, banners, visitors, users] = await Promise.all([
-      Product.find(productsFilter).sort({ _id: -1 }).maxTimeMS(5000),
-      Product.find(servicesFilter).sort({ _id: -1 }).maxTimeMS(5000),
-      Banner.find({ status: "approved" }).sort({ _id: -1 }).maxTimeMS(5000),
-      Statistics.findOneAndUpdate(
-        { key: "visitors" },
-        { $inc: { value: 1 } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      ),
-      User.countDocuments()
+      Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: 5000 }),
+      Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: 5000 }),
+      Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']], limit: 5000 }),
+      Statistics.findOne({ where: { key: "visitors" } }),
+      User.count()
     ]);
+
+    if (visitors) {
+      await visitors.increment('value');
+    }
 
     const visitorCount = visitors ? visitors.value : 0;
     const userCount = users || 0;
 
-    const userId = req.user?._id?.toString();
+    const userId = req.user?.id?.toString();
     const votedMap = {};
     [...products, ...services].forEach(p => {
-      if (Array.isArray(p.voters) && p.voters.map(v => v.toString()).includes(userId)) {
-        votedMap[p._id.toString()] = true;
+      const plainP = p.get ? p.get({ plain: true }) : p;
+      if (Array.isArray(plainP.voters) && plainP.voters.map(v => String(v)).includes(userId)) {
+        votedMap[plainP.id?.toString()] = true;
       }
     });
 
     res.render("index", {
-      products,
-      services,
-      banners,
+      products: products.map(p => p.get ? p.get({ plain: true }) : p),
+      services: services.map(s => s.get ? s.get({ plain: true }) : s),
+      banners: banners.map(b => b.get ? b.get({ plain: true }) : b),
       visitorCount,
       userCount,
       page: 1,
@@ -207,9 +203,13 @@ router.get("/__health/cloudinary", async (req, res) => {
   }
 });
 
-// Health-check MongoDB
+// Health-check
 router.get("/health", (req, res) => {
-  res.json({ mongo: hasMongo() ? "connected" : "disconnected" });
+  res.json({
+    ok: true,
+    database: hasMongo() ? "configured" : "missing",
+    connected: Boolean(req.dbConnected)
+  });
 });
 
 // Обработчик для Chrome DevTools и других .well-known запросов

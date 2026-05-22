@@ -4,7 +4,6 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const { verifyToken } = require("../config/jwt");
 const { checkChatAccess } = require("../middleware/comments");
-const mongoose = require("mongoose");
 
 // Хранилище активных комнат чата
 const activeRooms = new Map();
@@ -13,25 +12,25 @@ const activeRooms = new Map();
  * Проверка прав доступа к чату карточки
  */
 async function checkCardAccess(cardId, user) {
-  try {
-    // Проверяем, существует ли карточка (Product или Service)
-    let card = await Product.findById(cardId);
-    if (card) {
-      // Проверяем, является ли пользователь владельцем карточки или администратором
-      const isAdmin = user.role === 'admin';
-      const isOwner = card.owner && card.owner.toString() === user._id.toString();
-      
-      // Определяем тип карточки
-      let cardType = 'Product';
-      if (card.type === 'service') {
-        cardType = 'Service';
-      }
-      
-      return { allowed: isAdmin || isOwner || card.status === 'approved', isCardOwner: isOwner, cardType: cardType };
-    }
+   try {
+      // Проверяем, существует ли карточка (Product или Service)
+      let card = await Product.findByPk(cardId);
+     if (card) {
+       // Проверяем, является ли пользователь владельцем карточки или администратором
+        const isAdmin = user.role === 'admin';
+        const isOwner = card.ownerId === user.id;
+       
+       // Определяем тип карточки
+       let cardType = 'Product';
+       if (card.type === 'service') {
+         cardType = 'Service';
+       }
+       
+       return { allowed: isAdmin || isOwner || card.status === 'approved', isCardOwner: isOwner, cardType: cardType };
+     }
 
-    return { allowed: false, isCardOwner: false, cardType: null };
-  } catch (error) {
+     return { allowed: false, isCardOwner: false, cardType: null };
+   } catch (error) {
     console.error('❌ Ошибка проверки прав доступа к чату:', error);
     return { allowed: false, isCardOwner: false, cardType: null };
   }
@@ -58,7 +57,7 @@ module.exports = (io) => {
             const token = tokenMatch[1];
             const decoded = verifyToken(token);
             if (decoded && decoded._id) {
-              const user = await User.findById(decoded._id);
+               const user = await User.findByPk(decoded._id);
               if (user) {
                 return user;
               }
@@ -69,10 +68,11 @@ module.exports = (io) => {
         // 2. Пробуем сессию
         const session = socket.request.session;
         if (session && session.user) {
-          const userId = session.user;
-          user = await User.findById(userId._id);
-          if (user) {
-            return user;
+          const sessionUser = session.user;
+          const userId = sessionUser._id || sessionUser;
+          const sessionDbUser = await User.findByPk(userId);
+          if (sessionDbUser) {
+            return sessionDbUser;
           }
         }
         
@@ -86,11 +86,11 @@ module.exports = (io) => {
     // Аутентифицируем пользователя при подключении
     authenticateUser().then(user => {
       socket.user = user;
-      if (user) {
-        console.log(`👤 Пользователь ${user.username || user.email} (ID: ${user._id}, роль: ${user.role || 'user'}) подключился к чату`);
-      } else {
-        console.log('👤 Гость подключился к чату');
-      }
+     if (user) {
+       console.log(`👤 Пользователь ${user.username || user.email} (ID: ${user.id}, роль: ${user.role || 'user'}) подключился к чату`);
+     } else {
+       console.log('👤 Гость подключился к чату');
+     }
     });
     
     // Обработчик присоединения к чату карточки
@@ -116,27 +116,27 @@ module.exports = (io) => {
         const roomName = `card_${cardId}`;
         socket.join(roomName);
 
-        // Сохраняем информацию о соединении
-        const connectionInfo = {
-          socketId: socket.id,
-          userId: user ? user._id : null,
-          cardId: cardId,
-          joinedAt: new Date(),
-          user: user,
-          canWrite: accessCheck.canWrite,
-          canModerate: accessCheck.canModerate
-        };
+         // Сохраняем информацию о соединении
+         const connectionInfo = {
+           socketId: socket.id,
+           userId: user ? user.id : null,
+           cardId: cardId,
+           joinedAt: new Date(),
+           user: user,
+           canWrite: accessCheck.canWrite,
+           canModerate: accessCheck.canModerate
+         };
 
         if (!activeRooms.has(cardId)) {
           activeRooms.set(cardId, new Map());
         }
         activeRooms.get(cardId).set(socket.id, connectionInfo);
 
-        if (user) {
-          console.log(`💬 Пользователь ID:${user._id} присоединился к чату карточки ${cardId}`);
-        } else {
-          console.log(`💬 Гость присоединился к чату карточки ${cardId}`);
-        }
+         if (user) {
+           console.log(`💬 Пользователь ID:${user.id} присоединился к чату карточки ${cardId}`);
+         } else {
+           console.log(`💬 Гость присоединился к чату карточки ${cardId}`);
+         }
 
         // Отправляем подтверждение успешного присоединения
         socket.emit('joined-comment-chat', {
@@ -147,14 +147,14 @@ module.exports = (io) => {
           isCardOwner: accessCheck.isOwner
         });
 
-        // Уведомляем других участников чата о новом пользователе (только если авторизован)
-        if (user) {
-          socket.to(roomName).emit('user-joined-chat', {
-            userId: user._id,
-            username: user.username || 'Пользователь',
-            joinedAt: new Date()
-          });
-        }
+         // Уведомляем других участников чата о новом пользователе (только если авторизован)
+         if (user) {
+           socket.to(roomName).emit('user-joined-chat', {
+             userId: user.id,
+             username: user.username || 'Пользователь',
+             joinedAt: new Date()
+           });
+         }
       } catch (error) {
         console.error('❌ Ошибка присоединения к чату:', error);
         socket.emit('error', { message: 'Ошибка подключения к чату' });
@@ -195,32 +195,30 @@ module.exports = (io) => {
           return;
         }
 
-        // Создаем комментарий
-        const comment = new Comment({
-          cardId: cardId,
-          cardType: accessCheck.cardType,
-          userId: user._id,
-          text: text.trim()
-        });
+         // Создаем комментарий
+         const comment = await Comment.create({
+           cardId: cardId,
+           cardType: accessCheck.cardType,
+           userId: user.id,
+           text: text.trim()
+         });
 
-        await comment.save();
+         const fullComment = await Comment.findByPk(comment.id, {
+           include: [{ model: User, as: 'user', attributes: ['id', 'username', 'email'] }]
+         });
 
-        // Populate для отправки
-        await comment.populate('userId', 'username email');
+         const roomName = `card_${cardId}`;
+         io.to(roomName).emit('comment:new', {
+           id: fullComment.id,
+           userId: fullComment.userId,
+           username: fullComment.user?.username || fullComment.user?.email || 'Пользователь',
+           canModerate: accessCheck.canModerate,
+           isCardOwner: accessCheck.isOwner,
+           text: comment.text,
+           createdAt: comment.createdAt
+         });
 
-        // Отправляем сообщение всем участникам комнаты
-        const roomName = `card_${cardId}`;
-        io.to(roomName).emit('comment:new', {
-          _id: comment._id,
-          userId: comment.userId,
-          username: comment.userId.username || comment.userId.email || 'Пользователь',
-          canModerate: accessCheck.canModerate,
-          isCardOwner: accessCheck.isOwner,
-          text: comment.text,
-          createdAt: comment.createdAt
-        });
-
-        console.log(`💬 Сообщение отправлено в чат карточки ${cardId} пользователем ${user._id} (${user.role})`);
+         console.log(`💬 Сообщение отправлено в чат карточки ${cardId} пользователем ${user.id} (${user.role})`);
       } catch (error) {
         console.error('❌ Ошибка отправки сообщения:', error);
         socket.emit('error', { message: 'Ошибка отправки сообщения' });
@@ -250,7 +248,7 @@ module.exports = (io) => {
         }
 
         // Находим и обновляем комментарий
-        const comment = await Comment.findById(commentId);
+        const comment = await Comment.findByPk(commentId);
         if (!comment) {
           socket.emit('error', { message: 'Комментарий не найден' });
           return;
@@ -259,15 +257,15 @@ module.exports = (io) => {
         comment.text = text.trim();
         await comment.save();
 
-        // Отправляем обновление всем участникам комнаты
-        const roomName = `card_${comment.cardId}`;
-        io.to(roomName).emit('comment:updated', {
-          _id: comment._id,
-          text: comment.text,
-          updatedAt: comment.updatedAt
-        });
+         // Отправляем обновление всем участникам комнаты
+         const roomName = `card_${comment.cardId}`;
+         io.to(roomName).emit('comment:updated', {
+           id: comment.id,
+           text: comment.text,
+           updatedAt: comment.updatedAt
+         });
 
-        console.log(`💬 Комментарий ${commentId} отредактирован администратором ${user._id} (${user.role})`);
+         console.log(`💬 Комментарий ${comment.id} отредактирован администратором ${user.id} (${user.role})`);
       } catch (error) {
         console.error('❌ Ошибка редактирования комментария:', error);
         socket.emit('error', { message: 'Ошибка редактирования комментария' });
@@ -291,7 +289,7 @@ module.exports = (io) => {
         }
 
         // Находим и мягко удаляем комментарий
-        const comment = await Comment.findById(commentId);
+        const comment = await Comment.findByPk(commentId);
         if (!comment) {
           socket.emit('error', { message: 'Комментарий не найден' });
           return;
@@ -300,13 +298,13 @@ module.exports = (io) => {
         comment.deleted = true;
         await comment.save();
 
-        // Отправляем уведомление об удалении всем участникам комнаты
-        const roomName = `card_${comment.cardId}`;
-        io.to(roomName).emit('comment:deleted', {
-          _id: comment._id
-        });
+         // Отправляем уведомление об удалении всем участникам комнаты
+         const roomName = `card_${comment.cardId}`;
+         io.to(roomName).emit('comment:deleted', {
+           id: comment.id
+         });
 
-        console.log(`💬 Комментарий ${commentId} удален администратором ${user._id} (${user.role})`);
+         console.log(`💬 Комментарий ${commentId} удален администратором ${user.id} (${user.role})`);
       } catch (error) {
         console.error('❌ Ошибка удаления комментария:', error);
         socket.emit('error', { message: 'Ошибка удаления комментария' });

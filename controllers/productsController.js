@@ -1,5 +1,4 @@
 // FIX: Контроллер для обработки товаров - С САНИТИЗАЦИЕЙ
-const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 const { deleteImages } = require("../utils/imageUtils");
@@ -9,10 +8,14 @@ const { notifyAdmin } = require("../services/adminNotificationService");
 // FIX: Получение всех товаров для отображения
 exports.getAllProducts = async (req, res, next) => {
   try {
-    const products = await Product.find({ status: "approved" })
-      .populate('owner', 'username')
-      .populate('categoryId', 'name icon')
-      .sort({ createdAt: -1 });
+    const products = await Product.findAll({
+      where: { status: "approved", deleted: false },
+      include: [
+        { model: require("../models/User"), as: "owner", attributes: ["id", "username"] },
+        { model: Category, as: "categoryRel", attributes: ["id", "name", "icon"] }
+      ],
+      order: [["createdAt", "DESC"]]
+    });
 
     // Получаем дерево категорий для товаров
     const categoryTree = await Category.getTree('product');
@@ -49,8 +52,8 @@ exports.createProduct = async (req, res, next) => {
     // Валидация категории
     if (category) {
       // Проверяем, является ли категория ObjectId (новая система)
-      if (mongoose.Types.ObjectId.isValid(category)) {
-        const categoryExists = await Category.findById(category);
+       if (/^[a-f0-9]{32,}$/i.test(category)) {
+         const categoryExists = await Category.findByPk(category);
         if (!categoryExists) {
           return res.status(400).json({ success: false, message: "Категория не найдена" });
         }
@@ -135,7 +138,7 @@ exports.createProduct = async (req, res, next) => {
       images: uniqueImages,
       contacts: sanitizedContacts,
       category: category || "home",
-      owner: req.user?._id || null,
+      ownerId: req.user?._id || null,
       status: req.user?.role === 'admin' ? "approved" : "pending",
       tier: 'free',
       tierRequested: 'free',
@@ -145,21 +148,21 @@ exports.createProduct = async (req, res, next) => {
 
     const product = await Product.create(productData);
 
-    // Отправляем уведомление администратору о новом товаре
-    try {
-      await notifyAdmin(
-        'Новый товар добавлен',
-        `Добавлен новый товар и отправлен на модерацию.`,
-        {
-          'Название': product.name,
-          'Категория': product.category,
-          'Цена': product.price,
-          'Статус': product.status,
-          'ID товара': product._id.toString(),
-          'Владелец': product.owner ? product.owner.toString() : 'Администратор'
-        }
-      );
-    } catch (notificationError) {
+     // Отправляем уведомление администратору о новом товаре
+     try {
+       await notifyAdmin(
+         'Новый товар добавлен',
+         `Добавлен новый товар и отправлен на модерацию.`,
+         {
+           'Название': product.name,
+           'Категория': product.category,
+           'Цена': product.price,
+           'Статус': product.status,
+           'ID товара': product.id.toString(),
+           'Владелец': product.owner ? product.owner.toString() : 'Администратор'
+         }
+       );
+     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
 
@@ -175,13 +178,13 @@ exports.createProduct = async (req, res, next) => {
 // FIX: Получение формы редактирования товара
 exports.getEditForm = async (req, res, next) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findByPk(req.params.id);
     if (!product) {
       return res.status(404).send("Товар не найден");
     }
 
     // FIX: Проверка прав доступа
-    const isOwner = req.user && product.owner && product.owner.toString() === req.user._id.toString();
+    const isOwner = req.user && product.ownerId && product.ownerId.toString() === req.user._id.toString();
     const isAdmin = req.user && req.user.role === 'admin';
     
     if (!isOwner && !isAdmin) {
@@ -206,8 +209,8 @@ exports.updateProduct = async (req, res, next) => {
     // Валидация категории, если она передана
     if (category) {
       // Проверяем, является ли категория ObjectId (новая система)
-      if (mongoose.Types.ObjectId.isValid(category)) {
-        const categoryExists = await Category.findById(category);
+       if (/^[a-f0-9]{32,}$/i.test(category)) {
+         const categoryExists = await Category.findByPk(category);
         if (!categoryExists) {
           return res.status(400).json({ success: false, message: "Категория не найдена" });
         }
@@ -223,13 +226,13 @@ exports.updateProduct = async (req, res, next) => {
     // FIX: Поддержка старого формата с title для обратной совместимости
     const productName = name || title;
     
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findByPk(req.params.id);
     if (!product) {
       return res.status(404).json({ success: false, message: "Товар не найден" });
     }
 
     // FIX: Проверка прав доступа
-    const isOwner = req.user && product.owner && product.owner.toString() === req.user._id.toString();
+    const isOwner = req.user && product.ownerId && product.ownerId.toString() === req.user._id.toString();
     const isAdmin = req.user && req.user.role === 'admin';
     
     if (!isOwner && !isAdmin) {
@@ -308,17 +311,17 @@ exports.updateProduct = async (req, res, next) => {
       return !existsInNew;
     });
     
-    // Удаляем изображения из хранилища
-    if (imagesToDelete.length > 0) {
-      try {
-        const deletedCount = await deleteImages(imagesToDelete);
-        if (deletedCount < imagesToDelete.length) {
-          console.warn(`⚠️  Для карточки ${product._id}: не все изображения удалены (${deletedCount}/${imagesToDelete.length})`);
-        }
-      } catch (err) {
-        console.error(`❌ Ошибка удаления изображений при редактировании карточки ${product._id}:`, err);
-      }
-    }
+     // Удаляем изображения из хранилища
+     if (imagesToDelete.length > 0) {
+       try {
+         const deletedCount = await deleteImages(imagesToDelete);
+         if (deletedCount < imagesToDelete.length) {
+           console.warn(`⚠️  Для карточки ${product.id}: не все изображения удалены (${deletedCount}/${imagesToDelete.length})`);
+         }
+       } catch (err) {
+         console.error(`❌ Ошибка удаления изображений при редактировании карточки ${product.id}:`, err);
+       }
+     }
 
     // FIX: САНИТИЗАЦИЯ ДАННЫХ
     const sanitizedDescription = sanitizeProductDescription(description);
@@ -362,11 +365,11 @@ exports.updateProduct = async (req, res, next) => {
       updateData.category = category;
     }
 
-    Object.assign(product, updateData);
+     Object.assign(product, updateData);
 
-    console.log(`✅ Обновление карточки ${product._id}: статус установлен в "pending", изображений: ${newImages.length}`);
+     console.log(`✅ Обновление карточки ${product.id}: статус установлен в "pending", изображений: ${newImages.length}`);
 
-    await product.save();
+     await product.save();
 
     res.json({ success: true, product });
   } catch (err) {

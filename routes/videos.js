@@ -22,7 +22,7 @@ router.get('/', async (req, res, next) => {
 
     if (req.user) {
       // Получаем актуальные данные пользователя из базы данных
-      const userFromDb = await User.findById(req.user._id);
+      const userFromDb = await User.findByPk(req.user._id);
       if (userFromDb) {
         isEmailVerified = userFromDb.emailVerified || false;
         userRole = userFromDb.role || userRole;

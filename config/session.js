@@ -2,7 +2,7 @@
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const RedisStore = require("connect-redis").default;
-const { HAS_MONGO } = require("./database");
+const { USE_POSTGRES } = require("./database");
 const { redisClient } = require("./redis");
 
 const isVercel = Boolean(process.env.VERCEL);
@@ -39,7 +39,7 @@ if (hasRedis) {
     ttl: 60 * 60 // 1 час в секундах
   });
   console.log("✅ Сессии хранятся в Redis");
-} else if (HAS_MONGO && process.env.MONGODB_URI) {
+} else if (USE_POSTGRES && process.env.DATABASE_URL) {
   // Резервный вариант: MongoDB для хранения сессий
   sessionOptions.store = MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,

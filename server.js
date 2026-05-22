@@ -4,8 +4,8 @@ const express = require("express"); // важно для Vercel
 const { sequelize, testConnection } = require("./config/database");
 const { app } = require("./config/app"); // берём готовый app из config/app.js
 const routes = require("./routes/index");
+const commentsRoutes = require("./routes/comments");
 const { checkConfiguration } = require("./services/emailService");
-
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -24,7 +24,7 @@ if (!process.env.VERCEL) {
   });
 
   // Подключаем маршруты с Socket.IO
-  require("./routes/comments").setSocketIO(io);
+  commentsRoutes.setSocketIO(io);
   app.use("/", routes);
 
   // Обработчик 404 для правильных CSP заголовков (для Chrome DevTools)
@@ -37,10 +37,10 @@ if (!process.env.VERCEL) {
 
   // Подключаем обработчики WebSocket событий
   require("./socket/commentChat")(io);
-  
+   
   // Make io available globally for access in views
   app.set('io', io);
-  
+   
   // Also set socket_io_available to true for non-Vercel deployments
   app.use((req, res, next) => {
     res.locals.socket_io_available = true;
@@ -98,12 +98,22 @@ if (require.main === module) {
   })();
 }
 
-// Обработчик ошибок CSRF
+// CSRF errors
 app.use((err, req, res, next) => {
-  if (err.code === 'EBADCSRFTOKEN') {
-    console.error('❌ CSRF токен невалиден:', err.message);
-    return res.status(403).json({ success: false, message: 'CSRF токен невалиден. Пожалуйста, обновите страницу и попробуйте снова.' });
-  } else {
-    next(err);
+  if (err.code === "EBADCSRFTOKEN") {
+    console.error("❌ CSRF токен невалиден:", err.message);
+    const wantsJson =
+      req.xhr || req.get("accept")?.includes("application/json") || req.path.startsWith("/api");
+    if (wantsJson) {
+      return res.status(403).json({
+        success: false,
+        message: "CSRF токен невалиден. Обновите страницу и попробуйте снова."
+      });
+    }
+    return res.status(403).send("CSRF токен невалиден. Обновите страницу.");
   }
+  return next(err);
 });
+
+const errorHandler = require("./middleware/errorHandler");
+app.use(errorHandler);

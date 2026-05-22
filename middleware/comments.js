@@ -78,7 +78,7 @@ function canDeleteComments(req, res, next) {
 async function checkChatAccess(cardId, user) {
   try {
     // Проверяем существование карточки
-    const card = await Product.findById(cardId);
+    const card = await Product.findByPk(cardId);
     if (!card) {
       return { allowed: false, canWrite: false, canModerate: false, reason: 'Карточка не найдена' };
     }
@@ -95,7 +95,7 @@ async function checkChatAccess(cardId, user) {
 
     // Авторизованные пользователи могут читать и писать
     const isAdmin = user.role === 'admin';
-    const isOwner = card.owner && card.owner.toString() === user._id.toString();
+    const isOwner = card.ownerId && card.ownerId.toString() === user._id.toString();
 
     return {
       allowed: true,

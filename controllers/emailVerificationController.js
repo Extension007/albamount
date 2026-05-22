@@ -11,16 +11,16 @@ exports.verifyEmail = async (req, res) => {
 
     // Отправляем уведомление администратору о подтверждении email
     try {
-      await notifyAdmin(
-        'Подтверждение email пользователя',
-        `Пользователь подтвердил свой email.`,
-        {
-          'Имя пользователя': user.username,
-          'Email': user.email,
-          'ID пользователя': user._id.toString(),
-          'Дата подтверждения': new Date().toLocaleString('ru-RU')
-        }
-      );
+       await notifyAdmin(
+         'Подтверждение email пользователя',
+         `Пользователь подтвердил свой email.`,
+         {
+           'Имя пользователя': user.username,
+           'Email': user.email,
+           'ID пользователя': user.id.toString(),
+           'Дата подтверждения': new Date().toLocaleString('ru-RU')
+         }
+       );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
@@ -47,7 +47,7 @@ exports.verifyEmail = async (req, res) => {
 
     // После успешной верификации обновляем JWT токен с новыми данными
     const updatedUserData = {
-      _id: user._id.toString(),
+      _id: user.id.toString(),
       username: user.username,
       role: user.role,
       emailVerified: true
@@ -99,7 +99,7 @@ exports.verificationStatus = async (req, res) => {
       return res.status(401).redirect('/user/login');
     }
 
-    const user = await User.findById(authUser._id);
+     const user = await User.findByPk(authUser._id);
 
     if (!user) {
       return res.status(404).redirect('/user/login');

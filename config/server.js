@@ -1,6 +1,6 @@
 // Конфигурация запуска сервера
 const { app } = require("./app");
-const { connectMongoDB, hasMongo } = require("./database");
+const { sequelize, USE_POSTGRES } = require("./database");
 
 // Глобальный обработчик ошибок
 const errorHandler = require("../middleware/errorHandler");
@@ -10,22 +10,18 @@ app.use(errorHandler);
 if (process.env.VERCEL) {
   app.use(async (req, res, next) => {
     try {
-      // В Vercel создаем новое соединение для каждого запроса
-      const dbResult = await connectMongoDB();
-
-      // Сохраняем соединение в req для использования в роутах
-      if (dbResult && dbResult.isConnected) {
-        req.dbConnection = dbResult.connection;
+      // В Vercel проверяем подключение к PostgreSQL для каждого запроса
+      if (USE_POSTGRES) {
+        await sequelize.authenticate();
         req.dbConnected = true;
       } else {
         req.dbConnected = false;
       }
-
       next();
     } catch (err) {
       console.error("❌ Ошибка подключения к БД в middleware:", err);
       req.dbConnected = false;
-      next(); // Продолжаем без БД
+      next();
     }
   });
 }
@@ -37,28 +33,48 @@ function startServer(port = process.env.PORT || 3000, attemptsLeft = 5) {
     return app;
   }
 
-  // В обычной среде подключаемся к БД перед запуском сервера
-  connectMongoDB().then(() => {
-    const server = app
-      .listen(port, "0.0.0.0", () => {
-        console.log(`✅ Сервер запущен на http://localhost:${port}`);
+  // В обычной среде подключаемся к PostgreSQL перед запуском сервера
+  if (USE_POSTGRES) {
+    sequelize.authenticate()
+      .then(() => {
+        console.log("✅ Подключение к PostgreSQL установлено");
+        const server = app
+          .listen(port, "0.0.0.0", () => {
+            console.log(`✅ Сервер запущен на http://localhost:${port}`);
+          })
+          .on("error", (err) => {
+            if (err && err.code === "EADDRINUSE" && attemptsLeft > 0) {
+              const nextPort = port + 1;
+              console.warn(`⚠️  Порт ${port} занят, пробую ${nextPort}... (${attemptsLeft - 1} попыток осталось)`);
+              startServer(nextPort, attemptsLeft - 1);
+            } else {
+              console.error("❌ Ошибка запуска сервера:", err);
+              process.exit(1);
+            }
+          });
+        return server;
       })
-      .on("error", (err) => {
-        if (err && err.code === "EADDRINUSE" && attemptsLeft > 0) {
-          const nextPort = port + 1;
-          console.warn(`⚠️  Порт ${port} занят, пробую ${nextPort}... (${attemptsLeft - 1} попыток осталось)`);
-          startServer(nextPort, attemptsLeft - 1);
-        } else {
-          console.error("❌ Ошибка запуска сервера:", err);
-          process.exit(1);
-        }
+      .catch((err) => {
+        console.error("❌ Ошибка подключения к PostgreSQL:", err);
+        console.warn("⚠️  Сервер запущен без БД");
+        const server = app
+          .listen(port, "0.0.0.0", () => {
+            console.log(`✅ Сервер запущен на http://localhost:${port} (без БД)`);
+          })
+          .on("error", (err) => {
+            if (err && err.code === "EADDRINUSE" && attemptsLeft > 0) {
+              const nextPort = port + 1;
+              console.warn(`⚠️  Порт ${port} занят, пробую ${nextPort}... (${attemptsLeft - 1} попыток осталось)`);
+              startServer(nextPort, attemptsLeft - 1);
+            } else {
+              console.error("❌ Ошибка запуска сервера:", err);
+              process.exit(1);
+            }
+          });
+        return server;
       });
-
-    return server;
-  }).catch((err) => {
-    console.error("❌ Ошибка подключения к БД:", err);
-    console.warn("⚠️  Сервер запущен без БД");
-    // Все равно запускаем сервер, но с ограниченным функционалом
+  } else {
+    console.warn("⚠️  DATABASE_URL не установлен, сервер запускается без БД");
     const server = app
       .listen(port, "0.0.0.0", () => {
         console.log(`✅ Сервер запущен на http://localhost:${port} (без БД)`);
@@ -73,9 +89,8 @@ function startServer(port = process.env.PORT || 3000, attemptsLeft = 5) {
           process.exit(1);
         }
       });
-
     return server;
-  });
+  }
 }
 
 module.exports = {
