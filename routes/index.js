@@ -5,6 +5,7 @@ const Product = require("../config/database").Product;
 const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
+const Statistics = require("../config/database").Statistics;
 const { USE_POSTGRES, hasMongo } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
 
@@ -149,18 +150,22 @@ router.get("/", async (req, res) => {
       Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: 5000 }),
       Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: 5000 }),
       Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']], limit: 5000 }),
-      Statistics.findOne({ where: { key: "visitors" } }),
+      Statistics.findOrCreate({
+        where: { key: "visitors" },
+        defaults: { key: "visitors", value: 0 }
+      }).then(([row]) => row),
       User.count()
     ]);
 
     if (visitors) {
-      await visitors.increment('value');
+      await visitors.increment("value");
+      await visitors.reload();
     }
 
-    const visitorCount = visitors ? visitors.value : 0;
+    const visitorCount = visitors ? Number(visitors.value) : 0;
     const userCount = users || 0;
 
-    const userId = req.user?.id?.toString();
+    const userId = (req.user?._id || req.user?.id)?.toString();
     const votedMap = {};
     [...products, ...services].forEach(p => {
       const plainP = p.get ? p.get({ plain: true }) : p;
