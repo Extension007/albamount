@@ -26,6 +26,11 @@ router.get("/", async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).send("Страница услуг недоступна: нет БД");
 
+    const isAuth = Boolean(req.user);
+    const userRole = req.user?.role || null;
+    const isAdmin = userRole === "admin";
+    const isUser = userRole === "user";
+
     const selected = req.query.category;
     const hasDbAccess = USE_POSTGRES;
 
@@ -103,7 +108,12 @@ router.get("/", async (req, res) => {
       selectedCategory: selectedCategoryDisplay,
       csrfToken: req.csrfToken ? req.csrfToken() : '',
       CATEGORY_LABELS,
-      activeTab: 'services'
+      activeTab: 'services',
+      isAuth,
+      isAdmin,
+      isUser,
+      userRole,
+      user: req.user
     });
   } catch (err) {
     console.error("❌ Ошибка на странице услуг:", err);
