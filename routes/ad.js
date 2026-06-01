@@ -45,7 +45,7 @@ router.get("/", async (req, res) => {
       Product.findAll({ where: { type: "service", status: "approved" }, order: [['id', 'DESC']], limit: 10 }), // Ограничиваем для фокуса на рекламе
       Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']] }),
       Statistics.increment('value', { by: 1, where: { key: "visitors" } })
-        .then(() => Statistics.findByPk("visitors")),
+        .then(() => Statistics.findOne({ where: { key: "visitors" } })),
       User.count()
     ]);
 

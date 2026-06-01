@@ -151,7 +151,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
        }),
 
        Statistics.increment('value', { by: 1, where: { key: 'visitors' } })
-         .then(() => Statistics.findByPk('visitors')),
+         .then(() => Statistics.findOne({ where: { key: 'visitors' } })),
 
        User.count()
     ]);

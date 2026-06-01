@@ -90,7 +90,7 @@ router.get("/", async (req, res) => {
         raw: true,
         nest: true
       }),
-      Statistics.increment('value', { by: 1, where: { key: "visitors" } }).then(() => Statistics.findByPk("visitors")),
+      Statistics.increment('value', { by: 1, where: { key: "visitors" } }).then(() => Statistics.findOne({ where: { key: "visitors" } })),
       User.count()
     ]);
 

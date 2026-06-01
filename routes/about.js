@@ -68,7 +68,7 @@ router.get("/", async (req, res) => {
         nest: true
       }),
       Statistics.increment('value', { by: 1, where: { key: "visitors" } })
-        .then(() => Statistics.findByPk("visitors")),
+        .then(() => Statistics.findOne({ where: { key: "visitors" } })),
       User.count()
     ]);
 

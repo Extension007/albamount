@@ -40,13 +40,6 @@ const Category = sequelize.define('Category', {
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
-  },
-  createdById: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
   }
 }, {
   indexes: [
