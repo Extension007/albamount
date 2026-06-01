@@ -386,8 +386,9 @@ const ContactInfo = sequelize.define('ContactInfo', {
 // === STATISTICS MODEL ===
 const Statistics = sequelize.define('Statistics', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   key: {
     type: DataTypes.STRING(100),
@@ -817,10 +818,10 @@ function generateId() {
   return require('crypto').randomBytes(16).toString('hex');
 }
 
-// Pre-create hooks to generate IDs
+// Pre-create hooks to generate IDs (excluding Statistics which uses autoIncrement)
 [
   User, Product, Banner, Comment,
-  ContactInfo, Statistics, AlbaTransaction,
+  ContactInfo, AlbaTransaction,
   Entitlement, Code, CodeUsage, AuditLog, VideoPost
 ].forEach(Model => {
   Model.addHook('beforeValidate', (instance) => {
