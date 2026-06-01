@@ -1,4 +1,4 @@
-const { Sequelize, DataTypes } = require("sequelize");
+const { Sequelize, DataTypes, Op } = require("sequelize");
 
 // Флаг доступности PostgreSQL
 const USE_POSTGRES = process.env.DATABASE_URL !== undefined;
@@ -27,8 +27,9 @@ module.exports.sequelize = sequelize;
 // === USER MODEL ===
 const User = sequelize.define('User', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   username: {
     type: DataTypes.STRING(100),
@@ -818,9 +819,9 @@ function generateId() {
   return require('crypto').randomBytes(16).toString('hex');
 }
 
-// Pre-create hooks to generate IDs (excluding Statistics which uses autoIncrement)
+// Pre-create hooks to generate IDs (excluding Statistics and User which use autoIncrement)
 [
-  User, Product, Banner, Comment,
+  Product, Banner, Comment,
   ContactInfo, AlbaTransaction,
   Entitlement, Code, CodeUsage, AuditLog, VideoPost
 ].forEach(Model => {
@@ -856,6 +857,9 @@ module.exports = {
   USE_POSTGRES,
   isDatabaseConfigured,
   hasMongo,
+  Op,
+  Sequelize,
+  DataTypes,
   // Models
   User,
   Product,

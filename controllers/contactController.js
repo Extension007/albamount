@@ -5,7 +5,14 @@ const emailConfig = require("../config/email");
 
 exports.getContacts = async (req, res) => {
   try {
-    const contacts = await ContactInfo.findAll({ order: [["type", "ASC"]] });
+    let contacts = [];
+    try {
+      contacts = await ContactInfo.findAll({ order: [["type", "ASC"]] });
+    } catch (dbErr) {
+      // Если таблица не существует, используем пустой массив
+      console.warn('⚠️ ContactInfo table not available, using empty contacts:', dbErr.message);
+      contacts = [];
+    }
 
     res.render("contacts", {
       products: [],
