@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/styles.css?v=1.0.1">
 </head>
 <body class="admin-page">
+
   <div id="bg-animated" aria-hidden="true"></div>
 <header class="main-header">
 <div class="container header-inner">
@@ -79,10 +80,10 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:8px;">
-<button class="btn small approve-btn" data-id="<%= p._id %>" data-type="product">
+<button class="btn small approve-btn" data-id="<%= p.id %>" data-type="product">
 ✅ Одобрить
 </button>
-<button class="btn small reject-btn" data-id="<%= p._id %>" data-type="product">
+<button class="btn small reject-btn" data-id="<%= p.id %>" data-type="product">
 ❌ Отклонить
 </button>
 <% if (p.link) { %>
@@ -143,10 +144,10 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:8px;">
-<button class="btn small approve-btn" data-id="<%= s._id %>" data-type="service">
+<button class="btn small approve-btn" data-id="<%= s.id %>" data-type="service">
 ✅ Одобрить
 </button>
-<button class="btn small reject-btn" data-id="<%= s._id %>" data-type="service">
+<button class="btn small reject-btn" data-id="<%= s.id %>" data-type="service">
 ❌ Отклонить
 </button>
 <% if (s.link) { %>
@@ -207,10 +208,10 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:8px;">
-<button class="btn small approve-btn" data-id="<%= b._id %>" data-type="banner">
+<button class="btn small approve-btn" data-id="<%= b.id %>" data-type="banner">
 ✅ Одобрить
 </button>
-<button class="btn small reject-btn" data-id="<%= b._id %>" data-type="banner">
+<button class="btn small reject-btn" data-id="<%= b.id %>" data-type="banner">
 ❌ Отклонить
 </button>
 <% if (b.link) { %>
@@ -299,9 +300,9 @@
 <strong class="price">👍 <%= v.rating_up %> | 👎 <%= v.rating_down %></strong>
 </div>
 
-<% if (v.userId) { %>
-<% if (typeof v.userId === 'object' && v.userId.username) { %>
-<p class="muted" style="text-align:center;font-size:0.9rem;">Автор: <%= v.userId.username %> | <%= v.nickname || '—' %></p>
+<% if (v.user) { %>
+<% if (typeof v.user === 'object' && v.user.username) { %>
+<p class="muted" style="text-align:center;font-size:0.9rem;">Автор: <%= v.user.username %> | <%= v.nickname || '—' %></p>
 <% } else { %>
 <p class="muted" style="text-align:center;font-size:0.9rem;">Автор: пользователь ID <%= v.userId %></p>
 <% } %>
@@ -310,10 +311,10 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:8px;">
-<button class="btn small approve-btn" data-id="<%= v._id %>" data-type="video">
+<button class="btn small approve-btn" data-id="<%= v.id %>" data-type="video">
 ✅ Одобрить
 </button>
-<button class="btn small reject-btn" data-id="<%= v._id %>" data-type="video">
+<button class="btn small reject-btn" data-id="<%= v.id %>" data-type="video">
 ❌ Отклонить
 </button>
 </div>
@@ -386,10 +387,10 @@
 </div>
 
 <!-- Автор -->
-<% if (v.userId) { %>
-<% if (typeof v.userId === 'object' && v.userId.username) { %>
+<% if (v.user) { %>
+<% if (typeof v.user === 'object' && v.user.username) { %>
 <p class="muted" style="text-align:center;font-size:0.85rem;margin-top:5px;">
-👤 Автор: <%= v.userId.username %> | <%= v.nickname || '—' %>
+👤 Автор: <%= v.user.username %> | <%= v.nickname || '—' %>
 </p>
 <% } else { %>
 <p class="muted" style="text-align:center;font-size:0.85rem;margin-top:5px;">
@@ -405,13 +406,13 @@
 <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
 <!-- Блокировка/Разблокировка -->
 <button class="btn small toggle-visibility-btn status-<%= v.status %>"
-data-id="<%= v._id %>"
+data-id="<%= v.id %>"
 data-status="<%= v.status %>"
 data-type="video">
 <%= v.status === 'approved' ? '🚫 Заблокировать' : '✅ Разблокировать' %>
 </button>
 
-<form method="POST" action="/admin/videos/<%= v._id %>/delete" style="display:inline" onsubmit="return confirm('Удалить видео?');">
+<form method="POST" action="/admin/videos/<%= v.id %>/delete" style="display:inline" onsubmit="return confirm('Удалить видео?');">
 <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
 <button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
 </form>
@@ -500,14 +501,14 @@ data-type="video">
 <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
 <!-- Блокировка/Разблокировка -->
 <button class="btn small toggle-visibility-btn status-<%= p.status %>"
-data-id="<%= p._id %>"
+data-id="<%= p.id %>"
 data-status="<%= p.status %>">
 <%= p.status === 'approved' ? '🚫 Заблокировать' : '✅ Разблокировать' %>
 </button>
 
-<a class="btn small outline" href="/admin/products/<%= p._id %>/edit">✏️ Редактировать</a>
+<a class="btn small outline" href="/admin/products/<%= p.id %>/edit">✏️ Редактировать</a>
 
-<form method="POST" action="/admin/products/<%= p._id %>/delete" style="display:inline" onsubmit="return confirm('Удалить карточку?');">
+<form method="POST" action="/admin/products/<%= p.id %>/delete" style="display:inline" onsubmit="return confirm('Удалить карточку?');">
 <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
 <button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
 </form>
@@ -521,7 +522,7 @@ data-status="<%= p.status %>">
 </div>
 
 <!-- Рейтинг (только отображение) -->
-<div class="product-rating" data-id="<%= p._id %>" style="margin-top:10px;">
+<div class="product-rating" data-id="<%= p.id %>" style="margin-top:10px;">
 <button class="btn icon" type="button" disabled aria-label="Лайк">▲</button>
 <span class="result"><%= (p.likes || 0) - (p.dislikes || 0) %></span>
 <button class="btn icon" type="button" disabled aria-label="Дизлайк">▼</button>
@@ -611,14 +612,14 @@ data-status="<%= p.status %>">
 <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
 <!-- Блокировка/Разблокировка -->
 <button class="btn small toggle-visibility-btn status-<%= s.status %>"
-data-id="<%= s._id %>"
+data-id="<%= s.id %>"
 data-status="<%= s.status %>">
 <%= s.status === 'approved' ? '🚫 Заблокировать' : '✅ Разблокировать' %>
 </button>
 
-<a class="btn small outline" href="/admin/services/<%= s._id %>/edit">✏️ Редактировать</a>
+<a class="btn small outline" href="/admin/services/<%= s.id %>/edit">✏️ Редактировать</a>
 
-<form method="POST" action="/admin/services/<%= s._id %>/delete" style="display:inline" onsubmit="return confirm('Удалить карточку?');">
+<form method="POST" action="/admin/services/<%= s.id %>/delete" style="display:inline" onsubmit="return confirm('Удалить карточку?');">
 <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
 <button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
 </form>
@@ -632,7 +633,7 @@ data-status="<%= s.status %>">
 </div>
 
 <!-- Рейтинг (только отображение) -->
-<div class="product-rating" data-id="<%= s._id %>" style="margin-top:10px;">
+<div class="product-rating" data-id="<%= s.id %>" style="margin-top:10px;">
 <button class="btn icon" type="button" disabled aria-label="Лайк">▲</button>
 <span class="result"><%= (s.likes || 0) - (s.dislikes || 0) %></span>
 <button class="btn icon" type="button" disabled aria-label="Дизлайк">▼</button>
@@ -724,15 +725,15 @@ data-status="<%= s.status %>">
 <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
 <!-- Блокировка/Разблокировка -->
 <button class="btn small toggle-visibility-btn status-<%= b.status %>"
-data-id="<%= b._id %>"
+data-id="<%= b.id %>"
 data-status="<%= b.status %>"
 data-type="banner">
 <%= (b.status === 'approved' || b.status === 'published') ? '🚫 Заблокировать' : '✅ Разблокировать' %>
 </button>
 
-<a class="btn small outline" href="/admin/banners/<%= b._id %>/edit">✏️ Редактировать</a>
+<a class="btn small outline" href="/admin/banners/<%= b.id %>/edit">✏️ Редактировать</a>
 
-<form method="POST" action="/admin/banners/<%= b._id %>/delete" style="display:inline" onsubmit="return confirm('Удалить баннер?');">
+<form method="POST" action="/admin/banners/<%= b.id %>/delete" style="display:inline" onsubmit="return confirm('Удалить баннер?');">
 <input type="hidden" name="_csrf" value="<%- JSON.stringify(csrfToken || '') %>">
 <button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
 </form>
@@ -746,7 +747,7 @@ data-type="banner">
 </div>
 
 <!-- Рейтинг (только отображение) -->
-<div class="product-rating" data-id="<%= b._id %>" style="margin-top:10px;">
+<div class="product-rating" data-id="<%= b.id %>" style="margin-top:10px;">
 <button class="btn icon" type="button" disabled aria-label="Лайк">▲</button>
 <span class="result"><%= (b.rating_up || 0) - (b.rating_down || 0) %></span>
 <button class="btn icon" type="button" disabled aria-label="Дизлайк">▼</button>
@@ -1148,19 +1149,10 @@ right: 15px;
 top: 10px;
 }
 .close:hover {
-color: #fff;
+  color: #fff;
 }
+
 </style>
+
 </body>
 </html>
-<task_progress>
-- [x] Провести полный аудит JavaScript кода в views/admin.ejs
-- [x] Найти все лишние и несоответствующие закрывающие скобки
-- [x] Удалить функциональность создания карточек
-- [x] Исправить синтаксические ошибки
-- [x] Структурировать код с одним DOMContentLoaded
-- [x] Защитить форму ALBA от GET запросов
-- [x] Убедиться в правильной передаче CSRF токена
-- [x] Проверить, что форма ALBA отправляет POST запрос
-</task_progress>
-</write_to_file>

@@ -46,7 +46,7 @@ window.AppBootstrap = {
     this.setString('USER_CREATED_AT', config.userCreatedAt || '');
     this.setString('USER_UPDATED_AT', config.userUpdatedAt || '');
     this.setNumber('USER_ALBA_BALANCE', config.userAlbaBalance || 0);
-    this.setBoolean('USER_REF_BONUS_GRANTED', config.userRefBonusGranted || false);
+    this.setBoolean('IS_CABINET_PAGE', config.isCabinetPage || false);
     this.setString('CSRF_TOKEN', config.csrfToken || '');
 
     console.log('AppBootstrap initialized:', {
@@ -64,7 +64,7 @@ window.AppBootstrap = {
     // This ensures that USER_ROLE and IS_EMAIL_VERIFIED are updated with current database values
     // regardless of JWT or template defaults
     if (window.IS_AUTH) {
-      fetch('/api/me')
+       fetch('/api/me', { credentials: 'include' })
         .then(response => {
           if (!response.ok) {
             // Handle 401 Unauthorized responses when token is expired or invalid

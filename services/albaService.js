@@ -1,4 +1,5 @@
-const { Op, fn, col, literal, transaction } = require("../config/database");
+const { Op } = require("../config/database");
+const { fn, col, literal } = require('sequelize');
 const AlbaTransaction = require("../models/AlbaTransaction");
 const Entitlement = require("../models/Entitlement");
 const { randomUUID } = require('crypto');
@@ -14,11 +15,11 @@ const logger = require('../utils/logger');
 async function getUserAlbaBalance(userId) {
   const result = await AlbaTransaction.findOne({
     attributes: [
-      [fn('SUM', col('amount')), 'total']
+      [fn('SUM', col('amount')), 'balance']
     ],
     where: { userId }
   });
-  return result ? parseFloat(result.get('total')) || 0 : 0;
+  return result ? parseFloat(result.get('balance')) || 0 : 0;
 }
 
 async function incBalance(UserModel, userId, delta) {

@@ -52,17 +52,33 @@ function buildSessionStore() {
   if (!process.env.DATABASE_URL) {
     return undefined;
   }
+
   const ssl =
     process.env.DATABASE_SSL === "true" ||
     process.env.DATABASE_URL.includes("sslmode=require") ||
     process.env.DATABASE_URL.includes("neon.tech");
 
-  return new pgSession({
-    conString: process.env.DATABASE_URL,
-    ...(ssl ? { conObject: { ssl: { rejectUnauthorized: false } } } : {}),
-    tableName: "sessions",
-    createTableIfMissing: true
-  });
+  try {
+    // Try to create a PostgreSQL-backed session store. If the DB is unreachable
+    // we catch the error and fall back to the default in-memory store to keep
+    // the app running (better than crashing with ECONNREFUSED).
+    // Use conservative options: do not try to auto-create the sessions table
+    // (createTableIfMissing: false) and set a short connection timeout so
+    // failures are fast and won't surface as unhandled AggregateError.
+    const conObject = ssl ? { ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 2000 } : { connectionTimeoutMillis: 2000 };
+
+    const store = new pgSession({
+      conString: process.env.DATABASE_URL,
+      conObject,
+      tableName: "sessions",
+      createTableIfMissing: false
+    });
+
+    return store;
+  } catch (err) {
+    console.error("⚠️ Не удалось создать PostgreSQL session store, используем MemoryStore:", err && err.message ? err.message : err);
+    return undefined;
+  }
 }
 
 const sessionOptions = {
@@ -77,15 +93,30 @@ const sessionOptions = {
   }
 };
 
-if (!isVercel && USE_POSTGRES) {
-  sessionOptions.store = buildSessionStore();
+let _sessionStore = null;
+// Only attempt PostgreSQL session store in non-Vercel environments when explicitly enabled for development
+const usePgSession = !isVercel && USE_POSTGRES && (process.env.NODE_ENV === 'production' || process.env.USE_PG_SESSION === 'true');
+if (usePgSession) {
+  _sessionStore = buildSessionStore();
+  if (_sessionStore) {
+    sessionOptions.store = _sessionStore;
+  } else {
+    console.warn("⚠️ PostgreSQL session store недоступен, используем in-memory сессии (не сохраняются между рестартами)");
+  }
+} else if (!isVercel && USE_POSTGRES) {
+  // In development without explicit opt-in, warn and fallback to memory store
+  console.info("ℹ️ В режиме разработки используем in-memory сессии. Чтобы использовать PostgreSQL для сессий, установите USE_PG_SESSION=true");
 }
 
 app.use(cookieParser());
 
 if (!isVercel && USE_POSTGRES) {
   app.use(session(sessionOptions));
-  console.log("✅ Сессии PostgreSQL включены");
+  if (_sessionStore) {
+    console.log("✅ Сессии PostgreSQL включены");
+  } else {
+    console.log("✅ Сессии (MemoryStore) включены — PostgreSQL недоступна");
+  }
 } else if (isVercel) {
   console.log("INFO: Vercel — авторизация через JWT cookie (exto_token)");
 }

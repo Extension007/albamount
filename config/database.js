@@ -388,8 +388,8 @@ const ContactInfo = sequelize.define('ContactInfo', {
 const Statistics = sequelize.define('Statistics', {
   id: {
     type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
+    autoIncrement: true,
+    primaryKey: true
   },
   key: {
     type: DataTypes.STRING(100),

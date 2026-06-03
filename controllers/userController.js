@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const logger = require('../utils/logger');
+const { Op } = require('sequelize');
 
 /**
  * Get current user data from database
@@ -19,7 +20,7 @@ exports.getMe = async (req, res) => {
 
      // Fetch fresh user data from database
      const user = await User.findByPk(userFromRequest._id, {
-       attributes: ['_id', 'username', 'email', 'role', 'emailVerified', 'createdAt', 'updatedAt', 'albaBalance', 'refBonusGranted']
+       attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'createdAt', 'updatedAt', 'albaBalance', 'refBonusGranted']
      });
     
     if (!user) {
@@ -89,7 +90,7 @@ exports.updateProfile = async (req, res) => {
        const existingUser = await User.findOne({ 
          where: { 
            username, 
-           _id: { $ne: userFromRequest._id } 
+           id: { [Op.ne]: userFromRequest._id } 
          }
        });
       

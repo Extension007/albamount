@@ -5,6 +5,7 @@ const Banner = require("../config/database").Banner;
 const VideoPost = require("../config/database").VideoPost;
 const Category = require("../config/database").Category;
 const Statistics = require("../config/database").Statistics;
+const User = require("../config/database").User;
 const { Op } = require("sequelize");
 const { USE_POSTGRES } = require("../config/database");
 const { requireAdmin, requireAuth } = require("../middleware/auth");
@@ -38,30 +39,30 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
     
     // Разделяем товары и услуги (исключаем удаленные)
      const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, users] = await Promise.all([
-       Product.findAll({
-         where: {
-           deleted: false,
-           [Op.or]: [
-             { type: "product" },
-             { type: null }
-           ]
-         },
-         order: [['id', 'DESC']],
-         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-         raw: true,
-         nest: true
-       }),
+        Product.findAll({
+          where: {
+            deleted: false,
+            [Op.or]: [
+              { type: "product" },
+              { type: null }
+            ]
+          },
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+        }),
 
-       Product.findAll({
-         where: {
-           deleted: false,
-           type: "service"
-         },
-         order: [['id', 'DESC']],
-         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-         raw: true,
-         nest: true
-       }),
+        Product.findAll({
+          where: {
+            deleted: false,
+            type: "service"
+          },
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+        }),
 
        Product.findAll({
          where: {
@@ -82,73 +83,73 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
              }
            ]
          },
-         order: [['id', 'DESC']],
-         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-         raw: true,
-         nest: true
-       }),
-
-       Product.findAll({
-         where: {
-           deleted: false,
-           [Op.and]: [
-             { ownerId: { [Op.not]: null } },
-             {
-               [Op.or]: [
-                 { status: "pending" },
-                 { status: null }
-               ]
-             },
-             { type: "service" }
-           ]
-         },
-         order: [['id', 'DESC']],
-         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-         raw: true,
-         nest: true
-       }),
-
-       Banner.findAll({
-         order: [['id', 'DESC']],
-         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-         raw: true,
-         nest: true
-       }),
-
-       Banner.findAll({
-         where: {
-           [Op.and]: [
-             { ownerId: { [Op.not]: null } },
-             {
-               [Op.or]: [
-                 { status: "pending" },
-                 { status: null }
-               ]
-             }
-           ]
-         },
-         order: [['id', 'DESC']],
-         include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-         raw: true,
-         nest: true
-       }),
-
-       VideoPost.findAll({
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
           raw: true,
           nest: true
        }),
 
-       VideoPost.findAll({
-         where: {
-           status: "pending"
-        },
-        order: [['id', 'DESC']],
-        include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
-        raw: true,
-        nest: true
-       }),
+        Product.findAll({
+          where: {
+            deleted: false,
+            [Op.and]: [
+              { ownerId: { [Op.not]: null } },
+              {
+                [Op.or]: [
+                  { status: "pending" },
+                  { status: null }
+                ]
+              },
+              { type: "service" }
+            ]
+          },
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+        }),
+
+        Banner.findAll({
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+        }),
+
+        Banner.findAll({
+          where: {
+            [Op.and]: [
+              { ownerId: { [Op.not]: null } },
+              {
+                [Op.or]: [
+                  { status: "pending" },
+                  { status: null }
+                ]
+              }
+            ]
+          },
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+        }),
+
+VideoPost.findAll({
+           order: [['id', 'DESC']],
+           include: [{ model: User, as: 'user', attributes: ['id','username','email'] }],
+           raw: true,
+           nest: true
+        }),
+
+        VideoPost.findAll({
+          where: {
+            status: "pending"
+         },
+         order: [['id', 'DESC']],
+         include: [{ model: User, as: 'user', attributes: ['id','username','email'] }],
+         raw: true,
+         nest: true
+        }),
 
        Statistics.increment('value', { by: 1, where: { key: 'visitors' } })
          .then(() => Statistics.findOne({ where: { key: 'visitors' } })),
@@ -790,10 +791,10 @@ router.get("/products", requireAdmin, csrfToken, async (req, res) => {
            { type: null }
          ]
        },
-       order: [['id', 'DESC']],
-       include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-       raw: true,
-       nest: true
+        order: [['id', 'DESC']],
+        include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+        raw: true,
+        nest: true
      })
     
     // Генерируем CSRF токен для формы и API запросов
@@ -822,16 +823,16 @@ router.get("/services", requireAdmin, csrfToken, async (req, res) => {
     }
     
     // Получаем все услуги (type: "service")
-     const services = await Product.findAll({ 
-       where: {
-         type: "service",
-         deleted: false
-       },
-       order: [['id', 'DESC']],
-       include: [{ model: require('../models/User'), as: 'owner', attributes: ['id','username','email'] }],
-       raw: true,
-       nest: true
-     })
+        const services = await Product.findAll({ 
+          where: {
+            type: "service",
+            deleted: false
+          },
+          order: [['id', 'DESC']],
+          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          raw: true,
+          nest: true
+        })
     
     // Генерируем CSRF токен для формы и API запросов
     const csrfTokenValue = res.locals.csrfToken || '';
@@ -1318,7 +1319,7 @@ router.post('/videos/:id/delete', requireAdmin, conditionalCsrfProtection, async
     console.log("✅ Видео удалено:", { videoId });
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) return res.json({ success: true, message: "Видео удалено" });
-    res.redirect("/admin/videos");
+    res.redirect("/admin");
   } catch (err) {
     console.error("❌ Ошибка удаления видео:", err);
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");

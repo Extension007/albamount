@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -527,8 +527,7 @@
   <!-- Загрузка YouTube IFrame API -->
     <!-- Bootstrap script for safe EJS to JS data transfer -->
   <script src="/utils/bootstrap.js"></script>
-  <script>
-    window.AppBootstrap.init(<%- JSON.stringify({
+  <script id="bootstrap-data" type="application/json"><%- JSON.stringify({
       isAuth: true,
       isAdmin: typeof isAdmin !== 'undefined' ? isAdmin : false,
       socketIoAvailable: typeof socket_io_available !== 'undefined' ? socket_io_available : false,
@@ -540,7 +539,23 @@
       userAlbaBalance: typeof user !== 'undefined' && user ? user.albaBalance : 0,
       userRefBonusGranted: typeof user !== 'undefined' && user ? user.refBonusGranted : false,
       csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : ''
-    }) %>);
+    }) %></script>
+  <script>
+    (function(){
+      try {
+        const el = document.getElementById('bootstrap-data');
+        const cfg = el ? JSON.parse(el.textContent || el.innerText || '{}') : {};
+        if (window.AppBootstrap && typeof window.AppBootstrap.init === 'function') {
+          window.AppBootstrap.init(cfg);
+        } else {
+          window.AppBootstrap = window.AppBootstrap || {};
+          window.AppBootstrap._pending = cfg;
+        }
+      } catch (e) {
+        console.error('Error parsing bootstrap data', e);
+        try { window.AppBootstrap.init({}); } catch (err) {}
+      }
+    })();
   </script>
 
   <script src="/js/cabinet.js?v=1.0.1"></script>
