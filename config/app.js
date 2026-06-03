@@ -151,6 +151,16 @@ app.use((req, res, next) => {
     return next();
   }
 
+  // If origin is absent/null and referer is absent, allow when a valid CSRF token was provided.
+  // The csurf middleware runs earlier; if the CSRF token was invalid the request would have been rejected already.
+  const hasCsrfToken = Boolean(
+    req.get('x-csrf-token') || req.get('x-xsrf-token') || req.get('x-xsrf') || (req.body && req.body._csrf)
+  );
+
+  if ((!origin || origin === 'null') && !referer && hasCsrfToken) {
+    return next();
+  }
+
   // Log mismatch to help debugging on Vercel
   console.warn('Origin/referer mismatch', {
     origin,

@@ -87,20 +87,83 @@
   <div class="login-container">
     <h2>Вход для пользователей</h2>
 
-    <form method="POST" action="/user/login">
-      <input type="text" name="username" placeholder="Логин" required>
-      <input type="password" name="password" placeholder="Пароль" required>
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <form id="loginForm" method="POST" action="/user/login">
+      <input type="text" name="username" id="username" placeholder="Логин" required>
+      <input type="password" name="password" id="password" placeholder="Пароль" required>
+      <input type="hidden" name="_csrf" id="_csrf" value="<%= csrfToken %>">
       <button type="submit">Войти</button>
     </form>
 
-    <% if (error) { %>
-      <p class="error"><%= error %></p>
-    <% } %>
+    <div id="loginError">
+      <% if (error) { %>
+        <p class="error"><%= error %></p>
+      <% } %>
+    </div>
 
     <div class="link">
       <a href="/">Вернуться на главную</a>
     </div>
   </div>
+
+  <script>
+    (function(){
+      function showError(msg){
+        var container = document.getElementById('loginError');
+        container.innerHTML = '<p class="error">' + (msg || 'Ошибка входа') + '</p>';
+      }
+
+      document.addEventListener('DOMContentLoaded', function(){
+        var form = document.getElementById('loginForm');
+        if (!form) return;
+
+        form.addEventListener('submit', async function(e){
+          e.preventDefault();
+
+          var username = document.getElementById('username').value;
+          var password = document.getElementById('password').value;
+          var csrf = document.getElementById('_csrf').value;
+
+          try {
+            var res = await fetch(window.location.origin + '/user/login', {
+              method: 'POST',
+              credentials: 'include', // важное требование
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrf
+              },
+              body: JSON.stringify({ username: username, password: password })
+            });
+
+            // Если сервер делает redirect, браузер автоматически перенаправит
+            if (res.redirected) {
+              window.location = res.url;
+              return;
+            }
+
+            var ct = res.headers.get('content-type') || '';
+            if (ct.indexOf('application/json') !== -1) {
+              var data = await res.json();
+              if (data && data.success) {
+                window.location = '/cabinet';
+              } else {
+                showError(data && data.message ? data.message : 'Неверный логин или пароль');
+              }
+            } else {
+              // При HTML ответе — если статус 200, считаем успешным и переходим
+              if (res.status === 200) {
+                window.location = '/cabinet';
+              } else {
+                var text = await res.text();
+                showError(text || 'Ошибка входа');
+              }
+            }
+          } catch (err) {
+            console.error('Login error:', err);
+            showError('Сеть недоступна или сервер не отвечает');
+          }
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
