@@ -107,10 +107,25 @@ app.use((req, res, next) => {
   }
 
   const baseUrl = process.env.BASE_URL;
-  let expectedOrigin = `${req.protocol}://${req.get("host")}`;
+
+  // Build a set of allowed origins (support canonical BASE_URL and www/non-www variants)
+  const allowedOrigins = new Set();
+  // Always allow the current host origin
+  allowedOrigins.add(`${req.protocol}://${req.get("host")}`);
+
   if (baseUrl) {
     try {
-      expectedOrigin = new URL(baseUrl).origin;
+      const parsed = new URL(baseUrl).origin;
+      allowedOrigins.add(parsed);
+
+      // Add both www and non-www variants when applicable
+      if (parsed.includes('://www.')) {
+        allowedOrigins.add(parsed.replace('://www.', '://'));
+      } else {
+        // insert www variant
+        const withWww = parsed.replace('://', '://www.');
+        allowedOrigins.add(withWww);
+      }
     } catch (error) {
       console.warn("BASE_URL is invalid, falling back to request origin.");
     }
@@ -118,20 +133,31 @@ app.use((req, res, next) => {
 
   const origin = req.get("origin");
   const referer = req.get("referer");
-  const isSameOrigin = (value) => {
+
+  function isAllowed(value) {
+    if (!value) return false;
     try {
-      return new URL(value).origin === expectedOrigin;
-    } catch (error) {
+      const originOnly = new URL(value).origin;
+      return allowedOrigins.has(originOnly);
+    } catch (e) {
       return false;
     }
-  };
+  }
 
-  if (origin && isSameOrigin(origin)) {
+  if (origin && isAllowed(origin)) {
     return next();
   }
-  if (!origin && referer && isSameOrigin(referer)) {
+  if (!origin && referer && isAllowed(referer)) {
     return next();
   }
+
+  // Log mismatch to help debugging on Vercel
+  console.warn('Origin/referer mismatch', {
+    origin,
+    referer,
+    host: req.get('host'),
+    allowedOrigins: Array.from(allowedOrigins)
+  });
 
   return res.status(403).send("Forbidden");
 });
