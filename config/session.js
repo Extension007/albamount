@@ -16,7 +16,7 @@ if (isProduction) {
 }
 
 const hasRedis = Boolean(process.env.REDIS_HOST || process.env.REDIS_PORT);
-const usePgSession = !isVercel && USE_POSTGRES && (process.env.NODE_ENV === 'production' || process.env.USE_PG_SESSION === 'true');
+const usePgSession = USE_POSTGRES && (process.env.NODE_ENV === 'production' || process.env.USE_PG_SESSION === 'true');
 
 const sessionOptions = {
   secret: process.env.SESSION_SECRET || "exto-secret-change-in-production",

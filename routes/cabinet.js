@@ -7,7 +7,7 @@ const Category = require("../models/Category");
 const User = require("../models/User");
 const AlbaTransaction = require("../models/AlbaTransaction");
 const { USE_POSTGRES } = require("../config/database");
-const { requireUser } = require("../middleware/auth");
+const { requireUser, requireAdmin, requireAuth, requireOwnerOrAdmin } = require("../middleware/auth");
 const { productLimiter } = require("../middleware/rateLimiter");
 const { validateProduct, validateProductId } = require("../middleware/validators");
 const { csrfProtection, csrfToken } = require("../middleware/csrf");
@@ -43,81 +43,76 @@ function handleMulterError(err, req, res, next) {
 }
 
 // Личный кабинет
-router.get("/", requireUser, conditionalCsrfToken, async (req, res) => {
-  console.log('[Cabinet] session.user=%s req.user._id=%s', !!req.session?.user, req.user?._id);
-  if (!req.session?.user && !process.env.VERCEL) {
-    console.warn('[Cabinet] missing session.user for non-Vercel env, redirecting to login');
-    return res.redirect('/user/login');
-  }
-  if (!USE_POSTGRES) {
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(503).json({ success: false, message: "Личный кабинет недоступен: нет БД" });
-    return res.status(503).send("Личный кабинет недоступен: нет БД");
-  }
-   try {
-     // Разделяем товары и услуги (исключаем удаленные)
-     const myProducts = await Product.findAll({
-       where: {
-         ownerId: req.user._id,
-         deleted: false,
-         [Op.or]: [
-           { type: "product" },
-           { type: null }
-         ]
-       },
-       order: [['id', 'DESC']]
-     });
+router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
+  try {
+    const userData = req.session?.user || req.user;
+    if (!userData) {
+      return res.redirect('/user/login');
+    }
 
-     const myServices = await Product.findAll({
-       where: {
-         ownerId: req.user._id,
-         deleted: false,
-         type: "service"
-       },
-       order: [['id', 'DESC']]
-     });
+    if (!USE_POSTGRES) {
+      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
+      if (wantsJson) return res.status(503).json({ success: false, message: "Личный кабинет недоступен: нет БД" });
+      return res.status(503).send("Личный кабинет недоступен: нет БД");
+    }
 
-     // Получаем баннеры пользователя
-     const myBanners = await Banner.findAll({
-       where: { ownerId: req.user._id },
-       order: [['id', 'DESC']]
-     });
+    // Разделяем товары и услуги (исключаем удаленные)
+    const myProducts = await Product.findAll({
+      where: {
+        ownerId: req.user._id,
+        deleted: false,
+        [Op.or]: [
+          { type: "product" },
+          { type: null }
+        ]
+      },
+      order: [['id', 'DESC']]
+    });
 
-    // Получаем дерево категорий для всех типов
+    const myServices = await Product.findAll({
+      where: {
+        ownerId: req.user._id,
+        deleted: false,
+        type: "service"
+      },
+      order: [['id', 'DESC']]
+    });
+
+    // Получаем баннеры пользователя
+    const myBanners = await Banner.findAll({
+      where: { ownerId: req.user._id },
+      order: [['id', 'DESC']]
+    });
+
     const categoryTree = await Category.getTree('all');
     const categoryFlat = await Category.getFlatList('all');
+    const freshUser = await User.findByPk(req.user._id, {
+      attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt'],
+      raw: true
+    });
 
-     // Получаем свежие данные пользователя и актуальный ALBA баланс
-     const freshUser = await User.findByPk(req.user._id, {
-       attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt'],
-       raw: true
-     });
+    const actualBalance = await getUserAlbaBalance(req.user._id);
+    freshUser.albaBalance = actualBalance;
 
-     // Вычисляем баланс как сумму транзакций, чтобы обеспечить согласованность
-     const actualBalance = await getUserAlbaBalance(req.user._id);
-     freshUser.albaBalance = actualBalance;
-     
-     // Получаем последние транзакции ALBA для пользователя
-     const albaTransactions = await AlbaTransaction.findAll({
-       where: { userId: req.user._id },
-       order: [['createdAt', 'DESC']],
-       limit: 50,
-       raw: true
-     });
+    const albaTransactions = await AlbaTransaction.findAll({
+      where: { userId: req.user._id },
+      order: [['createdAt', 'DESC']],
+      limit: 50,
+      raw: true
+    });
 
-    // Генерируем CSRF токен
     const csrfTokenValue = res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '');
 
     res.render("cabinet", {
-      user: freshUser, // используем свежие данные из базы
-      albaTransactions, // передаем транзакции в шаблон
+      user: freshUser,
+      albaTransactions,
       products: myProducts,
       services: myServices || [],
       banners: myBanners || [],
       csrfToken: csrfTokenValue,
       socket_io_available: res.locals.socket_io_available,
-      categories: categoryFlat, // Новая система категорий
-      hierarchicalCategories: categoryTree // Дерево категорий
+      categories: categoryFlat,
+      hierarchicalCategories: categoryTree
     });
   } catch (err) {
     console.error("❌ Ошибка загрузки кабинета:", err);

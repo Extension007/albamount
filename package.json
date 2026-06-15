@@ -9,6 +9,7 @@
     "start:prod": "node server.js",
     "dev": "nodemon server.js",
     "db:sync": "node scripts/sync-db.js",
+    "db:migrate": "npx sequelize-cli db:migrate",
     "admin:create": "node scripts/create-admin-user.js"
   },
   "engines": {

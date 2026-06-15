@@ -26,69 +26,84 @@ async function getUserFromRequestAsync(req) {
   }
 
   const userId = (tokenData && tokenData._id) || (sessionUser && sessionUser._id);
-  
-  if (userId) {
-    try {
-      const User = require('../models/User');
-      const freshUser = await User.findByPk(userId, {
-        attributes: ['id', 'username', 'role', 'emailVerified']
-      });
-      
-      if (freshUser) {
-        const tokenOutOfSync = tokenData && (
-          tokenData.role !== freshUser.role ||
-          tokenData.emailVerified !== freshUser.emailVerified
-        );
-        
-        const sessionOutOfSync = sessionUser && (
-          sessionUser.role !== freshUser.role ||
-          sessionUser.emailVerified !== freshUser.emailVerified
-        );
-        
-        if (tokenOutOfSync || sessionOutOfSync) {
-          logger.info({
-            msg: 'auth_desync_detected',
-            userId: userId.toString(),
-            tokenOutOfSync,
-            sessionOutOfSync
-          });
-          
-          const { generateToken } = require('../config/jwt');
-          const updatedTokenData = {
-            _id: freshUser.id.toString(),
-            username: freshUser.username,
-            role: freshUser.role,
-            emailVerified: freshUser.emailVerified
-          };
-          
-          const newToken = generateToken(updatedTokenData);
-          if (req.res) {
-            req.res.cookie('exto_token', newToken, {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'strict',
-              maxAge: 1000 * 60 * 60 * 24
-            });
-          }
-        }
-        
-        return {
+
+  if (!userId) {
+    return tokenData || sessionUser || null;
+  }
+
+  try {
+    const User = require('../models/User');
+    const freshUser = await User.findByPk(userId, {
+      attributes: ['id', 'username', 'role', 'emailVerified']
+    });
+
+    if (freshUser) {
+      const tokenOutOfSync = tokenData && (
+        tokenData.role !== freshUser.role ||
+        tokenData.emailVerified !== freshUser.emailVerified
+      );
+
+      const sessionOutOfSync = sessionUser && (
+        sessionUser.role !== freshUser.role ||
+        sessionUser.emailVerified !== freshUser.emailVerified
+      );
+
+      if (tokenOutOfSync || sessionOutOfSync) {
+        logger.info({
+          msg: 'auth_desync_detected',
+          userId: userId.toString(),
+          tokenOutOfSync,
+          sessionOutOfSync
+        });
+
+        const { generateToken } = require('../config/jwt');
+        const updatedTokenData = {
           _id: freshUser.id.toString(),
           username: freshUser.username,
           role: freshUser.role,
           emailVerified: freshUser.emailVerified
         };
-      }
-    } catch (error) {
-      logger.error({
-        msg: 'auth_fetch_user_error',
-        error: error.message
-      });
-      return tokenData || sessionUser;
-    }
-  }
 
-  return tokenData || sessionUser;
+        const newToken = generateToken(updatedTokenData);
+        if (req.res) {
+          req.res.cookie('exto_token', newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 1000 * 60 * 60 * 24
+          });
+        }
+
+        // Update session store with fresh data
+        if (req.session && updatedTokenData) {
+          req.session.user = updatedTokenData;
+        }
+      }
+
+      return {
+        _id: freshUser.id.toString(),
+        username: freshUser.username,
+        role: freshUser.role,
+        emailVerified: freshUser.emailVerified
+      };
+    }
+
+    // User not found in DB — log and return null
+    logger.warn({
+      msg: 'auth_user_not_found',
+      userId: userId.toString(),
+      hasSessionUser: !!sessionUser,
+      hasToken: !!tokenData
+    });
+    return null;
+  } catch (error) {
+    logger.error({
+      msg: 'auth_fetch_user_error',
+      error: error.message,
+      userId: userId.toString()
+    });
+    return tokenData || sessionUser;
+  }
 }
 
 function wantsJsonResponse(req) {
@@ -100,6 +115,7 @@ function requireAdmin(req, res, next) {
     try {
       const user = await getUserFromRequestAsync(req);
       if (!user) {
+        logger.warn({ msg: 'requireAdmin_denied', path: req.path, ip: req.ip });
         if (wantsJsonResponse(req)) {
           return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
         }
@@ -115,7 +131,7 @@ function requireAdmin(req, res, next) {
       req.user = user;
       next();
     } catch (error) {
-      console.error('❌ Error in requireAdmin middleware:', error);
+      logger.error({ msg: 'requireAdmin_error', error: error.message, path: req.path });
       if (wantsJsonResponse(req)) {
         return res.status(500).json({ success: false, error: "Server Error", message: "Ошибка проверки прав администратора" });
       }
@@ -129,6 +145,7 @@ function requireUser(req, res, next) {
     try {
       const user = await getUserFromRequestAsync(req);
       if (!user) {
+        logger.warn({ msg: 'requireUser_denied', path: req.path, ip: req.ip });
         if (wantsJsonResponse(req)) {
           return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
         }
@@ -138,7 +155,7 @@ function requireUser(req, res, next) {
       req.user = user;
       next();
     } catch (error) {
-      console.error('❌ Error in requireUser middleware:', error);
+      logger.error({ msg: 'requireUser_error', error: error.message, path: req.path });
       if (wantsJsonResponse(req)) {
         return res.status(500).json({ success: false, error: "Server Error", message: "Ошибка проверки прав пользователя" });
       }
@@ -174,6 +191,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
 
         const user = await getUserFromRequestAsync(req);
         if (!user) {
+          logger.warn({ msg: 'requireOwnerOrAdmin_denied', path: req.path, ip: req.ip });
           if (wantsJsonResponse(req)) {
             return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
           }
@@ -216,6 +234,7 @@ function requireAuth(req, res, next) {
     try {
       const user = await getUserFromRequestAsync(req);
       if (!user) {
+        logger.warn({ msg: 'requireAuth_denied', path: req.path, ip: req.ip });
         if (wantsJsonResponse(req)) {
           return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
         }
@@ -225,7 +244,7 @@ function requireAuth(req, res, next) {
       req.currentUser = user;
       return next();
     } catch (error) {
-      console.error('❌ Error in requireAuth middleware:', error);
+      logger.error({ msg: 'requireAuth_error', error: error.message, path: req.path });
       if (wantsJsonResponse(req)) {
         return res.status(500).json({ success: false, error: "Server Error", message: "Ошибка проверки авторизации" });
       }

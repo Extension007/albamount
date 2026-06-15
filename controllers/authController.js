@@ -144,6 +144,7 @@ exports.userLogin = async (req, res) => {
   try {
     const user = await User.findOne({ where: { username } });
     if (!user) {
+      logger.warn({ msg: 'user_login_failed', reason: 'user_not_found', username });
       return res.render("user-login", { error: "Неверный логин или пароль", csrfToken: res.locals.csrfToken });
     }
     if (user.role === "admin") {
@@ -153,6 +154,7 @@ exports.userLogin = async (req, res) => {
       });
     }
     if (!user.emailVerified) {
+      logger.warn({ msg: 'user_login_failed', reason: 'email_not_verified', userId: user.id });
       return res.render("user-login", {
         error: "Подтвердите email перед входом. Проверьте Входящие или Спам.",
         csrfToken: res.locals.csrfToken,
@@ -162,6 +164,7 @@ exports.userLogin = async (req, res) => {
     }
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
+      logger.warn({ msg: 'user_login_failed', reason: 'invalid_password', userId: user.id });
       return res.render("user-login", { error: "Неверный логин или пароль", csrfToken: res.locals.csrfToken });
     }
 

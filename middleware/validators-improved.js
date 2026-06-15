@@ -6,17 +6,17 @@ const { CATEGORY_KEYS } = require("../config/constants");
 function handleValidationErrors(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const errorMessages = errors.array().map(e => e.msg);
+    const errorMessages = errors.array().map(e => ({ field: e.param || e.path, reason: e.msg }));
     console.error('[ValidationError] path=%s errors=%s', req.path, JSON.stringify(errorMessages));
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) {
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: "Ошибка валидации",
-        errors: errors.array()
+        errors: errorMessages
       });
     }
-    return res.status(400).send("Ошибка валидации: " + errorMessages.join(", "));
+    return res.status(400).send("Ошибка валидации: " + errorMessages.map(e => `${e.field}: ${e.reason}`).join(", "));
   }
   next();
 }
