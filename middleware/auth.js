@@ -99,14 +99,12 @@ function requireAdmin(req, res, next) {
   (async () => {
     try {
       const user = await getUserFromRequestAsync(req);
-
       if (!user) {
         if (wantsJsonResponse(req)) {
           return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
         }
         return res.redirect("/admin/login");
       }
-      
       if (user.role !== "admin") {
         if (wantsJsonResponse(req)) {
           return res.status(403).json({ success: false, error: "Forbidden", message: "Доступ запрещен: требуется роль администратора" });
@@ -114,6 +112,7 @@ function requireAdmin(req, res, next) {
         return res.status(403).send("Доступ запрещен: требуется роль администратора");
       }
       req.currentUser = user;
+      req.user = user;
       next();
     } catch (error) {
       console.error('❌ Error in requireAdmin middleware:', error);
@@ -129,7 +128,6 @@ function requireUser(req, res, next) {
   (async () => {
     try {
       const user = await getUserFromRequestAsync(req);
-
       if (!user) {
         if (wantsJsonResponse(req)) {
           return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
@@ -137,6 +135,7 @@ function requireUser(req, res, next) {
         return res.redirect("/user/login");
       }
       req.currentUser = user;
+      req.user = user;
       next();
     } catch (error) {
       console.error('❌ Error in requireUser middleware:', error);
@@ -154,10 +153,10 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
       try {
         const Product = require('../models/Product');
         const Banner = require('../models/Banner');
-        
+
         const Model = modelName === 'Banner' ? Banner : Product;
         const itemId = req.params[paramName];
-           
+
         if (!/^[a-f0-9]{32,}$/i.test(itemId)) {
           if (wantsJsonResponse(req)) {
             return res.status(400).json({ success: false, error: "Bad Request", message: "Неверный формат ID" });
@@ -174,9 +173,16 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
         }
 
         const user = await getUserFromRequestAsync(req);
+        if (!user) {
+          if (wantsJsonResponse(req)) {
+            return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });
+          }
+          return res.redirect('/user/login');
+        }
 
-        if (user && user.role === "admin") {
+        if (user.role === "admin") {
           req.currentUser = user;
+          req.user = user;
           return next();
         }
 
@@ -192,6 +198,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
 
         req.item = item;
         req.currentUser = user;
+        req.user = user;
         next();
       } catch (err) {
         console.error("❌ Ошибка проверки владельца:", err);
@@ -208,7 +215,6 @@ function requireAuth(req, res, next) {
   (async () => {
     try {
       const user = await getUserFromRequestAsync(req);
-
       if (!user) {
         if (wantsJsonResponse(req)) {
           return res.status(401).json({ success: false, error: "Unauthorized", message: "Требуется авторизация" });

@@ -107,6 +107,38 @@ exports.register = async (req, res) => {
   }
 };
 
+/**
+ * Resolves a DB-synced user object with guaranteed shape, including email verification status.
+ * Uses either existing freshUser (from session page / token) or revalidates from DB when needed.
+ */
+async function resolveUser(userId, includeRefresh = true) {
+  const UserModel = require('../models/User');
+  const freshUser = await UserModel.findByPk(userId, {
+    attributes: ['id', 'username', 'role', 'emailVerified', 'email']
+  });
+  if (!freshUser) return null;
+
+  const userPayload = {
+    _id: freshUser.id.toString(),
+    username: freshUser.username,
+    role: freshUser.role,
+    emailVerified: !!freshUser.emailVerified,
+    email: freshUser.email || undefined,
+  };
+
+  const token = require('../config/jwt').generateToken(userPayload);
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const cookieOpts = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    maxAge: 1000 * 60 * 60 * 24,
+  };
+
+  return { user: userPayload, token, cookieOpts, freshUser };
+}
+
 exports.userLogin = async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -133,23 +165,12 @@ exports.userLogin = async (req, res) => {
       return res.render("user-login", { error: "Неверный логин или пароль", csrfToken: res.locals.csrfToken });
     }
 
-    const userData = {
-      _id: user.id,
-      username: user.username,
-      role: user.role,
-      emailVerified: user.emailVerified
-    };
+    const { user: userPayload, token, cookieOpts } = await resolveUser(user.id);
 
-    const token = generateToken(userData);
     if (!process.env.VERCEL) {
-      req.session.user = userData;
+      req.session.user = userPayload;
     }
-    res.cookie("exto_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 24
-    });
+    res.cookie("exto_token", token, cookieOpts);
 
     logger.info({
       msg: "user_login_success",
