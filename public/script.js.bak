@@ -2405,21 +2405,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initializeTabContent() {
-    showOverviewTab();
+    const path = window.location.pathname || '';
+    const isAdmin = path.indexOf('/admin/') !== -1;
+    const isCabinet = path.indexOf('/cabinet/') !== -1;
+    const isPublic = !isAdmin && !isCabinet;
+    if (isPublic) {
+      showOverviewTab();
+    }
   }
 
   function showOverviewTab() {
-    const pathname = window.location.pathname;
-    if (pathname.startsWith('/admin')) return;
-
     document.querySelectorAll('.section').forEach(section => {
-      if (section.id === 'catalog' || section.id === 'services') {
-        section.style.display = 'block';
-      } else if (section.id === 'ad' || section.id === 'about' || section.id === 'contacts' || section.id === 'videos') {
-        section.style.display = 'block';
-      } else {
-        section.style.display = 'none';
-      }
+      const id = (section.id || '').toLowerCase();
+      const keep =
+        id === 'catalog' ||
+        id === 'services' ||
+        id === 'ad' ||
+        id === 'about' ||
+        id === 'contacts' ||
+        id === 'videos';
+      section.style.display = keep ? 'block' : 'none';
     });
 
     const settingsSection = document.getElementById('settings-content');
@@ -2429,9 +2434,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showSettingsTab() {
-    const pathname = window.location.pathname;
-    if (pathname.startsWith('/admin')) return;
-
     document.querySelectorAll('.section').forEach(section => {
       if (section.id !== 'settings-content') {
         section.style.display = 'none';
@@ -2442,9 +2444,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showCommentsTab() {
-    const pathname = window.location.pathname;
-    if (pathname.startsWith('/admin')) return;
-
     document.querySelectorAll('.section').forEach(section => {
       if (section.id !== 'comments-content') {
         section.style.display = 'none';

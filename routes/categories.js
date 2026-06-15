@@ -4,8 +4,9 @@ const router = express.Router();
 const Category = require("../config/database").Category;
 const Product = require("../config/database").Product;
 const Banner = require("../config/database").Banner;
+const { requireAdmin } = require("../middleware/auth");
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const productsCount = await Product.count({ where: { categoryId: id } });

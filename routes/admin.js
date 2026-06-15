@@ -13,6 +13,9 @@ const { productLimiter } = require("../middleware/rateLimiter");
 const { validateProduct, validateProductId, validateService, validateServiceId, validateBanner, validateBannerId, validateModeration } = require("../middleware/validators");
 const { csrfProtection, csrfToken } = require("../middleware/csrf");
 const { upload } = require("../utils/upload");
+const { updateProduct, deleteProduct } = require("../services/productService");
+const { notifyAdmin } = require("../services/adminNotificationService");
+const { deleteImage, deleteImages } = require("../utils/imageUtils");
 
 const conditionalCsrfToken = csrfToken;
 const conditionalCsrfProtection = csrfProtection;
@@ -922,7 +925,7 @@ router.post("/banners", requireAdmin, productLimiter, upload, handleMulterError,
       status: status || "published",
       images: images,
       image_url: image_url,
-      owner: null, // Админ создает без владельца
+      ownerId: null, // Админ создает без владельца
       rating_up: 0,
       rating_down: 0
     };

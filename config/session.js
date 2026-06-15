@@ -1,6 +1,5 @@
 // Конфигурация сессий
 const session = require("express-session");
-const MongoStore = require("connect-mongo");
 const RedisStore = require("connect-redis").default;
 const { USE_POSTGRES } = require("./database");
 const { redisClient } = require("./redis");
@@ -40,19 +39,14 @@ if (hasRedis) {
   });
   console.log("✅ Сессии хранятся в Redis");
 } else if (USE_POSTGRES && process.env.DATABASE_URL) {
-  // Резервный вариант: MongoDB для хранения сессий
-  sessionOptions.store = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    collectionName: "sessions"
-  });
-  console.log("✅ Сессии хранятся в MongoDB");
+  console.warn("⚠️  PostgreSQL доступен, но Redis не настроен. Используется MemoryStore для сессий.");
 } else {
   // В Vercel без внешнего хранилища сессий использовать нельзя - приложение не будет работать корректно
   if (isVercel) {
-    console.error("❌ В Vercel обязательно необходимо настроить Redis или MongoDB для хранения сессий");
+    console.error("❌ В Vercel обязательно необходимо настроить Redis для хранения сессий");
     process.exit(1);
   } else {
-    console.warn("⚠️  Ни Redis, ни MongoDB не настроены. Используется MemoryStore для сессий (только для локальной разработки).");
+    console.warn("⚠️  Redis не настроен. Используется MemoryStore для сессий (только для локальной разработки).");
   }
 }
 

@@ -33,14 +33,19 @@ exports.verifyEmail = async (req, res) => {
       console.error('Ошибка при начислении реферального бонуса:', referralError);
     }
 
-    // Обновляем сессию пользователя, чтобы отразить изменение статуса emailVerified
-    if (req.session && req.session.user) {
-      req.session.user.emailVerified = true;
+    // Обновляем сессию пользователя, чтобы отразить изменение статуса emailVerified.
+    // Синхронизируем аккаунт на подтверждённого пользователя, исключая подмену ника из чужой сессии.
+    if (req.session) {
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        emailVerified: true
+      };
       req.session.save((err) => {
         if (err) {
           console.error('Ошибка сохранения сессии после подтверждения email:', err);
-        } else {
-          console.log('Сессия пользователя обновлена после подтверждения email');
         }
       });
     }
@@ -59,11 +64,12 @@ exports.verifyEmail = async (req, res) => {
       sameSite: 'strict',
       maxAge: 1000 * 60 * 60 * 24 // 24 часа
     });
-    
-    // Рендерить шаблон успеха
+
+    // Рендерить шаблон успеха строго из данных подтверждённого пользователя
     res.render('verification-success', {
       message: 'Ваш email успешно подтвержден!',
       username: user.username,
+      email: user.email,
       csrfToken: res.locals.csrfToken
     });
   } catch (error) {

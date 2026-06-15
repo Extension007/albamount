@@ -34,9 +34,35 @@
 </form>
 </div>
   </div>
+</div>
 </header>
 
-<main style="margin-bottom: 64px;">
+<script>
+(function () {
+  var key = 'adminScrollTop';
+  var restore = function () {
+    try {
+      var saved = sessionStorage.getItem(key);
+      if (saved === null) return;
+      var pos = parseInt(saved, 10);
+      var main = document.getElementById('admin-main');
+      if (main) main.scrollTop = pos; else window.scrollTo(0, pos);
+    } catch (e) {}
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restore);
+  } else {
+    restore();
+  }
+  window.addEventListener('beforeunload', function () {
+    try {
+      sessionStorage.setItem(key, (document.getElementById('admin-main')?.scrollTop || window.scrollY).toString());
+    } catch (e) {}
+  });
+})();
+</script>
+
+<main id="admin-main" class="container" style="margin-bottom: 64px;">
 
 <!-- Модерация товаров -->
 <section class="section">
@@ -734,9 +760,9 @@ data-type="banner">
 <a class="btn small outline" href="/admin/banners/<%= b.id %>/edit">✏️ Редактировать</a>
 
 <form method="POST" action="/admin/banners/<%= b.id %>/delete" style="display:inline" onsubmit="return confirm('Удалить баннер?');">
-<input type="hidden" name="_csrf" value="<%- JSON.stringify(csrfToken || '') %>">
-<button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
-</form>
+ <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+ <button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
+ </form>
 
 <% if (b.link) { %>
 <a class="btn small outline" href="<%= b.link %>" target="_blank" rel="noopener">🔗 Ссылка</a>
@@ -801,293 +827,234 @@ data-type="banner">
 <!-- Передаем информацию о доступности Socket.IO на клиент -->
 <!-- Bootstrap script for safe EJS → JS data transfer -->
  <script src="/utils/bootstrap.js"></script>
- <script>
-   // Safe initialization of global variables
-   window.AppBootstrap.init({
-     isAuth: true,
-     isAdmin: true,
-     socketIoAvailable: typeof socket_io_available !== 'undefined' ? socket_io_available : false,
-     userRole: typeof userRole !== 'undefined' ? userRole : 'admin',
-     IS_CABINET_PAGE: false
-   });
- </script>
-
-<!-- Подключаем основной скрипт для видео функциональности -->
-<script src="/script.js?v=1.0.1"></script>
-
-<script>
-// Глобальный CSRF токен
-const CSRF_TOKEN = '<%= csrfToken ? csrfToken : "" %>';
-
-// Helper функция для POST запросов с CSRF
-async function postJSON(url, data = {}) {
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-Token": CSRF_TOKEN
-    },
-    body: JSON.stringify(data)
-  });
-}
-
-// ЕДИНСТВЕННЫЙ обработчик DOMContentLoaded
-document.addEventListener("DOMContentLoaded", () => {
-
-const adminGrantAlbaForm = document.getElementById('adminGrantAlbaForm');
-if (adminGrantAlbaForm) {
-// ЖЕЛЕЗНЫЙ БЛОКЕР НАТИВНОГО SUBMIT (Enter / браузер / глюки)
-adminGrantAlbaForm.addEventListener('submit', (e) => e.preventDefault());
-}
-
-const albaSubmitBtn = document.getElementById('albaSubmitBtn');
-const albaGrantMsg  = document.getElementById('albaGrantMsg');
-
-if (albaSubmitBtn && albaGrantMsg) {
-albaSubmitBtn.addEventListener('click', async () => {
-
-const username = document.getElementById('albaUsername').value.trim();
-const amount   = document.getElementById('albaAmount').value;
-const comment  = document.getElementById('albaComment').value.trim();
-
-if (!username || !amount || !comment) {
-  albaGrantMsg.textContent = 'Заполните все поля';
-  albaGrantMsg.style.color = '#b00020';
-  return;
-}
-
-albaGrantMsg.textContent = 'Начисление...';
-albaGrantMsg.style.color = '#666';
-
-try {
-  const res = await fetch('/api/p1/alba/grant-by-login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': CSRF_TOKEN
-    },
-    body: JSON.stringify({
-      login: username,
-      amount: Number(amount),
-      reason: 'admin_grant',
-      comment: comment
-    })
-  });
-
-  const data = await res.json();
-
-  if (data.success) {
-    albaGrantMsg.textContent = `✅ Начислено ${amount} ALBA пользователю ${username}`;
-    albaGrantMsg.style.color = '#4caf50';
-    adminGrantAlbaForm && adminGrantAlbaForm.reset();
-  } else {
-    albaGrantMsg.textContent = 'Ошибка: ' + (data.message || 'unknown');
-    albaGrantMsg.style.color = '#b00020';
-  }
-} catch (err) {
-  albaGrantMsg.textContent = 'Ошибка сети: ' + err.message;
-  albaGrantMsg.style.color = '#b00020';
-}
-});
-}
-
-  
-  
-        // Обработка выхода
-        const logoutForm = document.getElementById("logoutForm");
-        if (logoutForm) {
-          logoutForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!confirm("Вы уверены, что хотите выйти?")) return;
-            try {
-              const res = await fetch("/logout", { method: "POST" });
-              if (res.ok) {
-                window.location.href = "/";
-              }
-            } catch (err) {
-              window.location.href = "/";
-            }
-          });
-        }
-
-  // Блокировка/Разблокировка карточек (товары, услуги, баннеры, видео)
-  const toggleBtns = document.querySelectorAll(".toggle-visibility-btn");
-  toggleBtns.forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = btn.getAttribute("data-id");
-      const currentStatus = btn.getAttribute("data-status");
-      const itemType = btn.getAttribute("data-type") || "product";
-      const action = (currentStatus === "approved" || currentStatus === "published") ? "заблокировать" : "разблокировать";
-      if (!confirm(`Вы уверены, что хотите ${action} эту карточку?`)) return;
-
-      try {
-        let endpoint;
-        if (itemType === "banner") {
-          endpoint = `/admin/banners/${id}/toggle-visibility`;
-        } else if (itemType === "service") {
-          endpoint = `/admin/services/${id}/toggle-visibility`;
-        } else if (itemType === "video") {
-          endpoint = `/admin/videos/${id}/toggle-visibility`;
-        } else {
-          endpoint = `/admin/products/${id}/toggle-visibility`;
-        }
-
-        const res = await postJSON(endpoint);
-        const data = await res.json();
-        if (data.success) {
-          alert(data.message || "Статус карточки изменен");
-          location.reload();
-        } else {
-          alert("Ошибка: " + (data.message || "Не удалось изменить статус"));
-        }
-      } catch (err) {
-        alert("Ошибка сети: " + err.message);
-      }
+  <script src="/utils/bootstrap.js"></script>
+  <script>
+    window.AppBootstrap.init({
+      isAuth: true,
+      isAdmin: true,
+      socketIoAvailable: typeof socket_io_available !== 'undefined' ? socket_io_available : false,
+      userRole: typeof userRole !== 'undefined' ? userRole : 'admin',
+      IS_CABINET_PAGE: false
     });
-  });
+  </script>
 
-  // Модерация: одобрение
-  const approveBtns = document.querySelectorAll(".approve-btn");
-  approveBtns.forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = btn.getAttribute("data-id");
-      if (!confirm("Одобрить эту карточку?")) return;
-      try {
-        const itemType = btn.getAttribute("data-type") || "product";
-        let endpoint;
-        if (itemType === "banner") {
-          endpoint = `/admin/banners/${id}/approve`;
-        } else if (itemType === "service") {
-          endpoint = `/admin/services/${id}/approve`;
-        } else if (itemType === "video") {
-          endpoint = `/admin/videos/${id}/approve`;
-        } else {
-          endpoint = `/admin/products/${id}/approve`;
+  <script src="/script.js?v=1.0.1"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.__ADMIN_BOOTSTRAP_DONE) return;
+    window.__ADMIN_BOOTSTRAP_DONE = true;
+
+    const CSRF_TOKEN = '<%= csrfToken ? csrfToken : "" %>';
+
+    async function postJSON(url, data) {
+      return fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': CSRF_TOKEN
+        },
+        body: JSON.stringify(data || {})
+      });
+    }
+
+    const adminGrantAlbaForm = document.getElementById('adminGrantAlbaForm');
+    if (adminGrantAlbaForm) {
+      adminGrantAlbaForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+      });
+    }
+
+    const albaSubmitBtn = document.getElementById('albaSubmitBtn');
+    const albaGrantMsg = document.getElementById('albaGrantMsg');
+
+    if (albaSubmitBtn && albaGrantMsg) {
+      albaSubmitBtn.addEventListener('click', async function() {
+        const username = (document.getElementById('albaUsername') || {}).value || '';
+        const amount = (document.getElementById('albaAmount') || {}).value || '';
+        const comment = (document.getElementById('albaComment') || {}).value || '';
+
+        if (!username || !amount || !comment) {
+          albaGrantMsg.textContent = 'Заполните все поля';
+          albaGrantMsg.style.color = '#b00020';
+          return;
         }
-        const res = await postJSON(endpoint);
-        const data = await res.json();
-        if (data.success) {
-          alert("Карточка одобрена!");
-          location.reload();
-        } else {
-          alert("Ошибка: " + (data.message || "Неизвестная ошибка"));
-        }
-      } catch (err) {
-        alert("Ошибка сети: " + err.message);
-      }
-    });
-  });
 
-  // Модерация: отклонение
-  const rejectModal = document.getElementById("rejectModal");
-  const rejectForm = document.getElementById("rejectForm");
-  let currentRejectId = null;
-  let currentRejectType = "product";
+        albaGrantMsg.textContent = 'Начисление...';
+        albaGrantMsg.style.color = '#666';
 
-  document.querySelectorAll(".reject-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      currentRejectId = btn.getAttribute("data-id");
-      currentRejectType = btn.getAttribute("data-type") || "product";
-      
-      // Update modal title based on type
-      const modalTitle = document.getElementById("rejectModalTitle");
-      if (modalTitle) {
-        if (currentRejectType === "video") {
-          modalTitle.textContent = "Отклонить видео";
-        } else {
-          modalTitle.textContent = "Отклонить карточку";
-        }
-      }
-      
-      // Show appropriate fields based on type
-      const videoFields = document.getElementById("videoRejectionFields");
-      const generalFields = document.getElementById("generalRejectionFields");
-      
-      if (videoFields && generalFields) {
-        if (currentRejectType === "video") {
-          videoFields.style.display = "block";
-          generalFields.style.display = "none";
-        } else {
-          videoFields.style.display = "none";
-          generalFields.style.display = "block";
-        }
-      }
-      
-      rejectModal.style.display = "block";
-      rejectModal.setAttribute("aria-hidden", "false");
-    });
-  });
-
-  const closeRejectBtn = document.querySelector("[data-close-reject]");
-  if (closeRejectBtn) {
-    closeRejectBtn.addEventListener("click", () => {
-      rejectModal.style.display = "none";
-      rejectModal.setAttribute("aria-hidden", "true");
-      rejectForm && rejectForm.reset();
-      currentRejectId = null;
-      currentRejectType = "product";
-    });
-  }
-
-  if (rejectForm) {
-    rejectForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!currentRejectId) return;
-      
-      // Для видео используем другую логику (с причиной и комментарием)
-      if (currentRejectType === "video") {
-        const formData = new FormData(rejectForm);
-        const rejectionReason = formData.get("rejectionReason") || "Несоответствие правилам публикации";
-        const adminComment = formData.get("adminComment") || "";
-        
         try {
-          const res = await postJSON(`/admin/videos/${currentRejectId}/reject`, {
-            rejectionReason,
-            adminComment
+          const res = await fetch('/api/p1/alba/grant-by-login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+              login: username,
+              amount: Number(amount),
+              reason: 'admin_grant',
+              comment: comment
+            })
           });
+
           const data = await res.json();
+
           if (data.success) {
-            alert("Видео отклонено");
-            location.reload();
+            albaGrantMsg.textContent = 'Начислено ' + amount + ' ALBA пользователю ' + username;
+            albaGrantMsg.style.color = '#4caf50';
+            if (adminGrantAlbaForm) adminGrantAlbaForm.reset();
           } else {
-            alert("Ошибка: " + (data.message || "Неизвестная ошибка"));
+            albaGrantMsg.textContent = 'Ошибка: ' + (data.message || 'unknown');
+            albaGrantMsg.style.color = '#b00020';
           }
         } catch (err) {
-          alert("Ошибка сети: " + err.message);
+          albaGrantMsg.textContent = 'Ошибка сети: ' + err.message;
+          albaGrantMsg.style.color = '#b00020';
         }
-      } else {
-        // Для других типов (продукты, услуги, баннеры) используем старую логику
-        const reason = new FormData(rejectForm).get("reason") || "Несоответствие правилам публикации";
+      });
+    }
+
+    const logoutForm = document.getElementById('logoutForm');
+    if (logoutForm) {
+      logoutForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!confirm('Вы уверены, что хотите выйти?')) return;
+        try {
+          const res = await fetch('/logout', { method: 'POST' });
+          if (res.ok) {
+            window.location.href = '/';
+          }
+        } catch (err) {
+          window.location.href = '/';
+        }
+      });
+    }
+
+    const approveBtns = document.querySelectorAll('.approve-btn');
+    approveBtns.forEach(function(btn) {
+      btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        if (!confirm('Одобрить эту карточку?')) return;
+        try {
+          const itemType = btn.getAttribute('data-type') || 'product';
+          const endpoint = '/admin/' + itemType + 's/' + id + '/approve';
+
+          const res = await postJSON(endpoint);
+          const data = await res.json();
+          if (data.success) {
+            alert('Карточка одобрена!');
+            location.reload();
+          } else {
+            alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+          }
+        } catch (err) {
+          alert('Ошибка сети: ' + err.message);
+        }
+      });
+    });
+
+    const toggleBtns = document.querySelectorAll('.toggle-visibility-btn');
+    toggleBtns.forEach(function(btn) {
+      btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const currentStatus = btn.getAttribute('data-status');
+        const itemType = btn.getAttribute('data-type') || 'product';
+        const action = (currentStatus === 'approved' || currentStatus === 'published') ? 'заблокировать' : 'разблокировать';
+        if (!confirm('Вы уверены, что хотите ' + action + ' эту карточку?')) return;
+
+        try {
+          const endpoint = '/admin/' + itemType + 's/' + id + '/toggle-visibility';
+          const res = await postJSON(endpoint);
+          const data = await res.json();
+          if (data.success) {
+            alert(data.message || 'Статус карточки изменен');
+            location.reload();
+          } else {
+            alert('Ошибка: ' + (data.message || 'Не удалось изменить статус'));
+          }
+        } catch (err) {
+          alert('Ошибка сети: ' + err.message);
+        }
+      });
+    });
+
+    const rejectModal = document.getElementById('rejectModal');
+    const rejectForm = document.getElementById('rejectForm');
+    let currentRejectId = null;
+    let currentRejectType = 'product';
+
+    document.querySelectorAll('.reject-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        currentRejectId = btn.getAttribute('data-id');
+        currentRejectType = btn.getAttribute('data-type') || 'product';
+
+        const modalTitle = document.getElementById('rejectModalTitle');
+        if (modalTitle) {
+          modalTitle.textContent = currentRejectType === 'video' ? 'Отклонить видео' : 'Отклонить карточку';
+        }
+
+        const videoFields = document.getElementById('videoRejectionFields');
+        const generalFields = document.getElementById('generalRejectionFields');
+        if (videoFields && generalFields) {
+          videoFields.style.display = currentRejectType === 'video' ? 'block' : 'none';
+          generalFields.style.display = currentRejectType === 'video' ? 'none' : 'block';
+        }
+
+        rejectModal.style.display = 'block';
+        rejectModal.setAttribute('aria-hidden', 'false');
+      });
+    });
+
+    const closeRejectBtn = document.querySelector('[data-close-reject]');
+    if (closeRejectBtn) {
+      closeRejectBtn.addEventListener('click', function() {
+        rejectModal.style.display = 'none';
+        rejectModal.setAttribute('aria-hidden', 'true');
+        if (rejectForm) rejectForm.reset();
+        currentRejectId = null;
+        currentRejectType = 'product';
+      });
+    }
+
+    if (rejectForm) {
+      rejectForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!currentRejectId) return;
         try {
           let rejectEndpoint;
-          if (currentRejectType === "banner") {
-            rejectEndpoint = `/admin/banners/${currentRejectId}/reject`;
-          } else if (currentRejectType === "service") {
-            rejectEndpoint = `/admin/services/${currentRejectId}/reject`;
-          } else {
-            rejectEndpoint = `/admin/products/${currentRejectId}/reject`;
-          }
-          const res = await postJSON(rejectEndpoint, { reason });
+          if (currentRejectType === 'banner') rejectEndpoint = '/admin/banners/' + currentRejectId + '/reject';
+          else if (currentRejectType === 'service') rejectEndpoint = '/admin/services/' + currentRejectId + '/reject';
+          else if (currentRejectType === 'video') rejectEndpoint = '/admin/videos/' + currentRejectId + '/reject';
+          else rejectEndpoint = '/admin/products/' + currentRejectId + '/reject';
+
+          const payload = currentRejectType === 'video'
+            ? {
+                rejectionReason: ((new FormData(rejectForm).get('rejectionReason')) || 'Несоответствие правилам публикации'),
+                adminComment: ((new FormData(rejectForm).get('adminComment')) || '')
+              }
+            : { reason: ((new FormData(rejectForm).get('reason')) || 'Несоответствие правилам публикации') };
+
+          const res = await postJSON(rejectEndpoint, payload);
           const data = await res.json();
+
           if (data.success) {
-            alert("Карточка отклонена");
+            alert(currentRejectType === 'video' ? 'Видео отклонено' : 'Карточка отклонена');
             location.reload();
           } else {
-            alert("Ошибка: " + (data.message || "Неизвестная ошибка"));
+            alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
           }
         } catch (err) {
-          alert("Ошибка сети: " + err.message);
+          alert('Ошибка сети: ' + err.message);
         }
-      }
-    });
-  }
-});
-</script>
+      });
+    }
+  });
+  </script>
 
 <style>
 /* Status styles for product cards */

@@ -1,5 +1,6 @@
 const VideoPost = require('../models/VideoPost');
 const User = require('../models/User');
+const { Op } = require('sequelize');
 
 function normalizeGenres(input) {
   if (!input) return [];

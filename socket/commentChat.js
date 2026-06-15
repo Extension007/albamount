@@ -18,7 +18,7 @@ async function checkCardAccess(cardId, user) {
      if (card) {
        // Проверяем, является ли пользователь владельцем карточки или администратором
         const isAdmin = user.role === 'admin';
-        const isOwner = card.ownerId === user.id;
+        const isOwner = card.ownerId && card.ownerId.toString() === user.id.toString();
        
        // Определяем тип карточки
        let cardType = 'Product';

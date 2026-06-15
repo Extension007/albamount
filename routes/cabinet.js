@@ -335,7 +335,7 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
       image_url: imageUrl,
       images: [imageUrl], // Добавляем в массив для совместимости
       link: req.body.link ? req.body.link.trim() : "",
-      owner: ownerId,
+      ownerId: ownerId,
       status: "pending",
       price: req.body.price || "",
       category: req.body.category || ""
@@ -392,8 +392,7 @@ router.get("/banner/:id/edit", requireUser, conditionalCsrfToken, async (req, re
   }
   try {
     const banner = await Banner.findOne({ 
-      _id: req.params.id, 
-      owner: req.user._id
+      where: { id: req.params.id, ownerId: req.user._id }
     });
     if (!banner) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -444,8 +443,7 @@ router.post("/banner/:id/edit", requireUser, productLimiter, bannerUpload, handl
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
     const banner = await Banner.findOne({ 
-      _id: req.params.id, 
-      owner: req.user._id
+      where: { id: req.params.id, ownerId: req.user._id }
     });
     if (!banner) {
       return res.status(404).json({ success: false, message: "Баннер не найден или у вас нет прав для редактирования" });

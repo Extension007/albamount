@@ -49,8 +49,8 @@ async function redeemSlotCode({ user, codeValue, ip, userAgent }) {
      usedAt: new Date()
    });
 
-   if (!user.slots) user.slots = { total: 2, used: 0 };
-   user.slots.total = Number(user.slots.total || 0) + 1;
+   if (!user.slots_total) user.slots_total = 0;
+   user.slots_total = Number(user.slots_total || 0) + 1;
    await user.save();
 
    return { ok: true, code: updated };

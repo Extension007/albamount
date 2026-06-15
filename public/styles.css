@@ -28,13 +28,22 @@
 html, body { height: 100%; margin: 0; }
 
 body{
-  min-height:100vh;
-  background:var(--color-bg);
-  color:var(--color-text);
-  position:relative;
-  overflow-x:hidden;
-  font-family: 'Poppins', Arial, sans-serif;
-  line-height: 1.45;
+   min-height:100vh;
+   background:var(--color-bg);
+   color:var(--color-text);
+   position:relative;
+   overflow-x:hidden;
+   font-family: 'Poppins', Arial, sans-serif;
+   line-height: 1.45;
+}
+
+/* Admin page animated background opacity control */
+body.admin-page #bg-animated{
+  opacity:0;
+  transition:opacity .6s ease;
+}
+body.admin-page.loaded #bg-animated{
+  opacity:.92;
 }
 
 /* === ULTRA NEON GLASS WAVES === */
@@ -1024,14 +1033,13 @@ button:disabled {
 /* Секции */
 .section {
   background: #1e1e1e;
-  margin: 120px auto 160px auto;
-  padding: 40px 20px;
+  margin: 40px auto 60px auto;
+  padding: 30px 20px;
   border-radius: 15px;
- max-width: 1400px;
+  max-width: 1400px;
   width: 96%;
   box-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
-  position: relative; /* Для корректного позиционирования выпадающих элементов */
-  overflow: visible; /* Позволяем выпадающим меню выходить за пределы секции при необходимости */
+  position: relative;
 }
 
 /* Контейнер для кнопки категорий и выпадающего меню */
@@ -1885,8 +1893,16 @@ button:disabled {
 
 /* Скрыть footer в кабинете и админ-панели */
 .cabinet-page .footer,
-.admin-page .footer {
+body.admin-page .footer {
   display: none;
+}
+
+/* Админка: отступы под неподвижный хедер + сохранение чистоты */
+body.admin-page main {
+  margin-top: 68px;
+}
+body.admin-page .section {
+  margin-top: 76px;
 }
 
 /* Медиа-запросы для footer */

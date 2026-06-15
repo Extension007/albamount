@@ -58,20 +58,6 @@ async function grantReferralBonusIfEligible({ UserModel, user }) {
        amount: REFERRAL_BONUS_ALBA
      });
 
-     // Create transaction record for referrer
-     await AlbaTransaction.create({
-       userId: user.referredBy,
-       amount: REFERRAL_BONUS_ALBA,
-       type: 'earn',
-       reason: 'referral_bonus',
-       relatedUserId: user.id,
-       meta: {
-         eventId,
-         referralType: 'one-time',
-         referredUserId: user.id
-       }
-    });
-
      // Grant bonus to the referred user (new user) as well
      const REFERRED_USER_BONUS = 5; // Fixed amount for referred user
      await addTx(UserModel, {
@@ -79,22 +65,13 @@ async function grantReferralBonusIfEligible({ UserModel, user }) {
        amount: REFERRED_USER_BONUS,
        type: 'earn',
        reason: 'referred_user_bonus',
-       relatedUserId: user.referredBy
+       relatedUserId: user.referredBy,
+       meta: {
+         eventId,
+         referralType: 'one-time',
+         referrerId: user.referredBy
+       }
      });
-
-     // Create transaction record for referred user
-     await AlbaTransaction.create({
-       userId: user.id,
-      amount: REFERRED_USER_BONUS,
-      type: 'earn',
-      reason: 'referred_user_bonus',
-      relatedUserId: user.referredBy,
-      meta: {
-        eventId,
-        referralType: 'one-time',
-        referrerId: user.referredBy
-      }
-    });
 
      console.log(`Referral bonus granted: referrer=${user.referredBy}, newUser=${user.id}, referrer_amount=${REFERRAL_BONUS_ALBA}, referred_amount=${REFERRED_USER_BONUS}, txId=${eventId}`);
 

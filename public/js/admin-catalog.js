@@ -60,9 +60,8 @@
   }
 
   const API_BASE = catalogType === 'product' ? '/api/products' : (catalogType === 'service' ? '/api/services' : '/api/banners');
-  const ADMIN_BASE = catalogType === 'product' ? '/admin/products' : (catalogType === 'service' ? '/admin/services' : '/admin/banners');
-  // Для удаления используем админские эндпоинты
-  const DELETE_BASE = ADMIN_BASE;
+  const ADMIN_BASE = '/admin';
+  const DELETE_BASE = '/admin';
 
   // =======================
   // Toast уведомления

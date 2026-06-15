@@ -41,7 +41,9 @@ async function addTx(UserModel, { userId, amount, type, reason, relatedUserId=nu
   // Update both the calculated balance field and create transaction
   const [userRows] = await incBalance(UserModel, userId, amount);
   const transaction = await AlbaTransaction.create({ userId, amount, type, reason, relatedUserId, relatedCodeId, relatedCardType, relatedCardId, meta });
-  return { user: userRows, transaction };
+  const user = await UserModel.findByPk(userId);
+
+  return { user, transaction };
 }
 
 async function grantAlba({ UserModel, userId, amount, reason, actorAdminId=null, meta={} }) {
@@ -240,5 +242,6 @@ module.exports = {
   getAvailableEntitlements,
   consumeEntitlement,
   grantAlbaByUsername,
-  getUserAlbaBalance
+  getUserAlbaBalance,
+  addTx
 };

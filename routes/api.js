@@ -506,7 +506,7 @@ router.post("/banners", apiLimiter, requireUser, csrfProtection, async (req, res
        description: description ? description.trim() : "",
        link: link ? link.trim() : "",
        video_url: video_url ? video_url.trim() : "",
-       owner: owner || req.user._id,
+       ownerId: owner || req.user._id,
        category: category ? category.trim() : "",
        price: price ? Number(price) : 0,
        status: status || "published",
@@ -631,7 +631,7 @@ router.post("/banners/:id/vote", apiLimiter, csrfProtection, validateBannerId, a
     }
     
      // Добавляем виртуальные поля
-     const voters = product.voters || [];
+     const voters = banner.voters || [];
      const already = req.user ? voters.includes(req.user._id) : false;
     if (already) {
       return res.status(409).json({ success: false, message: "Вы уже голосовали за этот товар" });

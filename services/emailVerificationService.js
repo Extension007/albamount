@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 const ejs = require('ejs');
 const path = require('path');
 const User = require('../models/User');
@@ -73,7 +74,7 @@ async function sendVerificationEmail(user) {
 }
 
 async function resendVerificationEmail(email) {
-  const user = await User.findOne({ email, emailVerified: false });
+  const user = await User.findOne({ where: { email, emailVerified: false } });
   if (!user) {
     throw new Error('User not found or already verified');
   }
@@ -82,14 +83,20 @@ async function resendVerificationEmail(email) {
 }
 
 async function verifyEmail(token) {
+  console.log('[verifyEmail] token=%s', token);
   const user = await User.findOne({
-    verificationToken: token,
-    verificationTokenExpires: { $gt: new Date() }
+    where: {
+      verificationToken: token,
+      verificationTokenExpires: { [Op.gt]: new Date() }
+    }
   });
 
   if (!user) {
+    console.warn('[verifyEmail] invalid/expired token=%s', token);
     throw new Error('Invalid or expired verification token');
   }
+
+  console.log('[verifyEmail] matched user id=%s username=%s email=%s', user.id, user.username, user.email);
 
   user.emailVerified = true;
   user.verificationToken = undefined;

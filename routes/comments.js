@@ -121,7 +121,7 @@ router.post('/:cardId', canWriteComments, commentLimiter, async (req, res) => {
     const comment = await Comment.create({
       cardId,
       cardType,
-      userId: req.user.id,
+      userId: req.user._id || req.user.id,
       text: text.trim()
     });
 

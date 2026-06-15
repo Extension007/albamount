@@ -123,7 +123,7 @@
       <h1 class="register-title">Регистрация</h1>
 
       <form id="registerForm" action="/register" method="POST">
-        <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
         <div class="form-group">
           <label for="username">Никнейм</label>
@@ -175,14 +175,14 @@
       const errorElement = document.getElementById('registerError');
       const successElement = document.getElementById('registerSuccess');
 
-      try {
-        const response = await fetch(form.action, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'CSRF-Token': formData.get('csrfToken')
-          },
-          body: JSON.stringify({
+try {
+         const response = await fetch(form.action, {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+             'X-CSRF-Token': formData.get('_csrf')
+           },
+           body: JSON.stringify({
             username: formData.get('username'),
             email: formData.get('email'),
             password: formData.get('password'),

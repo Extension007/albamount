@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const cloudinary = require("cloudinary").v2;
 
 const Product = require("../config/database").Product;
 const Banner = require("../config/database").Banner;
@@ -201,6 +202,14 @@ router.get("/", async (req, res) => {
 // Health-check Cloudinary
 router.get("/__health/cloudinary", async (req, res) => {
   try {
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+      });
+    }
+
     await cloudinary.api.ping();
     res.json({ ok: true, status: "ok" });
   } catch (err) {
