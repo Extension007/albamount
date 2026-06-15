@@ -44,6 +44,11 @@ function handleMulterError(err, req, res, next) {
 
 // Личный кабинет
 router.get("/", requireUser, conditionalCsrfToken, async (req, res) => {
+  console.log('[Cabinet] session.user=%s req.user._id=%s', !!req.session.user, req.user?._id);
+  if (!req.session.user && !process.env.VERCEL) {
+    console.warn('[Cabinet] missing session.user for non-Vercel env, redirecting to login');
+    return res.redirect('/user/login');
+  }
   if (!USE_POSTGRES) {
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) return res.status(503).json({ success: false, message: "Личный кабинет недоступен: нет БД" });

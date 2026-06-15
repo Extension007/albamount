@@ -6,6 +6,8 @@ const { CATEGORY_KEYS } = require("../config/constants");
 function handleValidationErrors(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    const errorMessages = errors.array().map(e => e.msg);
+    console.error('[ValidationError] path=%s errors=%s', req.path, JSON.stringify(errorMessages));
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) {
       return res.status(400).json({ 
@@ -14,8 +16,7 @@ function handleValidationErrors(req, res, next) {
         errors: errors.array()
       });
     }
-    // Для HTML форм возвращаем ошибку
-    return res.status(400).send("Ошибка валидации: " + errors.array().map(e => e.msg).join(", "));
+    return res.status(400).send("Ошибка валидации: " + errorMessages.join(", "));
   }
   next();
 }

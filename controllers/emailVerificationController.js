@@ -7,7 +7,19 @@ const { generateToken } = require('../config/jwt');
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.params;
+    console.log('[verifyEmail] token=%s', token);
+
+    if (req.session) {
+      req.session.user = null;
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+    }
+
     const user = await verifyEmail(token);
+    console.log('[verifyEmail] user id=%s username=%s', user.id, user.username);
 
     // Отправляем уведомление администратору о подтверждении email
     try {

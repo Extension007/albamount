@@ -11,6 +11,7 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
     if (!email || !password) {
+      console.error('[RegisterError] email=%s password=%s missingFields=%s', !!email, !!password, !email ? 'email' : '', !password ? 'password' : '');
       return res.status(400).json({ success: false, message: "Email и пароль обязательны" });
     }
 
@@ -25,8 +26,10 @@ exports.register = async (req, res) => {
 
     if (existingUser) {
       if (existingUser.email === email) {
+        console.error('[RegisterError] duplicate email=%s', email);
         return res.status(400).json({ success: false, message: "Пользователь с таким email уже существует" });
       }
+      console.error('[RegisterError] duplicate username=%s', username);
       return res.status(400).json({ success: false, message: "Пользователь с таким именем уже существует" });
     }
 

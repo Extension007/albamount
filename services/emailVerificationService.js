@@ -99,8 +99,8 @@ async function verifyEmail(token) {
   console.log('[verifyEmail] matched user id=%s username=%s email=%s', user.id, user.username, user.email);
 
   user.emailVerified = true;
-  user.verificationToken = undefined;
-  user.verificationTokenExpires = undefined;
+  user.verificationToken = null;
+  user.verificationTokenExpires = null;
   await user.save();
 
   const baseUrl = resolveBaseUrl();
