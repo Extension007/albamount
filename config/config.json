@@ -1,0 +1,16 @@
+{
+  "development": {
+    "dialect": "postgres",
+    "url": "postgresql://neondb_owner:npg_e2t6KmLJGHqv@ep-red-butterfly-apjzonog-pooler.c-7.us-east-1.aws.neon.tech/alba?sslmode=verify-full&channel_binding=require"
+  },
+  "production": {
+    "dialect": "postgres",
+    "url": "postgresql://neondb_owner:npg_e2t6KmLJGHqv@ep-red-butterfly-apjzonog-pooler.c-7.us-east-1.aws.neon.tech/alba?sslmode=verify-full&channel_binding=require",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  }
+}
