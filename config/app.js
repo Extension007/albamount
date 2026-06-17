@@ -5,18 +5,11 @@ const cookieParser = require("cookie-parser");
 const pgSession = require("connect-pg-simple")(session);
 const morgan = require("morgan");
 const { createSecurityMiddleware } = require("./security");
+const { sessionOptions } = require("./session");
 
 const app = express();
 const isVercel = Boolean(process.env.VERCEL);
 const isProduction = process.env.NODE_ENV === "production";
-const sessionSecret = process.env.SESSION_SECRET || "exto-secret-dev-only";
-
-if (isProduction) {
-  const rawSessionSecret = process.env.SESSION_SECRET;
-  if (!rawSessionSecret || rawSessionSecret.length < 32) {
-    throw new Error("SESSION_SECRET must be set and at least 32 characters in production.");
-  }
-}
 
 app.set("trust proxy", isVercel ? 1 : false);
 
@@ -80,18 +73,6 @@ function buildSessionStore() {
     return undefined;
   }
 }
-
-const sessionOptions = {
-  secret: sessionSecret,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 1000 * 60 * 60,
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax"
-  }
-};
 
 let _sessionStore = null;
 // Only attempt PostgreSQL session store in non-Vercel environments when explicitly enabled for development

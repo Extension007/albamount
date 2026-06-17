@@ -1,7 +1,6 @@
 ﻿const { Op } = require("sequelize");
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
-const { generateToken } = require("../config/jwt");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
 const { notifyAdmin } = require("../services/adminNotificationService");
 const logger = require("../utils/logger");
@@ -11,7 +10,7 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
     if (!email || !password) {
-      console.error('[RegisterError] email=%s password=%s missingFields=%s', !!email, !!password, !email ? 'email' : '', !password ? 'password' : '');
+      logger.error({ msg: 'register_missing_fields', email: !!email, password: !!password });
       return res.status(400).json({ success: false, message: "Email и пароль обязательны" });
     }
 
@@ -26,10 +25,10 @@ exports.register = async (req, res) => {
 
     if (existingUser) {
       if (existingUser.email === email) {
-        console.error('[RegisterError] duplicate email=%s', email);
+        logger.warn({ msg: 'register_duplicate_email', email });
         return res.status(400).json({ success: false, message: "Пользователь с таким email уже существует" });
       }
-      console.error('[RegisterError] duplicate username=%s', username);
+      logger.warn({ msg: 'register_duplicate_username', username });
       return res.status(400).json({ success: false, message: "Пользователь с таким именем уже существует" });
     }
 
@@ -64,7 +63,7 @@ exports.register = async (req, res) => {
         }
       );
     } catch (notificationError) {
-      console.error("Ошибка уведомления администратора:", notificationError);
+      logger.error({ msg: 'admin_notification_error', error: notificationError.message, stack: notificationError.stack });
     }
 
     const emailConfig = require("../config/email");
@@ -75,7 +74,7 @@ exports.register = async (req, res) => {
         if (user.role === "user") {
           await User.destroy({ where: { id: user.id } });
         }
-        console.error("Ошибка отправки письма подтверждения:", emailError);
+        logger.error({ msg: 'verification_email_error', error: emailError.message, stack: emailError.stack });
         return res.status(500).json({
           success: false,
           message: "Не удалось отправить письмо подтверждения. Проверьте email или попробуйте позже."
@@ -96,7 +95,7 @@ exports.register = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Ошибка регистрации:", err);
+    logger.error({ msg: 'register_error', error: err.message, stack: err.stack });
     if (isUniqueConstraintError(err)) {
       return res.status(400).json({
         success: false,
@@ -208,23 +207,13 @@ exports.adminLogin = async (req, res) => {
       return res.render("login", { error: "Неверный логин или пароль", debug: null, csrfToken: res.locals.csrfToken });
     }
 
-    const userData = {
-      _id: user.id,
-      username: user.username,
-      role: user.role,
-      emailVerified: user.emailVerified
-    };
-
-    const token = generateToken(userData);
-    if (!process.env.VERCEL) {
-      req.session.user = userData;
+    const { user: userPayload, token, cookieOpts } = await resolveUser(user.id);
+    if (!userPayload) {
+      return res.render("login", { error: "Неверный логин или пароль", debug: null, csrfToken: res.locals.csrfToken });
     }
-    res.cookie("exto_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 24
-    });
+
+    req.session.user = userPayload;
+    res.cookie("exto_token", token, cookieOpts);
 
     logger.info({ msg: "admin_login_success", userId: user.id, username: user.username });
     return res.redirect("/admin");
@@ -241,7 +230,7 @@ exports.logout = async (req, res) => {
   if (!process.env.VERCEL && req.session) {
     req.session.destroy((err) => {
       if (err) {
-        console.error("Ошибка выхода:", err);
+        logger.error({ msg: 'logout_error', error: err.message, stack: err.stack });
       }
     });
   }

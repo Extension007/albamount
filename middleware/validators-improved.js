@@ -52,10 +52,9 @@ const validateProduct = [
     .withMessage("Название должно быть от 1 до 200 символов"),
   
   body("price")
+    .isString().withMessage('Цена должна быть строкой')
     .notEmpty()
-    .withMessage("Цена обязательна")
-    .isFloat({ min: 0 })
-    .withMessage("Цена должна быть положительным числом"),
+    .withMessage("Цена обязательна"),
   
   body("description")
     .optional()
@@ -134,28 +133,34 @@ const validateProduct = [
   handleValidationErrors
 ];
 
-// Валидация ID товара
+// Валидация ID товара (UUID hex format: 32+ hex characters — соответствует Sequelize/PostgreSQL проекту)
 const validateProductId = [
   param("id")
     .notEmpty()
     .withMessage("ID товара обязателен")
-    .isMongoId()
-    .withMessage("Некорректный ID товара"),
-  
+    .custom((value) => {
+      if (!/^[a-f0-9]{32,}$/i.test(value)) {
+        throw new Error("Некорректный ID товара");
+      }
+      return true;
+    }),
   handleValidationErrors
 ];
 
 // Валидация ID услуги (использует ту же логику, что и товар)
 const validateServiceId = validateProductId;
 
-// Валидация ID баннера
+// Валидация ID баннера (UUID hex format: 32+ hex characters — соответствует Sequelize/PostgreSQL проекту)
 const validateBannerId = [
   param("id")
     .notEmpty()
     .withMessage("ID баннера обязателен")
-    .isMongoId()
-    .withMessage("Некорректный ID баннера"),
-  
+    .custom((value) => {
+      if (!/^[a-f0-9]{32,}$/i.test(value)) {
+        throw new Error("Некорректный ID баннера");
+      }
+      return true;
+    }),
   handleValidationErrors
 ];
 
@@ -173,8 +178,10 @@ const validateBanner = [
   
   body("price")
     .optional()
-    .isFloat({ min: 0 })
-    .withMessage("Цена должна быть положительным числом"),
+    .isString()
+    .withMessage("Цена должна быть строкой")
+    .notEmpty()
+    .withMessage("Цена не может быть пустой"),
   
   body("description")
     .optional()

@@ -93,9 +93,6 @@ Category.getFlatList = async function(type = 'all', includeInactive = false) {
   if (type !== 'all') {
     where.type = type;
   }
-  if (type !== 'all') {
-    where.type = type;
-  }
   const categories = await this.findAll({
     where,
     attributes: ['id', 'name', 'icon', 'type', 'parentId'],

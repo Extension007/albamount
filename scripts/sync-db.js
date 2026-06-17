@@ -8,11 +8,16 @@ const { sequelize } = require("../config/database");
       process.exit(1);
     }
     await sequelize.authenticate();
-    await sequelize.sync({ alter: true });
-    console.log("✅ Схема БД синхронизирована");
+    console.log("✅ PostgreSQL подключение работает");
+    
+    // Проверяем существование таблиц без модификации схемы
+    const [results] = await sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
+    console.log("✅ Существующие таблицы:", results.map(r => r.table_name).join(", ") || "таблицы не найдены");
+    
+    console.log("✅ Для полной миграции используйте: node migrations/001_create_all_tables.js");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Ошибка синхронизации:", err.message);
+    console.error("❌ Ошибка подключения к PostgreSQL:", err.message);
     process.exit(1);
   }
 })();

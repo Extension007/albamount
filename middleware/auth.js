@@ -201,6 +201,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
         if (user.role === "admin") {
           req.currentUser = user;
           req.user = user;
+          req.item = item;
           return next();
         }
 
@@ -219,7 +220,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
         req.user = user;
         next();
       } catch (err) {
-        console.error("❌ Ошибка проверки владельца:", err);
+        logger.error({ msg: 'requireOwnerOrAdmin_error', error: err.message, stack: err.stack, path: req.path });
         if (wantsJsonResponse(req)) {
           return res.status(500).json({ success: false, error: "Server Error", message: "Ошибка проверки прав доступа" });
         }

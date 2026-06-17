@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const logger = require('../utils/logger');
 const Comment = require('../models/Comment');
 const Product = require('../models/Product');
 const Banner = require('../models/Banner');
@@ -78,7 +79,7 @@ router.get('/:cardId', [
       }
     });
   } catch (err) {
-    console.error('Ошибка получения комментариев:', err);
+    logger.error({ msg: 'comments_error', error: err.message, stack: err.stack, path: req.path });
     res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
@@ -141,7 +142,7 @@ router.post('/:cardId', canWriteComments, commentLimiter, async (req, res) => {
           createdAt: comment.createdAt
         });
       } catch (socketErr) {
-        console.error('Ошибка отправки комментария через сокет:', socketErr);
+        logger.error({ msg: 'comments_socket_error', error: socketErr.message, stack: socketErr.stack, path: req.path });
       }
     }
 

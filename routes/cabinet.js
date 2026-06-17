@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const logger = require("../utils/logger");
 const { Op } = require('sequelize');
 const Product = require("../models/Product");
 const Banner = require("../models/Banner");
@@ -24,7 +25,7 @@ const conditionalCsrfProtection = csrfProtection;
 // Middleware для обработки ошибок multer
 function handleMulterError(err, req, res, next) {
   if (err) {
-    console.error("❌ Ошибка multer при загрузке файлов:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     if (err.code === 'LIMIT_FILE_COUNT') {
       return res.status(400).json({ success: false, message: "Максимальное количество изображений: 5" });
     }
@@ -45,6 +46,12 @@ function handleMulterError(err, req, res, next) {
 // Личный кабинет
 router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
     const userData = req.session?.user || req.user;
     if (!userData) {
       return res.redirect('/user/login');
@@ -68,6 +75,9 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       },
       order: [['id', 'DESC']]
     });
+    if (myProducts.length === 0) {
+      logger.info({ msg: 'cabinet_empty_my_products', userId: req.user._id, path: req.path });
+    }
 
     const myServices = await Product.findAll({
       where: {
@@ -77,19 +87,48 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       },
       order: [['id', 'DESC']]
     });
+    if (myServices.length === 0) {
+      logger.info({ msg: 'cabinet_empty_my_services', userId: req.user._id, path: req.path });
+    }
 
     // Получаем баннеры пользователя
     const myBanners = await Banner.findAll({
       where: { ownerId: req.user._id },
       order: [['id', 'DESC']]
     });
+    if (myBanners.length === 0) {
+      logger.info({ msg: 'cabinet_empty_my_banners', userId: req.user._id, path: req.path });
+    }
 
-    const categoryTree = await Category.getTree('all');
-    const categoryFlat = await Category.getFlatList('all');
-    const freshUser = await User.findByPk(req.user._id, {
-      attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt'],
-      raw: true
-    });
+    let categoryTree;
+    try {
+      categoryTree = await Category.getTree('all');
+    } catch (categoryErr) {
+      logger.error({ msg: 'cabinet_error', error: categoryErr.message, stack: categoryErr.stack, path: req.path });
+      categoryTree = [];
+    }
+
+    let categoryFlat;
+    try {
+      categoryFlat = await Category.getFlatList('all');
+    } catch (categoryErr) {
+      logger.error({ msg: 'cabinet_error', error: categoryErr.message, stack: categoryErr.stack, path: req.path });
+      categoryFlat = [];
+    }
+
+    let freshUser;
+    try {
+      freshUser = await User.findByPk(req.user._id, {
+        attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt'],
+        raw: true
+      });
+    } catch (userErr) {
+      logger.error({ msg: 'cabinet_error', error: userErr.message, stack: userErr.stack, path: req.path });
+      freshUser = null;
+    }
+    if (!freshUser) {
+      return res.status(500).send("Ошибка загрузки пользователя");
+    }
 
     const actualBalance = await getUserAlbaBalance(req.user._id);
     freshUser.albaBalance = actualBalance;
@@ -115,7 +154,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       hierarchicalCategories: categoryTree
     });
   } catch (err) {
-    console.error("❌ Ошибка загрузки кабинета:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка загрузки кабинета: " + err.message });
     res.status(500).send("Ошибка загрузки кабинета");
@@ -126,8 +165,10 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
 router.post("/product", requireUser, productLimiter, mobileOptimization, upload, handleMulterError, conditionalCsrfProtection, validateProduct, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({ success: false, message: "Необходима авторизация" });
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
     }
 
     // Проверка наличия изображений (если обязательны)
@@ -177,7 +218,7 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
       entitlementConsumed: result.entitlementConsumed
     });
   } catch (err) {
-    console.error("❌ Ошибка создания карточки:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     res.status(500).json({ success: false, message: "Ошибка создания карточки: " + err.message });
   }
 });
@@ -186,6 +227,12 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
 router.post("/product/:id/price", requireUser, conditionalCsrfProtection, validateProductId, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
    try {
+     if (!req.user?._id) {
+       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+       return res.redirect('/user/login');
+     }
+
      const price = req.body.price;
      if (!price || price.trim().length === 0) {
        return res.status(400).json({ success: false, message: "Цена не может быть пустой" });
@@ -206,9 +253,9 @@ router.post("/product/:id/price", requireUser, conditionalCsrfProtection, valida
      
      res.json({ success: true, price: price });
    } catch (err) {
-    console.error("❌ Ошибка изменения цены:", err);
-    res.status(500).json({ success: false, message: "Ошибка изменения цены" });
-  }
+     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
+     res.status(500).json({ success: false, message: "Ошибка изменения цены" });
+   }
 });
 
 // Получение формы редактирования товара
@@ -219,6 +266,12 @@ router.get("/product/:id/edit", requireUser, validateProductId, conditionalCsrfT
     return res.status(503).send("Недоступно: отсутствует подключение к БД");
   }
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
      const product = await Product.findOne({
        where: { id: req.params.id, ownerId: req.user._id, deleted: false }
      });
@@ -233,7 +286,7 @@ router.get("/product/:id/edit", requireUser, validateProductId, conditionalCsrfT
 
     res.render("products/edit", { product, user: req.user, mode: "user", csrfToken: csrfTokenValue });
   } catch (err) {
-    console.error("❌ Ошибка получения товара для редактирования:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка базы данных: " + err.message });
     res.status(500).send("Ошибка базы данных");
@@ -244,6 +297,12 @@ router.get("/product/:id/edit", requireUser, validateProductId, conditionalCsrfT
 router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization, upload, handleMulterError, conditionalCsrfProtection, validateProductId, validateProduct, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
     const updateData = {
       name: req.body.name,
       description: req.body.description,
@@ -281,7 +340,7 @@ router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization
      // Перенаправляем на страницу редактирования
      res.redirect(`/cabinet/product/${updated.id}/edit`);
   } catch (err) {
-    console.error("❌ Ошибка редактирования карточки:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     if (err.message.includes("не найден") || err.message.includes("нет прав")) {
       return res.status(404).json({ success: false, message: err.message });
     }
@@ -296,6 +355,12 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
   }
   
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
     // Проверка наличия файла
     if (!req.file) {
       return res.status(400).json({ success: false, message: "Изображение баннера обязательно" });
@@ -310,7 +375,7 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
         imageUrl = req.file.path;
       }
     } catch (fileErr) {
-      console.error("❌ Ошибка обработки файла:", fileErr);
+      logger.error({ msg: 'cabinet_error', error: fileErr.message, stack: fileErr.stack, path: req.path });
       return res.status(400).json({ success: false, message: "Ошибка обработки загруженного файла" });
     }
     
@@ -324,7 +389,7 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
          ownerId = null;
        }
      } catch (ownerErr) {
-       console.error("❌ Ошибка обработки ownerId:", ownerErr);
+       logger.error({ msg: 'cabinet_error', error: ownerErr.message, stack: ownerErr.stack, path: req.path });
        return res.status(400).json({ success: false, message: "Ошибка обработки данных пользователя" });
      }
     
@@ -360,7 +425,7 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
          }
       );
     } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
+      logger.error({ msg: 'cabinet_error', error: notificationError.message, stack: notificationError.stack, path: req.path });
     }
 
      console.log("✅ Баннер создан:", {
@@ -371,8 +436,7 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
      
      return res.json({ success: true, bannerId: created.id, banner: created });
   } catch (err) {
-    console.error("❌ Ошибка создания баннера:", err);
-    console.error("❌ Стек ошибки:", err.stack);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     
     // Возвращаем JSON с описанием ошибки
     return res.status(500).json({ 
@@ -391,6 +455,12 @@ router.get("/banner/:id/edit", requireUser, conditionalCsrfToken, async (req, re
     return res.status(503).send("Недоступно: отсутствует подключение к БД");
   }
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
     const banner = await Banner.findOne({ 
       where: { id: req.params.id, ownerId: req.user._id }
     });
@@ -423,8 +493,7 @@ router.get("/banner/:id/edit", requireUser, conditionalCsrfToken, async (req, re
       csrfToken: csrfTokenValue 
     });
   } catch (err) {
-    console.error("❌ Ошибка получения баннера для редактирования:", err);
-    console.error("❌ Стек ошибки:", err.stack);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) {
@@ -442,6 +511,12 @@ router.get("/banner/:id/edit", requireUser, conditionalCsrfToken, async (req, re
 router.post("/banner/:id/edit", requireUser, productLimiter, bannerUpload, handleMulterError, conditionalCsrfProtection, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
     const banner = await Banner.findOne({ 
       where: { id: req.params.id, ownerId: req.user._id }
     });
@@ -487,7 +562,7 @@ router.post("/banner/:id/edit", requireUser, productLimiter, bannerUpload, handl
      }
      res.redirect(`/cabinet/banner/${banner.id}/edit`);
   } catch (err) {
-    console.error("❌ Ошибка редактирования баннера:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     res.status(500).json({ success: false, message: "Ошибка редактирования баннера: " + err.message });
   }
 });
@@ -496,6 +571,12 @@ router.post("/banner/:id/edit", requireUser, productLimiter, bannerUpload, handl
 router.delete("/product/:id", requireUser, conditionalCsrfProtection, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
      const product = await Product.findOne({
        where: { id: req.params.id, ownerId: req.user._id, deleted: false }
      });
@@ -521,12 +602,12 @@ router.delete("/product/:id", requireUser, conditionalCsrfProtection, async (req
         }
       );
     } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
+      logger.error({ msg: 'cabinet_error', error: notificationError.message, stack: notificationError.stack, path: req.path });
     }
 
     res.json({ success: true, message: "Карточка удалена" });
   } catch (err) {
-    console.error("❌ Ошибка удаления карточки:", err);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     res.status(500).json({ success: false, message: "Ошибка удаления карточки: " + err.message });
   }
 });
@@ -538,6 +619,12 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
   }
   
   try {
+    if (!req.user?._id) {
+      const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
+      if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
+      return res.redirect('/user/login');
+    }
+
     // Валидация ID
      if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
@@ -549,8 +636,8 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
     }
     
     const banner = await Banner.findOne({ 
-      _id: req.params.id, 
-      owner: req.user._id
+      id: req.params.id, 
+      ownerId: req.user._id
     });
     
     if (!banner) {
@@ -583,7 +670,7 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
         }
       );
     } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
+      logger.error({ msg: 'cabinet_error', error: notificationError.message, stack: notificationError.stack, path: req.path });
     }
 
     // Полное удаление из БД
@@ -591,8 +678,7 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
 
     return res.json({ success: true, message: "Баннер удален" });
   } catch (err) {
-    console.error("❌ Ошибка удаления баннера:", err);
-    console.error("❌ Стек ошибки:", err.stack);
+    logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     
     return res.status(500).json({ 
       success: false, 
