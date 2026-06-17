@@ -28,8 +28,18 @@ const productLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Rate limiter для регистрации
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: "Слишком много попыток регистрации. Попробуйте позже.",
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 module.exports = {
   loginLimiter,
+  registerLimiter,
   apiLimiter,
   productLimiter
 };

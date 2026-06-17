@@ -259,7 +259,7 @@ const validateRegister = [
     .withMessage("Логин может содержать только буквы, цифры и подчеркивание")
     .custom(async (value) => {
       // Проверяем, не существует ли уже пользователя с таким именем
-      const existingUser = await require('../models/User').findOne({ username: value });
+      const existingUser = await require('../models/User').findOne({ where: { username: value } });
       if (existingUser) {
         throw new Error("Пользователь с таким логином уже существует");
       }
@@ -275,7 +275,7 @@ const validateRegister = [
       }
       
       // Проверяем, не существует ли уже пользователя с таким email
-      const existingUser = await require('../models/User').findOne({ email: value });
+      const existingUser = await require('../models/User').findOne({ where: { email: value } });
       if (existingUser) {
         throw new Error("Пользователь с таким email уже существует");
       }

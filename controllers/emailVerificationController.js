@@ -49,7 +49,7 @@ exports.verifyEmail = async (req, res) => {
     // Синхронизируем аккаунт на подтверждённого пользователя, исключая подмену ника из чужой сессии.
     if (req.session) {
       req.session.user = {
-        id: user.id,
+        _id: user.id.toString(),
         username: user.username,
         email: user.email,
         role: user.role,

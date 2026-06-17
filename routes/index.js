@@ -7,8 +7,11 @@ const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
 const Statistics = require("../config/database").Statistics;
-const { USE_POSTGRES, hasMongo } = require("../config/database");
+const { USE_POSTGRES, hasMongo, isDbConnected } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
+const { requireAdmin } = require("../middleware/auth");
+
+const CATALOG_PAGE_SIZE = 100;
 
 // Авторизация
 router.use("/", require("./auth"));
@@ -33,6 +36,41 @@ router.use("/about", require("./about"));
 router.use("/contacts", require("./contacts"));
 router.use("/videos", require("./videos"));
 
+async function resolveCategoryDisplay(selected, hasDbAccess) {
+  if (!selected || selected === "all") return "all";
+  if (!hasDbAccess) return selected;
+
+  if (/^\d+$/.test(selected)) {
+    try {
+      const category = await Category.findByPk(parseInt(selected, 10));
+      if (category?.name) return category.name;
+      return "Неизвестная категория";
+    } catch {
+      return "Ошибка загрузки категории";
+    }
+  }
+
+  return selected;
+}
+
+function applyCategoryFilter(selected, productsFilter, servicesFilter) {
+  if (!selected || selected === "all") return;
+
+  if (/^\d+$/.test(selected)) {
+    const categoryId = parseInt(selected, 10);
+    productsFilter.categoryId = categoryId;
+    servicesFilter.categoryId = categoryId;
+    return;
+  }
+
+  return Category.findOne({ where: { name: selected } }).then((category) => {
+    if (category) {
+      productsFilter.categoryId = category.id;
+      servicesFilter.categoryId = category.id;
+    }
+  });
+}
+
 // Главная страница — каталог
 router.get("/", async (req, res) => {
   try {
@@ -48,46 +86,7 @@ router.get("/", async (req, res) => {
     const isVercel = Boolean(process.env.VERCEL);
     const hasDbAccess = isVercel ? req.dbConnected : USE_POSTGRES;
 
-     console.log('🔧 Отладка категории:', {
-       selected,
-       isVercel,
-       hasDbAccess,
-        isValidObjectId: selected ? /^\d+$/.test(selected) : false
-     });
-
-      // Определяем отображаемое название выбранной категории
-      let selectedCategoryDisplay = selected || "all";
-      if (selected && selected !== 'all') {
-        // Проверяем, является ли selected numeric ID (новые целочисленные ID категорий)
-        // Если да, то ищем категорию по ID
-        if (/^\d+$/.test(selected)) {
-          console.log('📝 Selected является numeric ID категории:', selected);
-          if (hasDbAccess) {
-            try {
-              console.log('🔍 Ищем категорию по ID:', selected);
-              const category = await Category.findByPk(parseInt(selected, 10));
-              console.log('📋 Найденная категория:', category ? category.toJSON() : null);
-              if (category && category.name) {
-                selectedCategoryDisplay = category.name;
-                console.log('✅ Используем название категории:', selectedCategoryDisplay);
-              } else {
-                console.warn('⚠️ Категория не найдена или без названия');
-                selectedCategoryDisplay = "Неизвестная категория";
-              }
-            } catch (err) {
-              console.warn('❌ Ошибка поиска категории:', selected, err.message);
-              selectedCategoryDisplay = "Ошибка загрузки категории";
-            }
-          }
-        } else {
-          // Если это название категории (старый формат), используем напрямую
-          selectedCategoryDisplay = selected;
-        }
-      } else {
-        console.log('⏭️ Нет доступа к БД, оставляем ID');
-        selectedCategoryDisplay = "Категория"; // Fallback когда нет доступа к БД
-      }
-    console.log('📝 Финальное selectedCategoryDisplay:', selectedCategoryDisplay);
+    const selectedCategoryDisplay = await resolveCategoryDisplay(selected, hasDbAccess);
 
     if (!hasDbAccess) {
       return res.render("index", {
@@ -111,7 +110,6 @@ router.get("/", async (req, res) => {
       });
     }
 
-    // Фильтры
     const productsFilter = {
       status: "approved",
       type: "product"
@@ -121,36 +119,12 @@ router.get("/", async (req, res) => {
       type: "service"
     };
 
-    if (selected && selected !== 'all') {
-      // Если выбранная категория - это ObjectId, используем categoryId напрямую
-       if (/^[a-f0-9]{32,}$/i.test(selected)) {
-        productsFilter.categoryId = selected;
-        servicesFilter.categoryId = selected;
-      } else {
-        // Если это название категории, найдем ее ID
-        try {
-          console.log('🔍 Ищем ID категории по названию:', selected);
-          const category = await Category.findOne({ where: { name: selected } });
-          if (category) {
-            console.log('✅ Найден ID категории:', category.id);
-            productsFilter.categoryId = category.id;
-            servicesFilter.categoryId = category.id;
-          } else {
-            console.warn('⚠️ Категория с названием не найдена:', selected);
-            // Не применяем фильтр, показываем все товары
-          }
-        } catch (err) {
-          console.warn('❌ Ошибка поиска категории по названию:', selected, err.message);
-          // Не применяем фильтр, показываем все товары
-        }
-      }
-    }
+    await applyCategoryFilter(selected, productsFilter, servicesFilter);
 
-    // Запросы
     const [products, services, banners, visitors, users] = await Promise.all([
-      Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: 5000 }),
-      Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: 5000 }),
-      Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']], limit: 5000 }),
+      Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
+      Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
+      Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
       Statistics.findOrCreate({
         where: { key: "visitors" },
         defaults: { key: "visitors", value: 0 }
@@ -170,15 +144,16 @@ router.get("/", async (req, res) => {
     const votedMap = {};
     [...products, ...services].forEach(p => {
       const plainP = p.get ? p.get({ plain: true }) : p;
+      const cardId = (plainP._id || plainP.id)?.toString();
       if (Array.isArray(plainP.voters) && plainP.voters.map(v => String(v)).includes(userId)) {
-        votedMap[plainP.id?.toString()] = true;
+        votedMap[cardId] = true;
       }
     });
 
     res.render("index", {
-      products: products.map(p => p.get ? p.get({ plain: true }) : p),
-      services: services.map(s => s.get ? s.get({ plain: true }) : s),
-      banners: banners.map(b => b.get ? b.get({ plain: true }) : b),
+      products,
+      services,
+      banners,
       visitorCount,
       userCount,
       page: 1,
@@ -190,6 +165,7 @@ router.get("/", async (req, res) => {
       user: req.user,
       votedMap,
       categories,
+      hierarchicalCategories: HIERARCHICAL_CATEGORIES,
       selectedCategory: selectedCategoryDisplay,
       csrfToken: req.csrfToken ? req.csrfToken() : ''
     });
@@ -199,8 +175,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Health-check Cloudinary
-router.get("/__health/cloudinary", async (req, res) => {
+// Health-check Cloudinary (только для администраторов в production)
+router.get("/__health/cloudinary", requireAdmin, async (req, res) => {
   try {
     if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
       cloudinary.config({
@@ -222,7 +198,7 @@ router.get("/health", (req, res) => {
   res.json({
     ok: true,
     database: hasMongo() ? "configured" : "missing",
-    connected: Boolean(req.dbConnected)
+    connected: isDbConnected()
   });
 });
 

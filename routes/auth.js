@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const emailVerificationController = require('../controllers/emailVerificationController');
 const authController = require('../controllers/authController');
-const { loginLimiter } = require('../middleware/rateLimiter');
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter');
+const { validateRegister } = require('../middleware/validators');
 
 function renderUserLogin(req, res, error = null) {
   if (typeof error === "function") error = null;
@@ -53,7 +54,7 @@ router.get("/register", (req, res) => {
 });
 
 // Регистрация пользователя (POST)
-router.post("/register", authController.register);
+router.post("/register", registerLimiter, validateRegister, authController.register);
 
 router.get("/user/login", renderUserLogin);
 router.post("/user/login", loginLimiter, authController.userLogin);

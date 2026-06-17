@@ -22,22 +22,21 @@ app.use(express.json());
 const USE_POSTGRES = Boolean(process.env.DATABASE_URL);
 
 if (USE_POSTGRES) {
-  const { sequelize } = require("./database");
+  const { isDbConnected, refreshDbConnection } = require("./database");
   app.use(async (req, res, next) => {
-    try {
-      await sequelize.authenticate();
-      req.dbConnected = true;
-      next();
-    } catch (err) {
-      console.error("❌ Ошибка подключения к PostgreSQL:", err.message);
-      req.dbConnected = false;
-      next();
+    if (!isDbConnected()) {
+      await refreshDbConnection();
     }
+    req.dbConnected = isDbConnected();
+    next();
   });
 }
 
 app.use(createSecurityMiddleware());
 app.use(morgan(isProduction ? "combined" : "dev"));
+
+const { sanitizeHtmlInput } = require("../middleware/security");
+app.use(sanitizeHtmlInput);
 
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("./categories");
 
@@ -199,9 +198,11 @@ app.use(async (req, res, next) => {
   }
 });
 
+const normalizeRender = require("../middleware/normalizeRender");
+app.use(normalizeRender);
+
 app.use(express.static(path.join(__dirname, "../public")));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-app.use("/utils", express.static(path.join(__dirname, "../utils")));
 
 module.exports = {
   app,

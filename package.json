@@ -10,7 +10,10 @@
     "dev": "nodemon server.js",
     "db:sync": "node scripts/sync-db.js",
     "db:migrate": "npx sequelize-cli db:migrate",
-    "admin:create": "node scripts/create-admin-user.js"
+    "admin:create": "node scripts/create-admin-user.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "engines": {
     "node": "v22.20.0"
@@ -52,6 +55,8 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "jest": "^30.4.2",
     "nodemon": "3.1.10",
     "sequelize-cli": "^6.6.5"
   }

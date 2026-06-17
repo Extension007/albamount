@@ -18,7 +18,7 @@ async function checkCardAccess(cardId, user) {
      if (card) {
        // Проверяем, является ли пользователь владельцем карточки или администратором
         const isAdmin = user.role === 'admin';
-        const isOwner = card.ownerId && card.ownerId.toString() === user.id.toString();
+        const isOwner = card.ownerId && card.ownerId.toString() === (user._id || user.id)?.toString();
        
        // Определяем тип карточки
        let cardType = 'Product';
@@ -59,7 +59,9 @@ module.exports = (io) => {
             if (decoded && decoded._id) {
                const user = await User.findByPk(decoded._id);
               if (user) {
-                return user;
+                const plain = user.get({ plain: true });
+                plain._id = plain.id?.toString();
+                return plain;
               }
             }
           }
@@ -72,7 +74,9 @@ module.exports = (io) => {
           const userId = sessionUser._id || sessionUser;
           const sessionDbUser = await User.findByPk(userId);
           if (sessionDbUser) {
-            return sessionDbUser;
+            const plain = sessionDbUser.get({ plain: true });
+            plain._id = (sessionUser._id || plain.id)?.toString();
+            return plain;
           }
         }
         

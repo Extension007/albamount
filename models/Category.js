@@ -45,7 +45,7 @@ const Category = sequelize.define('Category', {
   indexes: [
     { fields: ['parent_id'] },
     { fields: ['type'] },
-    { fields: ['active'] },
+    { fields: ['is_active'] },
     { fields: ['parent_id', 'type'] },
     { fields: ['order'] }
   ],

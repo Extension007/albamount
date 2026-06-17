@@ -35,7 +35,7 @@ async function runScript() {
       process.exit(0);
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     const adminUser = await User.create({
       username,
       email,

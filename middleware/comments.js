@@ -3,13 +3,16 @@
 const Comment = require('../models/Comment');
 const Product = require('../models/Product');
 
+function getUserId(user) {
+  if (!user) return null;
+  return (user._id || user.id)?.toString() || null;
+}
+
 /**
  * Проверяет, может ли пользователь читать комментарии карточки
  * Гости и авторизованные пользователи могут читать комментарии одобренных карточек
  */
 function canReadComments(req, res, next) {
-  // Все могут читать комментарии одобренных карточек
-  // Проверка происходит в роуте GET /api/comments/:cardId
   next();
 }
 
@@ -18,24 +21,13 @@ function canReadComments(req, res, next) {
  * Только авторизованные пользователи могут писать комментарии
  */
 function canWriteComments(req, res, next) {
-  console.log('🔍 Проверка авторизации для комментариев:');
-  console.log('  - req.user:', req.user ? `${req.user._id} (${req.user.role || 'no-role'})` : 'null');
-  console.log('  - req.session:', req.session ? 'exists' : 'null');
-  console.log('  - cookies:', req.cookies ? Object.keys(req.cookies) : 'none');
-  console.log('  - authorization header:', req.headers.authorization ? 'exists' : 'none');
-  console.log('  - xhr:', req.xhr);
-  console.log('  - accept header:', req.get('accept'));
-
   if (!req.user) {
-    console.log('❌ Пользователь не авторизован, возвращаем 401');
     const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
     if (wantsJson) {
       return res.status(401).json({ success: false, message: 'Требуется авторизация для добавления комментариев' });
     }
     return res.redirect('/user/login');
   }
-  
-  console.log('✅ Пользователь авторизован, разрешаем создание комментария');
   next();
 }
 
@@ -77,29 +69,26 @@ function canDeleteComments(req, res, next) {
  */
 async function checkChatAccess(cardId, user) {
   try {
-    // Проверяем существование карточки
     const card = await Product.findByPk(cardId);
     if (!card) {
       return { allowed: false, canWrite: false, canModerate: false, reason: 'Карточка не найдена' };
     }
 
-    // Только одобренные карточки имеют чат
     if (card.status !== 'approved') {
       return { allowed: false, canWrite: false, canModerate: false, reason: 'Чат доступен только для опубликованных карточек' };
     }
 
-    // Гости могут только читать
     if (!user) {
       return { allowed: true, canWrite: false, canModerate: false, reason: 'Гость - только чтение' };
     }
 
-    // Авторизованные пользователи могут читать и писать
     const isAdmin = user.role === 'admin';
-    const isOwner = card.ownerId && card.ownerId.toString() === user._id.toString();
+    const userId = getUserId(user);
+    const isOwner = card.ownerId && userId && card.ownerId.toString() === userId;
 
     return {
       allowed: true,
-      canWrite: true,
+      canWrite: Boolean(userId),
       canModerate: isAdmin,
       isOwner,
       cardType: card.type === 'service' ? 'Service' : 'Product'
@@ -115,5 +104,6 @@ module.exports = {
   canWriteComments,
   canEditComments,
   canDeleteComments,
-  checkChatAccess
+  checkChatAccess,
+  getUserId
 };

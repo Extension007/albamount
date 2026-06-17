@@ -85,7 +85,7 @@ router.get('/:cardId', [
 });
 
 // POST /api/comments/:cardId - создать комментарий
-router.post('/:cardId', canWriteComments, commentLimiter, async (req, res) => {
+router.post('/:cardId', canWriteComments, commentLimiter, csrfProtection, async (req, res) => {
   try {
     const { cardId } = req.params;
     const { text } = req.body;

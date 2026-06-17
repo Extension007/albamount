@@ -18,7 +18,7 @@
   const type = (typeof itemType !== 'undefined')
     ? itemType
     : (typeof product !== 'undefined' ? 'product' : (typeof service !== 'undefined' ? 'service' : 'banner'));
-  const itemId = item._id.toString();
+  const itemId = (item._id || item.id).toString();
   const itemName = item.name || item.title || `Карточка ${itemId.substring(0, 8)}`;
   const itemDescription = item.description || '';
   const itemPrice = item.price || 0;
@@ -54,7 +54,7 @@
   const isPublic = displayMode === 'public';
   
   // Проверка владельца (для пользовательского режима)
-  const isOwner = isUser && itemOwner && typeof user !== 'undefined' && user && user._id && itemOwner.toString() === user._id.toString();
+  const isOwner = isUser && itemOwner && typeof user !== 'undefined' && user && (user._id || user.id) && itemOwner.toString() === (user._id || user.id).toString();
   const canEdit = isAdmin || isOwner;
   const canDelete = isAdmin || isOwner;
   

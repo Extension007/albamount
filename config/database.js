@@ -3,15 +3,25 @@ const { Sequelize, DataTypes, Op } = require("sequelize");
 // Флаг доступности PostgreSQL
 const USE_POSTGRES = process.env.DATABASE_URL !== undefined;
 
+const dbUrl = process.env.DATABASE_URL || "";
+const useSsl =
+  process.env.DATABASE_SSL === "true" ||
+  dbUrl.includes("sslmode=require") ||
+  dbUrl.includes("neon.tech");
+
 // Подключение к базе данных
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
-    }
-  },
+  ...(useSsl
+    ? {
+        dialectOptions: {
+          ssl: {
+            require: true,
+            rejectUnauthorized: false
+          }
+        }
+      }
+    : {}),
   logging: false,
   define: {
     timestamps: true,
@@ -85,7 +95,7 @@ const User = sequelize.define('User', {
     index: true
   },
   referredBy: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -832,14 +842,46 @@ function generateId() {
   });
 });
 
-// Проверка подключения
-async function testConnection() {
+let dbConnected = USE_POSTGRES ? null : false;
+
+async function refreshDbConnection() {
+  if (!USE_POSTGRES) {
+    dbConnected = false;
+    return false;
+  }
   try {
     await sequelize.authenticate();
-    console.log("✅ Подключение к PostgreSQL установлено успешно.");
+    dbConnected = true;
+    return true;
   } catch (error) {
-    console.error("❌ Не удалось подключиться к PostgreSQL:", error);
+    dbConnected = false;
+    return false;
   }
+}
+
+sequelize.addHook('afterFind', (instances) => {
+  if (!instances) return;
+  const rows = Array.isArray(instances) ? instances : [instances];
+  for (const row of rows) {
+    if (row?.dataValues?.id != null && row.dataValues._id == null) {
+      row.dataValues._id = row.dataValues.id;
+    }
+  }
+});
+
+// Проверка подключения
+async function testConnection() {
+  const ok = await refreshDbConnection();
+  if (ok) {
+    console.log("✅ Подключение к PostgreSQL установлено успешно.");
+  } else if (USE_POSTGRES) {
+    console.error("❌ Не удалось подключиться к PostgreSQL");
+  }
+  return ok;
+}
+
+function isDbConnected() {
+  return Boolean(dbConnected);
 }
 
 function isDatabaseConfigured() {
@@ -854,6 +896,8 @@ function hasMongo() {
 module.exports = {
   sequelize,
   testConnection,
+  refreshDbConnection,
+  isDbConnected,
   USE_POSTGRES,
   isDatabaseConfigured,
   hasMongo,
