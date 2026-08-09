@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const Category = sequelize.define('Category', {
@@ -75,11 +75,17 @@ function buildTree(categories) {
   return roots;
 }
 
+function typeWhere(type) {
+  if (!type || type === 'all') return {};
+  // Shared "all" categories apply to product/service/banner selectors
+  return { type: { [Op.in]: [type, 'all'] } };
+}
+
 Category.getTree = async function(type = 'all', includeInactive = false) {
-  const where = includeInactive ? {} : { isActive: true };
-  if (type !== 'all') {
-    where.type = type;
-  }
+  const where = {
+    ...(includeInactive ? {} : { isActive: true }),
+    ...typeWhere(type)
+  };
   const categories = await this.findAll({
     where,
     order: [['order', 'ASC'], ['name', 'ASC']],
@@ -89,10 +95,10 @@ Category.getTree = async function(type = 'all', includeInactive = false) {
 };
 
 Category.getFlatList = async function(type = 'all', includeInactive = false) {
-  const where = includeInactive ? {} : { isActive: true };
-  if (type !== 'all') {
-    where.type = type;
-  }
+  const where = {
+    ...(includeInactive ? {} : { isActive: true }),
+    ...typeWhere(type)
+  };
   const categories = await this.findAll({
     where,
     attributes: ['id', 'name', 'icon', 'type', 'parentId'],
@@ -130,10 +136,7 @@ Category.findByPath = async function(path, type = 'all') {
   let current = null;
   for (const part of parts) {
     const id = parseInt(part, 10);
-    const where = { id };
-    if (type !== 'all') {
-      where.type = type;
-    }
+    const where = { id, ...typeWhere(type) };
     current = await this.findOne({ where, raw: true });
     if (!current) break;
   }

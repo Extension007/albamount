@@ -420,8 +420,8 @@
 
       blocks.forEach(function(block) {
         const option = document.createElement('option');
-        option.value = block._id;
-        option.textContent = `${block.icon || ''} ${block.name}`;
+        option.value = String(block._id || block.id);
+        option.textContent = `${block.icon || ''} ${block.name}`.trim();
         categorySelect.appendChild(option);
       });
     }
@@ -448,8 +448,8 @@
 
       subcategories.forEach(function(sub) {
         const option = document.createElement('option');
-        option.value = sub._id;
-        option.textContent = `${sub.icon || ''} ${sub.name}`;
+        option.value = String(sub._id || sub.id);
+        option.textContent = `${sub.icon || ''} ${sub.name}`.trim();
         subcategorySelect.appendChild(option);
       });
 
@@ -466,9 +466,12 @@
       const selectedBlockId = this.value;
       if (selectedBlockId) {
         const selectedBlock = currentCategories.find(function(block) {
-          return block._id === selectedBlockId;
+          return String(block._id || block.id) === String(selectedBlockId);
         });
         if (selectedBlock) {
+          loadSubcategories(selectedBlockId);
+        } else {
+          // Leaf or unknown — still try children endpoint
           loadSubcategories(selectedBlockId);
         }
       } else {
