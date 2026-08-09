@@ -8,6 +8,7 @@ const { CATEGORY_KEYS } = require("../config/constants");
 const { processUploadedFiles, deleteProductImages } = require("./imageService");
 const { getAvailableEntitlementsCount, consumeEntitlement } = require("./albaService");
 const { normalizePrice } = require("../utils/price");
+const { sequelize } = require("../config/database");
 
 async function resolveCategoryData(category) {
   if (!category) return { categoryId: null, categoryValue: "" };
@@ -42,9 +43,11 @@ async function resolveCategoryData(category) {
  * Создание товара
  * @param {Object} data - Данные товара
  * @param {Array} files - Загруженные файлы
+ * @param {Object} [options]
+ * @param {import('sequelize').Transaction} [options.transaction]
  * @returns {Promise<Object>} - Созданный товар
  */
-async function createProduct(data, files = []) {
+async function createProduct(data, files = [], options = {}) {
   const {
     name,
     description,
@@ -59,7 +62,9 @@ async function createProduct(data, files = []) {
     whatsapp,
     contact_method,
     ownerId,
-    status = "pending"
+    status = "pending",
+    tier = "free",
+    tierRequested
   } = data;
 
   // Валидация категории
@@ -106,11 +111,13 @@ async function createProduct(data, files = []) {
     type: typeValue,
     ownerId: ownerId || null,
     status,
+    tier: tier === 'paid' ? 'paid' : 'free',
+    tierRequested: tierRequested || (tier === 'paid' ? 'paid' : 'free'),
     likes: 0,
     dislikes: 0
   };
 
-  return await Product.create(productData);
+  return await Product.create(productData, { transaction: options.transaction });
 }
 
 /**
@@ -363,78 +370,62 @@ async function getProducts(filters = {}, options = {}) {
  * @returns {Promise<Object>} - Created product or error
  */
 async function createProductWithEntitlementCheck(data, files = [], user) {
-   const { type = 'product' } = data;
+  const { type = 'product' } = data;
 
-   // Validate user is verified
-   if (!user || !user.emailVerified) {
-     throw new Error('User must be verified to create products');
-   }
+  if (!user || !user.emailVerified) {
+    throw new Error('User must be verified to create products');
+  }
 
-   // Check if user already has a base card of this type
-   const existingBaseCards = await Product.count({
-     where: {
-       ownerId: user._id || user.id,
-       type,
-       deleted: false,
-       [Op.or]: [
-         { tier: null },
-         { tier: 'free' }
-       ]
-     }
-   });
+  const userId = user._id || user.id;
 
-   // Check if user has any purchased cards of this type
-   const existingPurchasedCards = await Product.count({
-     where: {
-       ownerId: user._id || user.id,
-       type,
-       deleted: false,
-       tier: 'paid'
-     }
-   });
+  // One free card per type (product / service). Any existing non-deleted card
+  // of that type means further creates require a purchased entitlement.
+  const existingCardsOfType = await Product.count({
+    where: {
+      ownerId: userId,
+      type,
+      deleted: false
+    }
+  });
 
-   const totalCardsOfType = existingBaseCards + existingPurchasedCards;
-
-   if (totalCardsOfType >= 1 && existingBaseCards >= 1) {
-     // User already has base card, check for available entitlements
-     const userId = user._id || user.id;
-     const availableEntitlements = await getAvailableEntitlementsCount(userId, type);
-
-     if (availableEntitlements <= 0) {
-       throw new Error(`No available entitlements for ${type} creation. Purchase more entitlements.`);
-     }
-
-     const entitlementToConsume = await Entitlement.findOne({
-       where: {
-         ownerId: userId,
-         type,
-         status: 'available'
-       },
-       order: [['createdAt', 'ASC']]
-     });
-
-    if (!entitlementToConsume) {
-      throw new Error(`No available entitlements found for ${type} creation`);
+  if (existingCardsOfType >= 1) {
+    const availableEntitlements = await getAvailableEntitlementsCount(userId, type);
+    if (availableEntitlements <= 0) {
+      throw new Error(`No available entitlements for ${type} creation. Purchase more entitlements.`);
     }
 
-     // Consume the entitlement
-     const consumeResult = await consumeEntitlement(entitlementToConsume.id);
-     if (!consumeResult.ok) {
-       throw new Error(`Failed to consume entitlement: ${consumeResult.message}`);
-     }
+    return sequelize.transaction(async (t) => {
+      const entitlementToConsume = await Entitlement.findOne({
+        where: {
+          ownerId: userId,
+          type,
+          status: 'available'
+        },
+        order: [['createdAt', 'ASC']],
+        lock: t.LOCK.UPDATE,
+        transaction: t
+      });
 
-     // Create product as purchased
-     data.tier = 'paid';
-     data.status = 'pending';
-     const product = await createProduct(data, files);
-     return { product, entitlementConsumed: true, entitlementId: entitlementToConsume.id };
-  } else {
-    // Create base product (first one is free)
-    data.tier = 'free';
-    data.status = 'pending';
-    const product = await createProduct(data, files);
-    return { product, entitlementConsumed: false };
+      if (!entitlementToConsume) {
+        throw new Error(`No available entitlements found for ${type} creation`);
+      }
+
+      const consumeResult = await consumeEntitlement(entitlementToConsume.id, { transaction: t });
+      if (!consumeResult.ok) {
+        throw new Error(`Failed to consume entitlement: ${consumeResult.message}`);
+      }
+
+      data.tier = 'paid';
+      data.status = 'pending';
+      const product = await createProduct(data, files, { transaction: t });
+      return { product, entitlementConsumed: true, entitlementId: entitlementToConsume.id };
+    });
   }
+
+  data.tier = 'free';
+  data.status = 'pending';
+  const product = await createProduct(data, files);
+  return { product, entitlementConsumed: false };
 }
 
 /**

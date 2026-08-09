@@ -130,7 +130,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       return res.status(500).send("Ошибка загрузки пользователя");
     }
 
-    const { ensureUserRefCode, REFERRAL_BONUS_ALBA } = require('../services/referralService');
+    const { ensureUserRefCode, REFERRAL_BONUS_ALBA, REFERRED_USER_BONUS } = require('../services/referralService');
     await ensureUserRefCode(freshUser, User);
 
     const actualBalance = await getUserAlbaBalance(getAuthUserId(req.user));
@@ -157,7 +157,8 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       socket_io_available: res.locals.socket_io_available,
       categories: categoryFlat,
       hierarchicalCategories: categoryTree,
-      referralBonusAlba: REFERRAL_BONUS_ALBA
+      referralBonusAlba: REFERRAL_BONUS_ALBA,
+      referredUserBonusAlba: REFERRED_USER_BONUS
     });
   } catch (err) {
     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });

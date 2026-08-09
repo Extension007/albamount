@@ -368,12 +368,26 @@ router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, val
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
 
-     await Product.update(
-       { status: "rejected", adminComment, rejection_reason: rejectionReason },
-       { where: { id: req.params.id } }
-     );
-     const product = await Product.findByPk(req.params.id);
+    const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: "Карточка не найдена" });
+
+    const wasPending = product.status === 'pending';
+    const shouldRefundAlba = wasPending && product.tier === 'paid';
+
+    await Product.update(
+      { status: "rejected", adminComment, rejection_reason: rejectionReason },
+      { where: { id: req.params.id } }
+    );
+    await product.reload();
+
+    let albaRefund = null;
+    if (shouldRefundAlba) {
+      const { refundAlbaOnModerationReject } = require('../services/albaService');
+      albaRefund = await refundAlbaOnModerationReject({
+        card: product,
+        actorAdminId: req.user?._id || req.user?.id || null
+      });
+    }
 
      // Отправляем уведомление администратору о модерации
      try {
@@ -388,14 +402,20 @@ router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, val
           'Причина отклонения': rejectionReason,
           'Комментарий администратора': adminComment,
           'Отклонено администратором': req.user?.username || 'Неизвестно',
-          'Дата отклонения': new Date().toLocaleString('ru-RU')
+          'Дата отклонения': new Date().toLocaleString('ru-RU'),
+          'Возврат ALBA': albaRefund?.refunded ? 'да' : 'нет'
         }
       );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
 
-    res.json({ success: true, status: product.status, rejection_reason: product.rejection_reason });
+    res.json({
+      success: true,
+      status: product.status,
+      rejection_reason: product.rejection_reason,
+      albaRefunded: Boolean(albaRefund?.refunded)
+    });
   } catch (err) {
     console.error("❌ Ошибка отклонения карточки:", err);
     res.status(500).json({ success: false, message: "Ошибка отклонения карточки" });
@@ -573,15 +593,28 @@ router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, val
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
 
-     await Product.update(
-       { status: "rejected", adminComment, rejection_reason: rejectionReason },
-       { where: { id: req.params.id } }
-     );
-     const service = await Product.findByPk(req.params.id);
+    const service = await Product.findByPk(req.params.id);
     if (!service) return res.status(404).json({ success: false, message: "Услуга не найдена" });
-    // Проверяем, что это действительно услуга
     if (service.type !== "service") {
       return res.status(400).json({ success: false, message: "Это не услуга" });
+    }
+
+    const wasPending = service.status === 'pending';
+    const shouldRefundAlba = wasPending && service.tier === 'paid';
+
+    await Product.update(
+      { status: "rejected", adminComment, rejection_reason: rejectionReason },
+      { where: { id: req.params.id } }
+    );
+    await service.reload();
+
+    let albaRefund = null;
+    if (shouldRefundAlba) {
+      const { refundAlbaOnModerationReject } = require('../services/albaService');
+      albaRefund = await refundAlbaOnModerationReject({
+        card: service,
+        actorAdminId: req.user?._id || req.user?.id || null
+      });
     }
 
      // Отправляем уведомление администратору о модерации
@@ -597,14 +630,20 @@ router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, val
           'Причина отклонения': rejectionReason,
           'Комментарий администратора': adminComment,
           'Отклонено администратором': req.user?.username || 'Неизвестно',
-          'Дата отклонения': new Date().toLocaleString('ru-RU')
+          'Дата отклонения': new Date().toLocaleString('ru-RU'),
+          'Возврат ALBA': albaRefund?.refunded ? 'да' : 'нет'
         }
       );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
 
-    res.json({ success: true, status: service.status, rejection_reason: service.rejection_reason });
+    res.json({
+      success: true,
+      status: service.status,
+      rejection_reason: service.rejection_reason,
+      albaRefunded: Boolean(albaRefund?.refunded)
+    });
   } catch (err) {
     console.error("❌ Ошибка отклонения услуги:", err);
     res.status(500).json({ success: false, message: "Ошибка отклонения услуги" });

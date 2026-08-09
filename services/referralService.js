@@ -4,7 +4,7 @@ const { randomBytes, randomUUID } = require('crypto');
 
 // Get referral bonus amount from environment or use default
 const REFERRAL_BONUS_ALBA = parseInt(process.env.REFERRAL_BONUS_ALBA, 10) || 10;
-const REFERRED_USER_BONUS = parseInt(process.env.REFERRED_USER_BONUS_ALBA, 10) || 5;
+const REFERRED_USER_BONUS = parseInt(process.env.REFERRED_USER_BONUS_ALBA, 10) || 10;
 const REF_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function generateRefCodeCandidate(length = 8) {

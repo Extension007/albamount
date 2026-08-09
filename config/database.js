@@ -468,7 +468,7 @@ const AlbaTransaction = sequelize.define('AlbaTransaction', {
     type: DataTypes.STRING(50),
     allowNull: false,
     validate: {
-      isIn: [['referral_bonus', 'referred_user_bonus', 'card_payment', 'admin_grant', 'manual_adjustment', 'upgrade_to_paid', 'card_entitlement_purchase']]
+      isIn: [['referral_bonus', 'referred_user_bonus', 'card_payment', 'admin_grant', 'manual_adjustment', 'upgrade_to_paid', 'card_entitlement_purchase', 'moderation_refund']]
     }
   },
   relatedUserId: {

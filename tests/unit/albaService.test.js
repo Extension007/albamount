@@ -1,4 +1,4 @@
-const { spendAlba } = require('../../services/albaService');
+const { spendAlba, refundAlbaOnModerationReject, ENTITLEMENT_COST_ALBA } = require('../../services/albaService');
 
 describe('albaService spend guards', () => {
   test('rejects non-positive amount', async () => {
@@ -27,5 +27,20 @@ describe('albaService spend guards', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.message).toMatch(/not allowed/i);
+  });
+});
+
+describe('albaService moderation refund', () => {
+  test('exports entitlement cost used for paid cards', () => {
+    expect(ENTITLEMENT_COST_ALBA).toBe(30);
+  });
+
+  test('does not refund free cards', async () => {
+    const result = await refundAlbaOnModerationReject({
+      card: { id: 99, tier: 'free', ownerId: 1, type: 'product', name: 'Free' }
+    });
+    expect(result.ok).toBe(true);
+    expect(result.refunded).toBe(false);
+    expect(result.reason).toBe('free_card');
   });
 });

@@ -119,7 +119,9 @@ async function grantAlbaByUsername(login, amount, reason, adminId = null, commen
   }
 }
 
-async function earnReferralBonus({ UserModel, referrerUserId, referredUserId, amount = 30 }) {
+const ENTITLEMENT_COST_ALBA = 30;
+
+async function earnReferralBonus({ UserModel, referrerUserId, referredUserId, amount = 10 }) {
   const result = await addTx(UserModel, {
     userId: referrerUserId,
     amount,
@@ -199,7 +201,7 @@ async function purchaseEntitlement({ UserModel, userId, type, idempotencyKey }) 
     return { ok: true, entitlement: existingEntitlement, message: 'Entitlement already purchased (idempotent)' };
   }
 
-  const requiredAmount = 30;
+  const requiredAmount = ENTITLEMENT_COST_ALBA;
   const eventId = randomUUID();
 
   try {
@@ -274,30 +276,100 @@ async function getAvailableEntitlements(userId) {
   });
 }
 
-async function consumeEntitlement(entitlementId) {
+async function consumeEntitlement(entitlementId, options = {}) {
   const [updated] = await Entitlement.update(
     { status: 'consumed' },
     {
       where: {
         id: entitlementId,
         status: 'available'
-      }
+      },
+      transaction: options.transaction
     }
   );
 
   if (!updated) {
-    const entitlement = await Entitlement.findByPk(entitlementId);
+    const entitlement = await Entitlement.findByPk(entitlementId, {
+      transaction: options.transaction
+    });
     if (!entitlement) {
       return { ok: false, status: 404, message: 'Entitlement not found' };
     }
     return { ok: false, status: 400, message: 'Entitlement already consumed' };
   }
 
-  const entitlement = await Entitlement.findByPk(entitlementId);
+  const entitlement = await Entitlement.findByPk(entitlementId, {
+    transaction: options.transaction
+  });
   return { ok: true, entitlement };
 }
 
+/**
+ * Refund ALBA spent on a paid card when moderation rejects it.
+ * Idempotent per card. Free cards are skipped. Only pending→reject path should call this.
+ */
+async function refundAlbaOnModerationReject({ card, actorAdminId = null }) {
+  if (!card) {
+    return { ok: false, status: 404, message: 'Card not found' };
+  }
+
+  const tier = card.tier || 'free';
+  if (tier !== 'paid') {
+    return { ok: true, refunded: false, reason: 'free_card' };
+  }
+
+  const ownerId = card.ownerId || card.owner;
+  if (!ownerId) {
+    return { ok: false, status: 400, message: 'Card has no owner' };
+  }
+
+  const cardType = card.type === 'service' ? 'service' : 'product';
+
+  const existingRefund = await AlbaTransaction.findOne({
+    where: {
+      reason: 'moderation_refund',
+      relatedCardId: card.id,
+      relatedCardType: cardType
+    }
+  });
+
+  if (existingRefund) {
+    return { ok: true, refunded: false, reason: 'already_refunded', transaction: existingRefund };
+  }
+
+  const result = await addTx(User, {
+    userId: ownerId,
+    amount: ENTITLEMENT_COST_ALBA,
+    type: 'grant',
+    reason: 'moderation_refund',
+    relatedUserId: actorAdminId,
+    relatedCardType: cardType,
+    relatedCardId: card.id,
+    meta: {
+      source: 'moderation_reject',
+      cardName: card.name || null
+    }
+  });
+
+  await AuditLog.create({
+    action: 'alba_moderation_refund',
+    userId: ownerId,
+    targetUserId: ownerId,
+    adminId: actorAdminId,
+    amount: ENTITLEMENT_COST_ALBA,
+    reason: 'moderation_refund',
+    details: {
+      cardId: card.id,
+      cardType,
+      transactionId: result.transaction?.id
+    }
+  });
+
+  return { ok: true, refunded: true, transaction: result.transaction, user: result.user };
+}
+
 module.exports = {
+  ENTITLEMENT_COST_ALBA,
   grantAlba,
   earnReferralBonus,
   spendAlba,
@@ -308,5 +380,6 @@ module.exports = {
   getAvailableEntitlements,
   consumeEntitlement,
   grantAlbaByUsername,
+  refundAlbaOnModerationReject,
   addTx
 };
