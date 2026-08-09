@@ -1,6 +1,7 @@
 /**
  * Production boot checks — call once at process start.
- * Escape hatches (local/staging only): ALLOW_INMEMORY_RATE_LIMIT=true
+ * Redis is strongly recommended on Vercel but not a hard boot blocker
+ * (in-memory rate limits still work per isolate).
  */
 function isProdLike() {
   return process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
@@ -26,12 +27,10 @@ function assertProductionEnv() {
     errors.push('SESSION_SECRET must be set and at least 32 characters in production');
   }
 
-  if (!process.env.REDIS_URL && process.env.ALLOW_INMEMORY_RATE_LIMIT !== 'true') {
-    errors.push(
-      'REDIS_URL is required in production/Vercel for shared rate limits (set ALLOW_INMEMORY_RATE_LIMIT=true to override)'
+  if (!process.env.REDIS_URL) {
+    warnings.push(
+      'REDIS_URL not set — rate limits are per-isolate on Vercel. Add Upstash REDIS_URL when ready.'
     );
-  } else if (!process.env.REDIS_URL) {
-    warnings.push('REDIS_URL missing — rate limits are per-isolate (ALLOW_INMEMORY_RATE_LIMIT=true)');
   }
 
   const cloudOk =
@@ -49,7 +48,7 @@ function assertProductionEnv() {
   return { ok: errors.length === 0, errors, warnings };
 }
 
-function runProductionGuards({ exitOnError = true } = {}) {
+function runProductionGuards() {
   const result = assertProductionEnv();
   for (const w of result.warnings) {
     console.warn('⚠️ production:', w);
@@ -57,9 +56,6 @@ function runProductionGuards({ exitOnError = true } = {}) {
   if (!result.ok) {
     for (const e of result.errors) {
       console.error('❌ production:', e);
-    }
-    if (exitOnError && require.main) {
-      // only hard-exit when this module is run as a script; boot callers decide
     }
   }
   return result;

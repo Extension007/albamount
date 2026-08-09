@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const { isProdLike } = require('../config/production');
 
 function ensureGuestId(req, res, next) {
   let gid = req.cookies?.guestId;
