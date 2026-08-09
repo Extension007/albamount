@@ -136,12 +136,14 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
     const actualBalance = await getUserAlbaBalance(getAuthUserId(req.user));
     freshUser.albaBalance = actualBalance;
 
-    const albaTransactions = await AlbaTransaction.findAll({
-      where: { userId: getAuthUserId(req.user) },
+    const { formatAlbaTransactions } = require('../utils/albaLabels');
+    const userIdNum = parseInt(String(getAuthUserId(req.user)), 10);
+    const albaTxRows = await AlbaTransaction.findAll({
+      where: { userId: Number.isFinite(userIdNum) ? userIdNum : getAuthUserId(req.user) },
       order: [['createdAt', 'DESC']],
-      limit: 50,
-      raw: true
+      limit: 50
     });
+    const albaTransactions = formatAlbaTransactions(albaTxRows);
 
     const csrfTokenValue = res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '');
     const userPayload = freshUser.get ? freshUser.get({ plain: true }) : freshUser;

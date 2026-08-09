@@ -143,6 +143,10 @@
             content.classList.add('active');
           }
         });
+
+        if (targetTab === 'alba' && typeof window.refreshAlbaData === 'function') {
+          window.refreshAlbaData();
+        }
       });
     });
   }
@@ -638,6 +642,9 @@
     albaBalanceBtn.addEventListener('click', () => {
       albaBalanceModal.style.display = 'block';
       loadAvailableEntitlements();
+      if (typeof window.refreshAlbaData === 'function') {
+        window.refreshAlbaData();
+      }
     });
 
     // Close modal
@@ -657,7 +664,14 @@
     if (refreshAlbaModalBtn) {
       refreshAlbaModalBtn.addEventListener('click', async () => {
         try {
-          const response = await fetch('/api/p1/alba/transactions');
+          if (typeof window.refreshAlbaData === 'function') {
+            await window.refreshAlbaData();
+            return;
+          }
+          const response = await fetch('/api/p1/alba/transactions', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' }
+          });
           const data = await response.json();
 
           if (data.success) {

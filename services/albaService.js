@@ -195,11 +195,14 @@ async function spendAlba({
 }
 
 async function listTransactions({ userId, limit = 100 }) {
-  return AlbaTransaction.findAll({
-    where: { userId },
+  const { formatAlbaTransactions } = require('../utils/albaLabels');
+  const numericId = parseInt(String(userId), 10);
+  const rows = await AlbaTransaction.findAll({
+    where: { userId: Number.isFinite(numericId) ? numericId : userId },
     order: [['createdAt', 'DESC']],
-    limit: limit
+    limit: Math.min(Math.max(parseInt(limit, 10) || 100, 1), 200)
   });
+  return formatAlbaTransactions(rows);
 }
 
 async function purchaseEntitlement({ UserModel, userId, type, idempotencyKey }) {
