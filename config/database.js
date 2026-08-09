@@ -144,10 +144,18 @@ const Product = sequelize.define('Product', {
   },
   link: DataTypes.STRING(1000),
   images: {
-    type: DataTypes.ARRAY(DataTypes.STRING),
+    type: DataTypes.JSONB,
     defaultValue: [],
     validate: {
-      len: [0, 5]
+      maxFive(value) {
+        if (value == null) return;
+        if (!Array.isArray(value)) {
+          throw new Error('images must be an array');
+        }
+        if (value.length > 5) {
+          throw new Error('Maximum 5 images allowed');
+        }
+      }
     }
   },
   image_url: DataTypes.STRING(1000),
@@ -311,10 +319,18 @@ const Banner = sequelize.define('Banner', {
   },
   price: DataTypes.STRING,
   images: {
-    type: DataTypes.ARRAY(DataTypes.STRING),
+    type: DataTypes.JSONB,
     defaultValue: [],
     validate: {
-      len: [0, 5]
+      maxFive(value) {
+        if (value == null) return;
+        if (!Array.isArray(value)) {
+          throw new Error('images must be an array');
+        }
+        if (value.length > 5) {
+          throw new Error('Maximum 5 images allowed');
+        }
+      }
     }
   },
   image_url: DataTypes.STRING(1000),

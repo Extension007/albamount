@@ -149,15 +149,11 @@ function processUploadedFiles(files, options = {}) {
 
   filesToProcess.forEach(file => {
     let imagePath = null;
-    if (file.path && !file.path.startsWith('http')) {
-      // Локальное хранилище
-      imagePath = '/uploads/' + file.filename;
-    } else {
-      // Cloudinary - уже оптимизировано при загрузке через multer-storage-cloudinary
-      // Но можем дополнительно оптимизировать URL
-      imagePath = file.path;
+    // Cloudinary (multer-storage-cloudinary) sets path/secure_url/url
+    const cloudUrl = file.path || file.secure_url || file.url;
+    if (cloudUrl && String(cloudUrl).startsWith('http')) {
+      imagePath = cloudUrl;
       if (optimize && hasCloudinary && imagePath.includes('cloudinary.com')) {
-        // Оптимизируем URL для карточек (800x600)
         imagePath = optimizeImageUrl(imagePath, {
           width: 800,
           height: 600,
@@ -165,6 +161,8 @@ function processUploadedFiles(files, options = {}) {
           format: 'auto'
         });
       }
+    } else if (file.filename) {
+      imagePath = '/uploads/' + file.filename;
     }
     if (imagePath) {
       images.push(imagePath);

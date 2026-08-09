@@ -119,15 +119,22 @@ function createImageUpload(options = {}) {
 
           storage = new CloudinaryStorage({
             cloudinary,
-            params: {
-              folder: "products",
-              allowed_formats: ["jpg", "png", "jpeg", "webp"],
-              transformation: [
-                { width: 1200, height: 1200, crop: "limit" },
-                { quality: "auto" },
-                { fetch_format: "auto" },
-              ],
-            },
+            params: async (_req, file) => {
+              const base = path
+                .basename(file.originalname || "image", path.extname(file.originalname || ""))
+                .replace(/[^a-zA-Z0-9_-]/g, "")
+                .slice(0, 40) || "image";
+              return {
+                folder: "products",
+                public_id: `${base}-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
+                allowed_formats: ["jpg", "png", "jpeg", "webp"],
+                transformation: [
+                  { width: 1200, height: 1200, crop: "limit" },
+                  { quality: "auto" },
+                  { fetch_format: "auto" }
+                ]
+              };
+            }
           });
           useCloudinary = true;
         } catch (cloudinaryErr) {

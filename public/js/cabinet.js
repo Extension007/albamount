@@ -224,7 +224,13 @@
           msg.style.color = 'green';
           form.reset();
           const preview = document.getElementById('imagePreview');
-          if (preview) preview.style.display = 'none';
+          const imagesInput = document.getElementById('images');
+          if (imagesInput && typeof imagesInput._clearSelectedImages === 'function') {
+            imagesInput._clearSelectedImages();
+          } else if (preview) {
+            preview.style.display = 'none';
+            preview.innerHTML = '';
+          }
           setTimeout(() => location.reload(), 800);
         } else {
           msg.textContent = json.message || 'Ошибка при создании карточки';
@@ -243,55 +249,111 @@
     const imagePreview = document.getElementById('imagePreview');
     if (!imagesInput || !imagePreview) return;
 
-    imagesInput.addEventListener('change', function(e) {
-      const files = Array.from(e.target.files || []);
-      const maxFiles = parseInt(imagesInput.getAttribute('data-max-files'), 10) || 5;
+    const maxFiles = parseInt(imagesInput.getAttribute('data-max-files'), 10) || 5;
+    /** @type {File[]} */
+    let selectedFiles = [];
 
-      if (files.length > maxFiles) {
-        alert(`Можно выбрать не более ${maxFiles} изображений`);
-        e.target.value = '';
-        imagePreview.innerHTML = '';
-        imagePreview.style.display = 'none';
-        return;
-      }
+    function syncInputFiles() {
+      const dt = new DataTransfer();
+      selectedFiles.forEach(function(file) { dt.items.add(file); });
+      imagesInput.files = dt.files;
+    }
 
+    function renderPreview() {
       imagePreview.innerHTML = '';
-
-      if (files.length === 0) {
+      if (selectedFiles.length === 0) {
         imagePreview.style.display = 'none';
         return;
       }
 
       imagePreview.style.display = 'grid';
+      imagePreview.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
+      imagePreview.style.gap = '10px';
 
-      files.forEach(function(file) {
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`Файл "${file.name}" слишком большой (максимум 5MB)`);
-          return;
-        }
-
+      selectedFiles.forEach(function(file) {
         const reader = new FileReader();
         reader.onload = function(loadEvent) {
           const div = document.createElement('div');
           div.className = 'preview-item';
           div.style.position = 'relative';
+          div.style.width = '100%';
           div.style.aspectRatio = '1';
           div.style.overflow = 'hidden';
           div.style.borderRadius = '8px';
           div.style.border = '2px solid #ddd';
+          div.style.background = '#f5f5f5';
 
           const img = document.createElement('img');
           img.src = loadEvent.target.result;
+          img.alt = file.name;
           img.style.width = '100%';
           img.style.height = '100%';
           img.style.objectFit = 'cover';
+          img.style.display = 'block';
+
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.textContent = '×';
+          removeBtn.setAttribute('aria-label', 'Удалить фото');
+          removeBtn.style.position = 'absolute';
+          removeBtn.style.top = '4px';
+          removeBtn.style.right = '4px';
+          removeBtn.style.width = '24px';
+          removeBtn.style.height = '24px';
+          removeBtn.style.border = 'none';
+          removeBtn.style.borderRadius = '50%';
+          removeBtn.style.background = 'rgba(0,0,0,0.65)';
+          removeBtn.style.color = '#fff';
+          removeBtn.style.cursor = 'pointer';
+          removeBtn.style.lineHeight = '1';
+          removeBtn.addEventListener('click', function() {
+            selectedFiles = selectedFiles.filter(function(f) { return f !== file; });
+            syncInputFiles();
+            renderPreview();
+          });
 
           div.appendChild(img);
+          div.appendChild(removeBtn);
           imagePreview.appendChild(div);
         };
         reader.readAsDataURL(file);
       });
+    }
+
+    imagesInput.addEventListener('change', function(e) {
+      const incoming = Array.from(e.target.files || []);
+      if (!incoming.length) return;
+
+      const next = selectedFiles.slice();
+      for (let i = 0; i < incoming.length; i++) {
+        const file = incoming[i];
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`Файл "${file.name}" слишком большой (максимум 5MB)`);
+          continue;
+        }
+        const duplicate = next.some(function(f) {
+          return f.name === file.name && f.size === file.size && f.lastModified === file.lastModified;
+        });
+        if (!duplicate) next.push(file);
+      }
+
+      if (next.length > maxFiles) {
+        alert(`Можно выбрать не более ${maxFiles} изображений`);
+        selectedFiles = next.slice(0, maxFiles);
+      } else {
+        selectedFiles = next;
+      }
+
+      syncInputFiles();
+      renderPreview();
     });
+
+    // Expose clear for successful submit reset
+    imagesInput._clearSelectedImages = function() {
+      selectedFiles = [];
+      syncInputFiles();
+      renderPreview();
+    };
   }
 
   function initBannerForm() {
