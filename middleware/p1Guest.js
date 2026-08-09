@@ -35,12 +35,7 @@ function guestRateLimit({ windowMs = 60000, max = 20 } = {}) {
       if (redisHits != null) {
         count = redisHits;
       } else {
-        if (isProdLike() && process.env.ALLOW_INMEMORY_RATE_LIMIT !== 'true') {
-          return res.status(503).json({
-            success: false,
-            message: 'Rate limiting unavailable'
-          });
-        }
+        // Fallback to per-process memory (weaker on serverless, but keeps site up)
         const now = Date.now();
         const cur = memoryStore.get(key);
         if (!cur || cur.resetAt <= now) {
@@ -63,9 +58,7 @@ function guestRateLimit({ windowMs = 60000, max = 20 } = {}) {
       return next();
     } catch (err) {
       console.error('guest rate-limit error:', err.message);
-      if (isProdLike()) {
-        return res.status(503).json({ success: false, message: 'Rate limiting unavailable' });
-      }
+      // Prefer availability over hard fail when store is flaky
       return next();
     }
   };
