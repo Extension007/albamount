@@ -2,6 +2,12 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+const isVercel = Boolean(process.env.VERCEL);
+const isProduction = process.env.NODE_ENV === "production" || isVercel;
+
+let cloudinaryPingCache = { ok: false, checkedAt: 0 };
+const CLOUDINARY_PING_TTL_MS = 5 * 60 * 1000;
+
 function ensureUploadDir() {
   const uploadDir = path.join(process.cwd(), "uploads");
   if (!fs.existsSync(uploadDir)) {
@@ -10,9 +16,12 @@ function ensureUploadDir() {
   return uploadDir;
 }
 
+const ALLOWED_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-  if (allowedTypes.includes(file.mimetype)) {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  if (allowedTypes.includes(file.mimetype) && ALLOWED_EXT.has(ext || ".jpg")) {
     cb(null, true);
   } else {
     cb(new Error("Invalid file type. Only PNG, JPEG, JPG, WEBP allowed"), false);
@@ -30,48 +39,78 @@ const mobileOptimization = (req, res, next) => {
   }
 };
 
+async function checkCloudinaryAvailable() {
+  const hasCloudinaryConfig =
+    (process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET) ||
+    process.env.CLOUDINARY_URL;
+
+  if (!hasCloudinaryConfig) return false;
+
+  const now = Date.now();
+  if (now - cloudinaryPingCache.checkedAt < CLOUDINARY_PING_TTL_MS) {
+    return cloudinaryPingCache.ok;
+  }
+
+  try {
+    const cloudinary = require("cloudinary").v2;
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    await cloudinary.api.ping();
+    cloudinaryPingCache = { ok: true, checkedAt: now };
+    return true;
+  } catch (pingErr) {
+    console.warn("Cloudinary ping failed:", pingErr.message);
+    cloudinaryPingCache = { ok: false, checkedAt: now };
+    return false;
+  }
+}
+
+function createDiskStorage() {
+  const uploadDir = ensureUploadDir();
+  return multer.diskStorage({
+    destination: (req, file, cb) => {
+      try {
+        cb(null, uploadDir);
+      } catch (dirErr) {
+        cb(dirErr);
+      }
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      let ext = path.extname(file.originalname || "").toLowerCase();
+      if (!ALLOWED_EXT.has(ext)) {
+        ext = file.mimetype === "image/png" ? ".png" : file.mimetype === "image/webp" ? ".webp" : ".jpg";
+      }
+      cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+    },
+  });
+}
+
 function createImageUpload(options = {}) {
   const { maxFiles = 5, maxFileSize = 5 * 1024 * 1024 } = options;
 
   return async (req, res, next) => {
     try {
-      // Проверяем наличие Cloudinary конфигурации
-      const hasCloudinaryConfig =
-        (process.env.CLOUDINARY_CLOUD_NAME &&
-          process.env.CLOUDINARY_API_KEY &&
-          process.env.CLOUDINARY_API_SECRET) ||
-        process.env.CLOUDINARY_URL;
-
       let storage;
       let useCloudinary = false;
-      let cloudinaryAvailable = false;
+      const cloudinaryAvailable = await checkCloudinaryAvailable();
 
-      // Проверяем доступность Cloudinary
-      if (hasCloudinaryConfig) {
-        try {
-          const cloudinary = require("cloudinary").v2;
-          cloudinary.config({
-            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-            api_key: process.env.CLOUDINARY_API_KEY,
-            api_secret: process.env.CLOUDINARY_API_SECRET,
-          });
-
-          // Проверяем доступность Cloudinary с помощью ping
-          await cloudinary.api.ping();
-          cloudinaryAvailable = true;
-        } catch (pingErr) {
-          console.warn("Cloudinary недоступен, используем локальное хранилище:", pingErr.message);
-        }
+      if (isProduction && !cloudinaryAvailable) {
+        return res.status(503).json({
+          success: false,
+          message: "Загрузка изображений временно недоступна (Cloudinary)"
+        });
       }
 
-      console.log(`📤 Upload request: device=${req.isMobile ? 'mobile' : 'desktop'}, cloudinary=${cloudinaryAvailable ? 'available' : 'unavailable'}`);
-
-      // Используем Cloudinary только если она доступна
       if (cloudinaryAvailable) {
         try {
           const { CloudinaryStorage } = require("multer-storage-cloudinary");
           const cloudinary = require("cloudinary").v2;
-
           cloudinary.config({
             cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
             api_key: process.env.CLOUDINARY_API_KEY,
@@ -91,48 +130,17 @@ function createImageUpload(options = {}) {
             },
           });
           useCloudinary = true;
-          console.log(`☁️ Cloudinary storage initialized for ${req.isMobile ? 'mobile' : 'desktop'} device`);
         } catch (cloudinaryErr) {
-          console.warn("Cloudinary init failed, falling back to local storage:", cloudinaryErr.message);
-          const uploadDir = ensureUploadDir();
-          storage = multer.diskStorage({
-            destination: (req, file, cb) => {
-              try {
-                cb(null, uploadDir);
-              } catch (dirErr) {
-                console.error("Ошибка доступа к директории uploads:", dirErr);
-                cb(dirErr);
-              }
-            },
-            filename: (req, file, cb) => {
-              const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-              cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-            },
-          });
+          if (isProduction) {
+            return res.status(503).json({
+              success: false,
+              message: "Загрузка изображений временно недоступна"
+            });
+          }
+          storage = createDiskStorage();
         }
       } else {
-        // Используем локальное хранилище как fallback
-        try {
-          const uploadDir = ensureUploadDir();
-          storage = multer.diskStorage({
-            destination: (req, file, cb) => {
-              try {
-                cb(null, uploadDir);
-              } catch (dirErr) {
-                console.error("Ошибка доступа к директории uploads:", dirErr);
-                cb(dirErr);
-              }
-            },
-            filename: (req, file, cb) => {
-              const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-              cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-            },
-          });
-          console.log(`💾 Local storage initialized for ${req.isMobile ? 'mobile' : 'desktop'} device`);
-        } catch (storageErr) {
-          console.error("Ошибка инициализации локального хранилища:", storageErr);
-          return res.status(500).json({ success: false, message: "Ошибка инициализации хранилища" });
-        }
+        storage = createDiskStorage();
       }
 
       const multerInstance = multer({
@@ -146,62 +154,57 @@ function createImageUpload(options = {}) {
 
       const uploadMiddleware = multerInstance.array("images", maxFiles);
 
-      console.log(`🔄 Starting upload middleware: device=${req.isMobile ? 'mobile' : 'desktop'}, storage=${useCloudinary ? 'Cloudinary' : 'local'}`);
-
       await new Promise((resolve, reject) => {
         uploadMiddleware(req, res, (err) => {
           if (err) {
-            console.error("❌ Multer upload error:", err.message, err.code);
-            console.error("❌ Full error:", err);
-
             let errorMessage = "Ошибка загрузки файлов";
-            if (err.code === 'LIMIT_FILE_COUNT') {
+            if (err.code === "LIMIT_FILE_COUNT") {
               errorMessage = `Максимальное количество изображений: ${maxFiles}`;
-            } else if (err.code === 'LIMIT_FILE_SIZE') {
-              errorMessage = `Размер файла превышает ${maxFileSize / (1024 * 1024)}MB`;
-            } else if (err.message && err.message.includes('Invalid file type')) {
-              errorMessage = "Недопустимый тип файла. Разрешены только PNG, JPEG, JPG, WEBP";
+            } else if (err.code === "LIMIT_FILE_SIZE") {
+              errorMessage = "Размер файла превышает лимит";
+            } else if (err.message) {
+              errorMessage = err.message;
             }
-
-            return res.status(400).json({ success: false, message: errorMessage });
+            return reject(Object.assign(err, { clientMessage: errorMessage }));
           }
-
-          const fileCount = req.files ? req.files.length : 0;
-          const totalSize = req.files ? req.files.reduce((sum, file) => sum + (file.size || 0), 0) : 0;
-          const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
-
-          console.log(`✅ Upload completed: ${fileCount} files, ${sizeMB}MB, storage=${useCloudinary ? 'Cloudinary' : 'local'}, device=${req.isMobile ? 'mobile' : 'desktop'}`);
-
-          if (req.files && req.files.length > 0) {
-            req.files.forEach((file, index) => {
-              const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-              console.log(`📁 File ${index + 1}: ${file.originalname} (${fileSizeMB}MB)`);
-            });
-          }
-
           resolve();
         });
       });
 
-      next();
-    } catch (initErr) {
-      console.error("❌ createImageUpload error:", initErr);
-      // Проверяем, не был ли уже отправлен ответ
-      if (res.headersSent) {
-        console.error("❌ Заголовки уже отправлены, невозможно отправить ошибку");
-        return;
+      // Magic-byte validation for disk uploads
+      if (!useCloudinary && req.files && req.files.length) {
+        const { validateImageType } = require("../services/imageService");
+        for (const file of req.files) {
+          if (file.path) {
+            const buf = fs.readFileSync(file.path);
+            const ok = await validateImageType(buf);
+            if (!ok) {
+              try { fs.unlinkSync(file.path); } catch (_) {}
+              return res.status(400).json({ success: false, message: "Файл не является изображением" });
+            }
+          }
+        }
       }
-      return res.status(500).json({ success: false, message: "Ошибка инициализации загрузки" });
+
+      req.uploadStorage = useCloudinary ? "cloudinary" : "local";
+      next();
+    } catch (err) {
+      console.error("upload error:", err);
+      return res.status(400).json({
+        success: false,
+        message: err.clientMessage || err.message || "Ошибка загрузки файлов"
+      });
     }
   };
 }
 
-const upload = createImageUpload();
-const bannerUpload = createImageUpload({ maxFiles: 1, maxFileSize: 5 * 1024 * 1024 });
+const upload = createImageUpload({ maxFiles: 5 });
+const bannerUpload = createImageUpload({ maxFiles: 5 });
 
 module.exports = {
   upload,
   bannerUpload,
-  createImageUpload,
   mobileOptimization,
+  createImageUpload,
+  fileFilter
 };

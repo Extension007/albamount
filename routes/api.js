@@ -329,7 +329,7 @@ router.get("/products", apiLimiter, async (req, res) => {
       include: [{
         model: User,
         as: 'owner',
-        attributes: ['id', 'username', 'email']
+        attributes: ['id', 'username']
       }],
       nest: true,
       raw: true
@@ -358,12 +358,18 @@ router.get("/products/:id", apiLimiter, async (req, res) => {
 
      const product = await Product.findOne({
        where: { id: req.params.id, deleted: false },
-       include: [{ model: User, as: 'owner', attributes: ['id', 'username', 'email'] }],
+       include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
        nest: true,
        raw: true
      });
     
     if (!product) {
+      return res.status(404).json({ success: false, message: "Товар не найден" });
+    }
+
+    const isAdmin = req.user?.role === 'admin';
+    const ownerMatch = req.user && String(product.ownerId || product['owner.id'] || product.owner?.id || '') === String(req.user._id || req.user.id || '');
+    if (product.status !== 'approved' && !isAdmin && !ownerMatch) {
       return res.status(404).json({ success: false, message: "Товар не найден" });
     }
     
@@ -383,38 +389,35 @@ router.get("/products/:id", apiLimiter, async (req, res) => {
   }
 });
 
-// Обновить товар (статус)
+// Обновить товар (статус) — только администратор
 router.put("/products/:id", apiLimiter, requireUser, csrfProtection, async (req, res) => {
    try {
      if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
+
+     if (req.user.role !== "admin") {
+       return res.status(403).json({
+         success: false,
+         message: "Только администратор может менять статус карточки"
+       });
+     }
 
      const product = await Product.findByPk(req.params.id);
     if (!product || product.deleted) {
       return res.status(404).json({ success: false, message: "Товар не найден" });
     }
-    
-     // Проверка прав: админ или владелец
-     const isAdmin = req.user.role === "admin";
-     const isOwner = isRecordOwner(product, req.user);
-     
-     if (!isAdmin && !isOwner) {
-       return res.status(403).json({ success: false, message: "Доступ запрещен" });
-     }
-     
+
      const { status } = req.body;
-    
+
     if (status && ["pending", "approved", "rejected", "published", "blocked"].includes(status)) {
       product.status = status;
       await product.save();
-      
-      
       res.json({ success: true, product });
     } else {
       res.status(400).json({ success: false, message: "Неверный статус" });
     }
   } catch (err) {
     console.error("❌ Ошибка обновления товара:", err);
-    res.status(500).json({ success: false, message: "Ошибка обновления товара: " + err.message });
+    res.status(500).json({ success: false, message: "Ошибка обновления товара" });
   }
 });
 
@@ -433,7 +436,7 @@ router.get("/banners", apiLimiter, async (req, res) => {
      const banners = await Banner.findAll({
        where: { status: { [Op.in]: ["published", "approved"] } },
        order: [['id', 'DESC']],
-       include: [{ model: User, as: 'owner', attributes: ['id', 'username', 'email'] }],
+       include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
        nest: true,
        raw: true
      });
@@ -463,7 +466,7 @@ router.get("/banners/:id", apiLimiter, async (req, res) => {
     }
     
      const banner = await Banner.findByPk(req.params.id, {
-       include: [{ model: User, as: 'owner', attributes: ['id', 'username', 'email'] }],
+       include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
        nest: true,
        raw: true
      });
@@ -492,7 +495,7 @@ router.post("/banners", apiLimiter, requireUser, csrfProtection, async (req, res
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
     
-    const { title, description, link, video_url, owner, category, price, status, images } = req.body;
+    const { title, description, link, video_url, category, price, images } = req.body;
     
     // Валидация
     if (!title || !title.trim()) {
@@ -507,10 +510,10 @@ router.post("/banners", apiLimiter, requireUser, csrfProtection, async (req, res
        description: description ? description.trim() : "",
        link: link ? link.trim() : "",
        video_url: video_url ? video_url.trim() : "",
-       ownerId: owner || req.user._id,
+       ownerId: req.user._id || req.user.id,
        category: category ? category.trim() : "",
        price: price ? Number(price) : 0,
-       status: status || "published",
+       status: "pending",
        images: bannerImages,
       image_url: bannerImages.length > 0 ? bannerImages[0] : null,
       rating_up: 0,
@@ -549,7 +552,7 @@ router.put("/banners/:id", apiLimiter, requireUser, csrfProtection, async (req, 
        return res.status(403).json({ success: false, message: "Доступ запрещен" });
      }
      
-     const { title, description, link, video_url, owner, category, price, status, images } = req.body;
+     const { title, description, link, video_url, category, price, status, images } = req.body;
     
     // Ограничиваем количество изображений до 5
     const bannerImages = Array.isArray(images) ? images.slice(0, 5) : (images ? [images] : banner.images);
@@ -561,18 +564,22 @@ router.put("/banners/:id", apiLimiter, requireUser, csrfProtection, async (req, 
       video_url: video_url !== undefined ? video_url.trim() : banner.video_url,
       category: category !== undefined ? category.trim() : banner.category,
       price: price !== undefined ? Number(price) : banner.price,
-      status: status || banner.status,
       images: bannerImages,
       image_url: bannerImages.length > 0 ? bannerImages[0] : null
     };
+
+    // Status changes are admin-only
+    if (isAdmin && status && ["pending", "approved", "rejected", "published", "blocked"].includes(status)) {
+      updateData.status = status;
+    }
     
-     const updated = await Banner.update(updateData, { where: { id: req.params.id }, returning: true });
+     await Banner.update(updateData, { where: { id: req.params.id } });
      const updatedBanner = await Banner.findByPk(req.params.id);
      
      res.json({ success: true, banner: updatedBanner });
   } catch (err) {
     console.error("❌ Ошибка обновления баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка обновления баннера: " + err.message });
+    res.status(500).json({ success: false, message: "Ошибка обновления баннера" });
   }
 });
 

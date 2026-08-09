@@ -17,12 +17,19 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialectOptions: {
           ssl: {
             require: true,
-            rejectUnauthorized: false
+            // Set DATABASE_SSL_REJECT_UNAUTHORIZED=true when CA is configured
+            rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "true"
           }
         }
       }
     : {}),
   logging: false,
+  pool: {
+    max: process.env.VERCEL ? 5 : 10,
+    min: 0,
+    acquire: 20000,
+    idle: 10000
+  },
   define: {
     timestamps: true,
     underscored: true,

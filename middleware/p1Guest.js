@@ -4,7 +4,11 @@ function ensureGuestId(req, res, next) {
   let gid = req.cookies?.guestId;
   if (!gid || typeof gid !== 'string' || gid.length < 16) {
     gid = crypto.randomBytes(18).toString('hex');
-    res.cookie('guestId', gid, { httpOnly: true, sameSite: 'lax', secure: false });
+    res.cookie('guestId', gid, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL)
+    });
   }
   req.guestId = gid;
   next();

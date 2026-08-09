@@ -39,8 +39,9 @@ router.post('/codes', requireAdmin, csrfProtection, async (req, res, next) => {
     const { count, kind, type, expiresAt } = req.body;
     if (!count || !kind || !type) return res.status(400).json({ success: false, message: 'count, kind, type required' });
 
-    const codes = await createCodes({ count, kind, type, expiresAt, createdBy: req.user._id });
-    res.json({ success: true, codes });
+    const safeCount = Math.min(Math.max(parseInt(count, 10) || 0, 1), 100);
+    const codes = await createCodes({ count: safeCount, kind, type, expiresAt, createdBy: req.user._id });
+    res.json({ success: true, codes, count: safeCount });
   } catch (err) {
     next(err);
   }
@@ -433,7 +434,7 @@ router.get('/videos', async (req, res, next) => {
   }
 });
 
-router.post('/videos/:id/vote', ensureGuestId, guestRateLimit(), captchaHook, async (req, res, next) => {
+router.post('/videos/:id/vote', ensureGuestId, guestRateLimit(), captchaHook, csrfProtection, async (req, res, next) => {
   try {
     const { vote } = req.body;
     if (!vote || !['up', 'down'].includes(vote)) return res.status(400).json({ success: false, message: 'vote must be up or down' });

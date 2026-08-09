@@ -117,8 +117,8 @@ async function getUserFromRequestAsync(req) {
       error: error.message,
       userId: userId.toString()
     });
-    const fallback = tokenData || sessionUser;
-    return fallback ? normalizeUser(fallback) : null;
+    // Fail closed: do not trust stale JWT/session roles when DB is unavailable
+    return null;
   }
 }
 

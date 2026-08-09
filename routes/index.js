@@ -11,7 +11,42 @@ const { USE_POSTGRES, hasMongo, isDbConnected, Op } = require("../config/databas
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
 const { requireAdmin } = require("../middleware/auth");
 
-const CATALOG_PAGE_SIZE = 100;
+const CATALOG_PAGE_SIZE = 24;
+
+// Buffer visitor increments to reduce write amplification
+let visitorBuffer = 0;
+let visitorFlushTimer = null;
+async function bumpVisitorCounter() {
+  visitorBuffer += 1;
+  if (visitorBuffer >= 10) {
+    await flushVisitorBuffer();
+    return;
+  }
+  if (!visitorFlushTimer) {
+    visitorFlushTimer = setTimeout(() => {
+      flushVisitorBuffer().catch(() => {});
+    }, 15000);
+    if (visitorFlushTimer.unref) visitorFlushTimer.unref();
+  }
+}
+async function flushVisitorBuffer() {
+  const n = visitorBuffer;
+  visitorBuffer = 0;
+  if (visitorFlushTimer) {
+    clearTimeout(visitorFlushTimer);
+    visitorFlushTimer = null;
+  }
+  if (n <= 0) return;
+  try {
+    const [row] = await Statistics.findOrCreate({
+      where: { key: "visitors" },
+      defaults: { key: "visitors", value: 0 }
+    });
+    await row.increment("value", { by: n });
+  } catch (err) {
+    console.warn("visitor flush failed:", err.message);
+  }
+}
 
 // Авторизация
 router.use("/", require("./auth"));
@@ -123,14 +158,19 @@ router.get("/", async (req, res) => {
 
     await applyCategoryFilter(selected, productsFilter, servicesFilter);
 
-    const [products, services, banners, visitors, users] = await Promise.all([
-      Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
-      Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const offset = (page - 1) * CATALOG_PAGE_SIZE;
+
+    const [products, services, banners, productCount, serviceCount, visitorsRow, users] = await Promise.all([
+      Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE, offset }),
+      Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE, offset }),
       Banner.findAll({
         where: { status: { [Op.in]: ["approved", "published"] } },
         order: [['id', 'DESC']],
         limit: CATALOG_PAGE_SIZE
       }),
+      Product.count({ where: productsFilter }),
+      Product.count({ where: servicesFilter }),
       Statistics.findOrCreate({
         where: { key: "visitors" },
         defaults: { key: "visitors", value: 0 }
@@ -138,13 +178,10 @@ router.get("/", async (req, res) => {
       User.count()
     ]);
 
-    if (visitors) {
-      await visitors.increment("value");
-      await visitors.reload();
-    }
-
-    const visitorCount = visitors ? Number(visitors.value) : 0;
+    await bumpVisitorCounter();
+    const visitorCount = visitorsRow ? Number(visitorsRow.value) + visitorBuffer : visitorBuffer;
     const userCount = users || 0;
+    const totalPages = Math.max(1, Math.ceil(Math.max(productCount, serviceCount) / CATALOG_PAGE_SIZE));
 
     const userId = (req.user?._id || req.user?.id)?.toString();
     const votedMap = {};
@@ -162,8 +199,8 @@ router.get("/", async (req, res) => {
       banners,
       visitorCount,
       userCount,
-      page: 1,
-      totalPages: 1,
+      page,
+      totalPages,
       isAuth,
       isAdmin,
       isUser,

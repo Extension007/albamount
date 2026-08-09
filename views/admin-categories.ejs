@@ -261,27 +261,62 @@
 
     function renderCategoryTree(type, categories) {
       const container = document.getElementById(`tree-${type}`);
-      container.innerHTML = '';
+      container.textContent = '';
 
       function renderItems(items, level = 0) {
         items.forEach(category => {
           const item = document.createElement('div');
           item.className = `category-item level-${level}`;
           item.style.marginLeft = `${level * 20}px`;
-          item.innerHTML = `
-            <div class="category-header">
-              <div>
-                <strong>${category.icon || ''} ${category.name}</strong>
-                <span class="category-level-indicator">${level === 0 ? 'Блок' : level === 1 ? 'Категория' : 'Подкатегория'}</span>
-                ${category.description ? `<br><small>${category.description}</small>` : ''}
-              </div>
-              <div class="category-actions">
-                <button class="btn small outline" onclick="editCategory('${category._id}')">✏️</button>
-                <button class="btn small outline" onclick="addSubcategory('${category._id}')">+</button>
-                <button class="btn small danger" onclick="deleteCategory('${category._id}', '${category.name}')">🗑️</button>
-              </div>
-            </div>
-          `;
+
+          const header = document.createElement('div');
+          header.className = 'category-header';
+
+          const info = document.createElement('div');
+          const title = document.createElement('strong');
+          title.textContent = `${category.icon || ''} ${category.name || ''}`.trim();
+          info.appendChild(title);
+
+          const levelLabel = document.createElement('span');
+          levelLabel.className = 'category-level-indicator';
+          levelLabel.textContent = level === 0 ? 'Блок' : level === 1 ? 'Категория' : 'Подкатегория';
+          info.appendChild(document.createTextNode(' '));
+          info.appendChild(levelLabel);
+
+          if (category.description) {
+            info.appendChild(document.createElement('br'));
+            const small = document.createElement('small');
+            small.textContent = category.description;
+            info.appendChild(small);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'category-actions';
+
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn small outline';
+          editBtn.type = 'button';
+          editBtn.textContent = '✏️';
+          editBtn.addEventListener('click', () => editCategory(String(category._id || category.id)));
+
+          const addBtn = document.createElement('button');
+          addBtn.className = 'btn small outline';
+          addBtn.type = 'button';
+          addBtn.textContent = '+';
+          addBtn.addEventListener('click', () => addSubcategory(String(category._id || category.id)));
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn small danger';
+          delBtn.type = 'button';
+          delBtn.textContent = '🗑️';
+          delBtn.addEventListener('click', () => deleteCategory(String(category._id || category.id), category.name || ''));
+
+          actions.appendChild(editBtn);
+          actions.appendChild(addBtn);
+          actions.appendChild(delBtn);
+          header.appendChild(info);
+          header.appendChild(actions);
+          item.appendChild(header);
           container.appendChild(item);
 
           if (category.children && category.children.length > 0) {
@@ -290,8 +325,10 @@
         });
       }
 
-      if (categories.length === 0) {
-        container.innerHTML = '<p>Категории не найдены. Создайте первую категорию.</p>';
+      if (!categories || categories.length === 0) {
+        const empty = document.createElement('p');
+        empty.textContent = 'Категории не найдены. Создайте первую категорию.';
+        container.appendChild(empty);
       } else {
         renderItems(categories);
       }

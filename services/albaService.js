@@ -5,48 +5,75 @@ const { randomUUID } = require('crypto');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
+const { sequelize } = require('../config/database');
 
-/**
- * Calculate user's ALBA balance as sum of all transactions
- * @param {string} userId - User ID
- * @returns {Promise<number>} - Calculated balance
- */
-async function getUserAlbaBalance(userId) {
+async function getUserAlbaBalance(userId, options = {}) {
   const result = await AlbaTransaction.findOne({
     attributes: [
       [fn('SUM', col('amount')), 'balance']
     ],
-    where: { userId }
+    where: { userId },
+    transaction: options.transaction
   });
   return result ? parseFloat(result.get('balance')) || 0 : 0;
 }
 
-async function incBalance(UserModel, userId, delta) {
-  // Sequelize has no Op.inc (Mongo-style); use increment()
-  return UserModel.increment('albaBalance', {
-    by: Number(delta) || 0,
-    where: { id: userId }
-  });
-}
+async function addTx(UserModel, {
+  userId,
+  amount,
+  type,
+  reason,
+  relatedUserId = null,
+  relatedCodeId = null,
+  relatedCardType = null,
+  relatedCardId = null,
+  meta = {},
+  transaction = null
+}) {
+  const run = async (t) => {
+    if (amount < 0) {
+      // Lock user row to serialize concurrent spends
+      await UserModel.findByPk(userId, {
+        transaction: t,
+        lock: t.LOCK.UPDATE
+      });
 
-async function addTx(UserModel, { userId, amount, type, reason, relatedUserId=null, relatedCodeId=null, relatedCardType=null, relatedCardId=null, meta={} }) {
-  // Check if the operation would result in negative balance
-  if (amount < 0) {
-    const currentBalance = await getUserAlbaBalance(userId);
-    if (currentBalance + amount < 0) {
-      throw new Error('Transaction would result in negative balance');
+      const currentBalance = await getUserAlbaBalance(userId, { transaction: t });
+      if (currentBalance + amount < 0) {
+        throw new Error('Transaction would result in negative balance');
+      }
     }
-  }
-  
-  // Update both the calculated balance field and create transaction
-  const [userRows] = await incBalance(UserModel, userId, amount);
-  const transaction = await AlbaTransaction.create({ userId, amount, type, reason, relatedUserId, relatedCodeId, relatedCardType, relatedCardId, meta });
-  const user = await UserModel.findByPk(userId);
 
-  return { user, transaction };
+    await UserModel.increment('albaBalance', {
+      by: Number(amount) || 0,
+      where: { id: userId },
+      transaction: t
+    });
+
+    const txRow = await AlbaTransaction.create({
+      userId,
+      amount,
+      type,
+      reason,
+      relatedUserId,
+      relatedCodeId,
+      relatedCardType,
+      relatedCardId,
+      meta
+    }, { transaction: t });
+
+    const user = await UserModel.findByPk(userId, { transaction: t });
+    return { user, transaction: txRow };
+  };
+
+  if (transaction) {
+    return run(transaction);
+  }
+
+  return sequelize.transaction(async (t) => run(t));
 }
 
-async function grantAlba({ UserModel, userId, amount, reason, actorAdminId=null, meta={} }) {
+async function grantAlba({ UserModel, userId, amount, reason, actorAdminId = null, meta = {} }) {
   if (amount <= 0) throw new Error('Amount must be positive');
   const result = await addTx(UserModel, { userId, amount, type: 'grant', reason, relatedUserId: actorAdminId, meta });
   return result.user;
@@ -64,13 +91,11 @@ async function grantAlbaByUsername(login, amount, reason, adminId = null, commen
       type: 'grant',
       reason,
       relatedUserId: adminId,
-      comment,
-      meta: { source: 'admin_grant_by_username' }
+      meta: { source: 'admin_grant_by_username', comment: comment || '' }
     });
 
-    const originalBalance = await getUserAlbaBalance(user.id);
-    const newBalance = originalBalance + amount;
-    
+    const newBalance = await getUserAlbaBalance(user.id);
+
     await AuditLog.create({
       action: 'alba_grant',
       userId: user.id,
@@ -79,9 +104,9 @@ async function grantAlbaByUsername(login, amount, reason, adminId = null, commen
       amount: amount,
       reason: reason,
       details: {
-        originalBalance: originalBalance,
-        newBalance: newBalance,
-        login: login
+        newBalance,
+        login,
+        comment: comment || ''
       }
     });
 
@@ -94,12 +119,27 @@ async function grantAlbaByUsername(login, amount, reason, adminId = null, commen
   }
 }
 
-async function earnReferralBonus({ UserModel, referrerUserId, referredUserId, amount=30 }) {
-  const result = await addTx(UserModel, { userId: referrerUserId, amount, type:'earn', reason:'referral_bonus', relatedUserId: referredUserId });
+async function earnReferralBonus({ UserModel, referrerUserId, referredUserId, amount = 30 }) {
+  const result = await addTx(UserModel, {
+    userId: referrerUserId,
+    amount,
+    type: 'earn',
+    reason: 'referral_bonus',
+    relatedUserId: referredUserId
+  });
   return result.user;
 }
 
-async function spendAlba({ UserModel, userId, amount, reason, relatedCardType=null, relatedCardId=null, meta={} }) {
+async function spendAlba({
+  UserModel,
+  userId,
+  amount,
+  reason,
+  relatedCardType = null,
+  relatedCardId = null,
+  meta = {},
+  transaction = null
+}) {
   if (amount <= 0) throw new Error('Amount must be positive');
 
   const allowedUserReasons = ['card_entitlement_purchase', 'upgrade_to_paid'];
@@ -109,21 +149,32 @@ async function spendAlba({ UserModel, userId, amount, reason, relatedCardType=nu
     return { ok: false, status: 403, message: `Reason '${reason}' is not allowed for ALBA spend operations` };
   }
 
-  const currentBalance = await getUserAlbaBalance(userId);
-  if (currentBalance < amount) return { ok:false, status:400, message:`Insufficient ALBA balance. Required: ${amount}, available: ${currentBalance}` };
-   
   try {
-    const result = await addTx(UserModel, { userId, amount: -amount, type:'spend', reason, relatedCardType, relatedCardId, meta });
+    const result = await addTx(UserModel, {
+      userId,
+      amount: -amount,
+      type: 'spend',
+      reason,
+      relatedCardType,
+      relatedCardId,
+      meta,
+      transaction
+    });
     return { ok: true, user: result.user, transaction: result.transaction };
   } catch (error) {
     if (error.message === 'Transaction would result in negative balance') {
-      return { ok: false, status: 400, message: `Insufficient ALBA balance. Required: ${amount}, available: ${currentBalance}` };
+      const currentBalance = await getUserAlbaBalance(userId, { transaction });
+      return {
+        ok: false,
+        status: 400,
+        message: `Insufficient ALBA balance. Required: ${amount}, available: ${currentBalance}`
+      };
     }
     throw error;
   }
 }
 
-async function listTransactions({ userId, limit=100 }) {
+async function listTransactions({ userId, limit = 100 }) {
   return AlbaTransaction.findAll({
     where: { userId },
     order: [['createdAt', 'DESC']],
@@ -148,52 +199,58 @@ async function purchaseEntitlement({ UserModel, userId, type, idempotencyKey }) 
     return { ok: true, entitlement: existingEntitlement, message: 'Entitlement already purchased (idempotent)' };
   }
 
-  const user = await UserModel.findByPk(userId);
-  if (!user) {
-    return { ok: false, status: 404, message: 'User not found' };
-  }
-
   const requiredAmount = 30;
-  const currentBalance = await getUserAlbaBalance(userId);
-  if (currentBalance < requiredAmount) {
-    return { ok: false, status: 400, message: `Insufficient ALBA balance. Required: ${requiredAmount}, available: ${currentBalance}` };
-  }
-
   const eventId = randomUUID();
 
-  // Use transaction
-  const t = await require('../config/database').sequelize.transaction();
   try {
-    const spendResult = await spendAlba({
-      UserModel,
-      userId,
-      amount: requiredAmount,
-      reason: 'card_entitlement_purchase',
-      relatedCardType: type,
-      meta: { eventId, idempotencyKey }
+    const result = await sequelize.transaction(async (t) => {
+      const user = await UserModel.findByPk(userId, {
+        transaction: t,
+        lock: t.LOCK.UPDATE
+      });
+      if (!user) {
+        return { ok: false, status: 404, message: 'User not found' };
+      }
+
+      const spendResult = await spendAlba({
+        UserModel,
+        userId,
+        amount: requiredAmount,
+        reason: 'card_entitlement_purchase',
+        relatedCardType: type,
+        meta: { eventId, idempotencyKey },
+        transaction: t
+      });
+
+      if (!spendResult.ok) {
+        return spendResult;
+      }
+
+      const entitlement = await Entitlement.create({
+        ownerId: userId,
+        type,
+        status: 'available',
+        source: 'purchase',
+        idempotencyKey,
+        eventId,
+        relatedTransactionId: spendResult.transaction.id
+      }, { transaction: t });
+
+      return { ok: true, entitlement, transaction: spendResult.transaction };
     });
 
-    if (!spendResult.ok) {
-      await t.rollback();
-      return spendResult;
-    }
-
-    const entitlement = await Entitlement.create({
-      ownerId: userId,
-      type,
-      status: 'available',
-      source: 'purchase',
-      idempotencyKey,
-      eventId,
-      relatedTransactionId: spendResult.transaction.id
-    }, { transaction: t });
-
-    await t.commit();
-    
-    return { ok: true, entitlement, transaction: spendResult.transaction };
+    return result;
   } catch (error) {
-    await t.rollback();
-    console.error('Error purchasing entitlement:', error);
+    // Unique idempotency race: return existing
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      const existing = await Entitlement.findOne({
+        where: { idempotencyKey, ownerId: userId, type }
+      });
+      if (existing) {
+        return { ok: true, entitlement: existing, message: 'Entitlement already purchased (idempotent)' };
+      }
+    }
+    logger.error({ msg: 'purchase_entitlement_error', error: error.message });
     return { ok: false, status: 500, message: 'Error purchasing entitlement: ' + error.message };
   }
 }
@@ -218,17 +275,25 @@ async function getAvailableEntitlements(userId) {
 }
 
 async function consumeEntitlement(entitlementId) {
-   const entitlement = await Entitlement.findByPk(entitlementId);
-  if (!entitlement) {
-    return { ok: false, status: 404, message: 'Entitlement not found' };
-  }
+  const [updated] = await Entitlement.update(
+    { status: 'consumed' },
+    {
+      where: {
+        id: entitlementId,
+        status: 'available'
+      }
+    }
+  );
 
-  if (entitlement.status !== 'available') {
+  if (!updated) {
+    const entitlement = await Entitlement.findByPk(entitlementId);
+    if (!entitlement) {
+      return { ok: false, status: 404, message: 'Entitlement not found' };
+    }
     return { ok: false, status: 400, message: 'Entitlement already consumed' };
   }
 
-  entitlement.status = 'consumed';
-  await entitlement.save();
+  const entitlement = await Entitlement.findByPk(entitlementId);
   return { ok: true, entitlement };
 }
 
@@ -237,11 +302,11 @@ module.exports = {
   earnReferralBonus,
   spendAlba,
   listTransactions,
+  getUserAlbaBalance,
   purchaseEntitlement,
   getAvailableEntitlementsCount,
   getAvailableEntitlements,
   consumeEntitlement,
   grantAlbaByUsername,
-  getUserAlbaBalance,
   addTx
 };

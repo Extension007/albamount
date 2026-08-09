@@ -140,10 +140,17 @@ exports.resendVerification = async (req, res) => {
     }
 
     await resendVerificationEmail(email);
-    res.json({ success: true, message: 'Verification email sent' });
+    res.json({
+      success: true,
+      message: 'Если аккаунт существует и не подтверждён, письмо отправлено'
+    });
   } catch (error) {
     console.error('Resend verification error:', error.message);
-    res.status(400).json({ success: false, message: error.message });
+    // Constant response to avoid user enumeration
+    res.json({
+      success: true,
+      message: 'Если аккаунт существует и не подтверждён, письмо отправлено'
+    });
   }
 };
 
