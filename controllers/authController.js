@@ -130,12 +130,12 @@ async function resolveUser(userId, includeRefresh = true) {
   };
 
   const token = require('../config/jwt').generateToken(userPayload);
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 
   const cookieOpts = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24,
   };
 
@@ -194,7 +194,7 @@ exports.userLogin = async (req, res) => {
 
     const { user: userPayload, token, cookieOpts } = await resolveUser(user.id);
 
-    if (!process.env.VERCEL) {
+    if (!process.env.VERCEL && req.session) {
       req.session.user = userPayload;
     }
     res.cookie("exto_token", token, cookieOpts);
@@ -243,14 +243,17 @@ exports.adminLogin = async (req, res) => {
       return res.render("login", { error: "Неверный логин или пароль", debug: null, csrfToken: res.locals.csrfToken });
     }
 
-    req.session.user = userPayload;
+    // On Vercel there is no express-session — auth is JWT cookie only
+    if (!process.env.VERCEL && req.session) {
+      req.session.user = userPayload;
+    }
     res.cookie("exto_token", token, cookieOpts);
 
     logger.info({ msg: "admin_login_success", userId: user.id, username: user.username });
     return res.redirect("/admin");
   } catch (err) {
-    logger.error({ msg: "admin_login_error", error: err.message });
-    return res.status(500).send("Ошибка базы данных");
+    logger.error({ msg: "admin_login_error", error: err.message, stack: err.stack });
+    return res.status(500).send("Ошибка входа администратора");
   }
 };
 
