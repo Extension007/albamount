@@ -442,7 +442,6 @@
           <select id="cardType" style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid rgba(255, 51, 51, 0.3); border-radius: 8px; color: #fff;">
             <option value="product" data-cost="30">Товар (30 ALBA)</option>
             <option value="service" data-cost="30">Услуга (30 ALBA)</option>
-            <option value="banner" data-cost="50">Баннер (50 ALBA)</option>
           </select>
         </div>
 
@@ -481,7 +480,7 @@
       <span class="close" id="closeReferralModal">&times;</span>
       <h2 style="color: #ff3333; margin-bottom: 20px;">Реферальная программа</h2>
       <p style="color: #ccc; margin-bottom: 20px; line-height: 1.6;">
-        Приглашайте друзей и получайте бонусы! За каждого приглашенного друга вы получаете 30 ALBA.
+        Приглашайте друзей и получайте бонусы! За каждого подтверждённого друга вы получаете <%= typeof referralBonusAlba !== 'undefined' ? referralBonusAlba : 10 %> ALBA.
       </p>
 
       <div style="margin-bottom: 20px;">
@@ -537,7 +536,9 @@
       userCreatedAt: typeof user !== 'undefined' && user ? user.createdAt : '',
       userUpdatedAt: typeof user !== 'undefined' && user ? user.updatedAt : '',
       userAlbaBalance: typeof user !== 'undefined' && user ? user.albaBalance : 0,
+      userRefCode: typeof user !== 'undefined' && user ? (user.refCode || '') : '',
       userRefBonusGranted: typeof user !== 'undefined' && user ? user.refBonusGranted : false,
+      referralBonusAlba: typeof referralBonusAlba !== 'undefined' ? referralBonusAlba : 10,
       csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : ''
     }) %></script>
   <script>
@@ -558,7 +559,7 @@
     })();
   </script>
 
-  <script src="/js/cabinet.js?v=1.0.1"></script>
+  <script src="/js/cabinet.js?v=1.0.2"></script>
 
 <script>
     var tag = document.createElement('script');
@@ -663,191 +664,13 @@
           element.style.color = '#c62828';
         }
       });
+    });
+  </script>
 
-      // Модальное окно баланса ALBA
-      const albaBalanceBtn = document.getElementById('albaBalanceBtn');
-      const albaBalanceModal = document.getElementById('albaBalanceModal');
-      const closeAlbaModal = document.getElementById('closeAlbaModal');
-      const closeAlbaModalBtn = document.getElementById('closeAlbaModalBtn');
-      const refreshAlbaModalBtn = document.getElementById('refreshAlbaModalBtn');
-      const buyCardsBtn = document.getElementById('buyCardsBtn');
-      const buyEntitlementBtn = document.getElementById('buyEntitlementBtn');
-      const cardsToBuyInput = document.getElementById('cardsToBuy');
-      const purchaseStatus = document.getElementById('purchaseStatus');
+  <% if (!process.env.VERCEL) { %>
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+  <% } %>
 
-      if (albaBalanceBtn && albaBalanceModal) {
-        albaBalanceBtn.addEventListener('click', () => {
-          albaBalanceModal.style.display = 'block';
-        });
-      }
-
-      if (closeAlbaModal) {
-        closeAlbaModal.addEventListener('click', () => {
-          albaBalanceModal.style.display = 'none';
-        });
-      }
-
-      if (closeAlbaModalBtn) {
-        closeAlbaModalBtn.addEventListener('click', () => {
-          albaBalanceModal.style.display = 'none';
-        });
-      }
-
-      if (refreshAlbaModalBtn) {
-        refreshAlbaModalBtn.addEventListener('click', async () => {
-          try {
-            // Use current user data from the page instead of API
-            const currentBalance = document.getElementById('footerAlbaBalance')?.textContent || '0';
-            if (currentBalance && currentBalance !== 'Загрузка...') {
-              const modalBalanceElement = document.getElementById('modalAlbaBalance');
-              const footerBalanceElement = document.getElementById('footerAlbaBalance');
-
-              if (modalBalanceElement) {
-                modalBalanceElement.textContent = currentBalance + ' ALBA';
-              }
-
-              if (footerBalanceElement) {
-                footerBalanceElement.textContent = currentBalance;
-              }
-            }
-          } catch (error) {
-          }
-        });
-      }
-
-      // Обработка покупки дополнительных карточек
-      const cardTypeSelect = document.getElementById('cardType');
-      const totalCostDisplay = document.getElementById('totalCostDisplay');
-
-      // Функция для обновления общей стоимости
-      function updateTotalCost() {
-        if (cardTypeSelect && cardsToBuyInput && totalCostDisplay) {
-          const cardType = cardTypeSelect.value;
-          const cardsToBuy = parseInt(cardsToBuyInput.value) || 1;
-
-          // Получаем стоимость из data-cost или по умолчанию
-          const costPerCard = parseInt(cardTypeSelect.selectedOptions[0]?.dataset?.cost) || 30;
-          const totalCost = cardsToBuy * costPerCard;
-
-          totalCostDisplay.textContent = `${totalCost} ALBA`;
-        }
-      }
-
-      // Обновляем стоимость при загрузке и изменении
-      if (cardTypeSelect && cardsToBuyInput) {
-        cardTypeSelect.addEventListener('change', updateTotalCost);
-        cardsToBuyInput.addEventListener('input', updateTotalCost);
-        updateTotalCost(); // Инициализация
-      }
-
-      // Заменим buyCardsBtn на buyEntitlementBtn, чтобы использовать правильную кнопку
-      if (buyEntitlementBtn && cardsToBuyInput && purchaseStatus) {
-        buyEntitlementBtn.addEventListener('click', async () => {
-          const cardType = cardTypeSelect?.value || 'product';
-          const cardsToBuy = parseInt(cardsToBuyInput.value) || 1;
-
-          try {
-            // Получаем актуальный баланс через API
-            const response = await fetch('/api/p1/alba/transactions');
-            const data = await response.json();
-            
-            if (!data.success) {
-              purchaseStatus.textContent = 'Ошибка получения баланса';
-              purchaseStatus.style.color = '#ff6666';
-              return;
-            }
-            
-            const currentBalance = data.balance || 0;
-
-            // Получаем актуальную стоимость
-            const costPerCard = parseInt(cardTypeSelect?.selectedOptions[0]?.dataset?.cost) || 30;
-            const totalCost = cardsToBuy * costPerCard;
-
-            // Типы карточек для сообщений
-            const cardTypeNames = {
-              'product': 'товаров',
-              'service': 'услуг',
-              'banner': 'баннеров'
-            };
-            const cardTypeName = cardTypeNames[cardType] || 'карточек';
-
-            if (isNaN(currentBalance) || currentBalance <= 0) {
-              purchaseStatus.textContent = 'Ошибка: не удалось определить текущий баланс';
-              purchaseStatus.style.color = '#ff6666';
-              return;
-            }
-
-            if (currentBalance < totalCost) {
-              purchaseStatus.textContent = `Недостаточно ALBA. Требуется ${totalCost}, у вас ${currentBalance}`;
-              purchaseStatus.style.color = '#ff6666';
-              return;
-            }
-
-            // Отправляем запрос на покупку через API
-            const idempotencyKey = 'ent_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            const purchaseResponse = await csrfFetch('/api/p1/entitlements/purchase', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                type: cardType,
-                idempotencyKey: idempotencyKey
-              })
-            });
-
-            const purchaseResult = await purchaseResponse.json();
-
-            if (purchaseResult.success) {
-              // Обновляем баланс в интерфейсе с учетом обновленного значения из API
-              const newBalance = purchaseResult.balance || (currentBalance - costPerCard);
-              
-              // Обновляем баланс в интерфейсе
-              const modalBalanceElement = document.getElementById('modalAlbaBalance');
-              const footerBalanceElement = document.getElementById('footerAlbaBalance');
-              const mainBalanceElement = document.getElementById('albaBalanceDisplay');
-
-              if (modalBalanceElement) {
-                modalBalanceElement.textContent = `${newBalance} ALBA`;
-              }
-
-              if (footerBalanceElement) {
-                footerBalanceElement.textContent = newBalance.toString();
-              }
-              
-              if (mainBalanceElement) {
-                mainBalanceElement.textContent = `${newBalance} ALBA`;
-              }
-
-              purchaseStatus.textContent = `Успешно! Куплено право на ${cardTypeName === 'товаров' ? 'товар' : cardTypeName === 'услуг' ? 'услугу' : 'баннер'} за ${costPerCard} ALBA`;
-              purchaseStatus.style.color = '#66ff66';
-
-              // Обновляем информацию о правах
-              if (window.loadAvailableEntitlements) {
-                window.loadAvailableEntitlements();
-              }
-            } else {
-              purchaseStatus.textContent = purchaseResult.message || 'Ошибка покупки права';
-              purchaseStatus.style.color = '#ff6666';
-            }
-          } catch (error) {
-            purchaseStatus.textContent = 'Ошибка сети: ' + error.message;
-            purchaseStatus.style.color = '#ff6666';
-          }
-
-// Сбрасываем статус через 5 секунд
-           setTimeout(() => {
-             purchaseStatus.textContent = '';
-           }, 5000);
-         });
-       }
-     });
-   </script>
- 
-   <% if (!process.env.VERCEL) { %>
-   <!-- Socket.IO -->
-   <script src="/socket.io/socket.io.js"></script>
-   <% } %>
- 
- </body>
- </html>
+</body>
+</html>

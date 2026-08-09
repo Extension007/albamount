@@ -1,9 +1,66 @@
 const { earnReferralBonus, addTx } = require('./albaService');
 const AlbaTransaction = require('../models/AlbaTransaction');
-const { randomUUID } = require('crypto');
+const { randomBytes, randomUUID } = require('crypto');
 
 // Get referral bonus amount from environment or use default
-const REFERRAL_BONUS_ALBA = parseInt(process.env.REFERRAL_BONUS_ALBA) || 10;
+const REFERRAL_BONUS_ALBA = parseInt(process.env.REFERRAL_BONUS_ALBA, 10) || 10;
+const REFERRED_USER_BONUS = parseInt(process.env.REFERRED_USER_BONUS_ALBA, 10) || 5;
+const REF_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateRefCodeCandidate(length = 8) {
+  const bytes = randomBytes(length);
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += REF_CODE_ALPHABET[bytes[i] % REF_CODE_ALPHABET.length];
+  }
+  return code;
+}
+
+/**
+ * Generate a unique referral code for a user.
+ * @param {Object} UserModel
+ * @returns {Promise<string>}
+ */
+async function generateUniqueRefCode(UserModel) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const code = generateRefCodeCandidate(8);
+    const existing = await UserModel.findOne({
+      where: { refCode: code },
+      attributes: ['id']
+    });
+    if (!existing) return code;
+  }
+  return randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
+}
+
+/**
+ * Ensure user has a refCode; create and persist one if missing.
+ * Accepts a Sequelize instance or a plain user object with id.
+ * @param {Object} user
+ * @param {Object} [UserModel]
+ * @returns {Promise<string|null>}
+ */
+async function ensureUserRefCode(user, UserModel) {
+  if (!user) return null;
+  if (user.refCode) return user.refCode;
+
+  const Model = UserModel || require('../models/User');
+  const instance = typeof user.save === 'function'
+    ? user
+    : await Model.findByPk(user.id || user._id);
+
+  if (!instance) return null;
+  if (instance.refCode) {
+    user.refCode = instance.refCode;
+    return instance.refCode;
+  }
+
+  const code = await generateUniqueRefCode(Model);
+  instance.refCode = code;
+  await instance.save();
+  user.refCode = code;
+  return code;
+}
 
 async function grantReferralBonusIfEligible({ UserModel, user }) {
   // Log referral bonus check
@@ -59,7 +116,6 @@ async function grantReferralBonusIfEligible({ UserModel, user }) {
      });
 
      // Grant bonus to the referred user (new user) as well
-     const REFERRED_USER_BONUS = 5; // Fixed amount for referred user
      await addTx(UserModel, {
        userId: user.id,
        amount: REFERRED_USER_BONUS,
@@ -68,7 +124,7 @@ async function grantReferralBonusIfEligible({ UserModel, user }) {
        relatedUserId: user.referredBy,
        meta: {
          eventId,
-         referralType: 'one-time',
+         referralType: 'referred_user',
          referrerId: user.referredBy
        }
      });
@@ -164,5 +220,8 @@ module.exports = {
   grantReferralBonusIfEligible,
   setReferralBinding,
   getReferralStats,
-  REFERRAL_BONUS_ALBA
+  ensureUserRefCode,
+  generateUniqueRefCode,
+  REFERRAL_BONUS_ALBA,
+  REFERRED_USER_BONUS
 };

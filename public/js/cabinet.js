@@ -28,7 +28,97 @@
     initBannerForm();
     initCategorySelector();
     initAlbaModal();
+    initReferralModal();
   });
+
+  function initReferralModal() {
+    const referralBtn = document.getElementById('referralBtn');
+    const referralModal = document.getElementById('referralModal');
+    const closeReferralModal = document.getElementById('closeReferralModal');
+    const closeReferralModalBtn = document.getElementById('closeReferralModalBtn');
+    const referralLinkInput = document.getElementById('referralLink');
+    const referralCodeInput = document.getElementById('referralCode');
+    const copyReferralLink = document.getElementById('copyReferralLink');
+    const copyReferralCode = document.getElementById('copyReferralCode');
+
+    if (!referralBtn || !referralModal) return;
+
+    const bootstrap = window.AppBootstrap && window.AppBootstrap._config
+      ? window.AppBootstrap._config
+      : {};
+    const refCode = (referralCodeInput && referralCodeInput.value.trim())
+      || window.USER_REF_CODE
+      || bootstrap.userRefCode
+      || '';
+
+    if (referralCodeInput && refCode && !referralCodeInput.value) {
+      referralCodeInput.value = refCode;
+    }
+
+    if (referralLinkInput) {
+      const code = (referralCodeInput && referralCodeInput.value.trim()) || refCode;
+      referralLinkInput.value = code
+        ? `${window.location.origin}/register?ref=${encodeURIComponent(code)}`
+        : '';
+    }
+
+    function openModal() {
+      if (referralLinkInput && referralCodeInput && referralCodeInput.value && !referralLinkInput.value) {
+        referralLinkInput.value = `${window.location.origin}/register?ref=${encodeURIComponent(referralCodeInput.value.trim())}`;
+      }
+      referralModal.style.display = 'block';
+    }
+
+    function closeModal() {
+      referralModal.style.display = 'none';
+    }
+
+    async function copyText(value, button) {
+      if (!value) {
+        alert('Реферальный код ещё не готов. Обновите страницу.');
+        return;
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const temp = document.createElement('textarea');
+          temp.value = value;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand('copy');
+          document.body.removeChild(temp);
+        }
+        if (button) {
+          const original = button.textContent;
+          button.textContent = 'Скопировано';
+          setTimeout(function() { button.textContent = original; }, 1500);
+        }
+      } catch (err) {
+        console.error('Copy failed:', err);
+        alert('Не удалось скопировать. Скопируйте вручную.');
+      }
+    }
+
+    referralBtn.addEventListener('click', openModal);
+    if (closeReferralModal) closeReferralModal.addEventListener('click', closeModal);
+    if (closeReferralModalBtn) closeReferralModalBtn.addEventListener('click', closeModal);
+
+    window.addEventListener('click', function(event) {
+      if (event.target === referralModal) closeModal();
+    });
+
+    if (copyReferralLink) {
+      copyReferralLink.addEventListener('click', function() {
+        copyText(referralLinkInput ? referralLinkInput.value : '', copyReferralLink);
+      });
+    }
+    if (copyReferralCode) {
+      copyReferralCode.addEventListener('click', function() {
+        copyText(referralCodeInput ? referralCodeInput.value : '', copyReferralCode);
+      });
+    }
+  }
 
   document.addEventListener('click', function(e) {
     handleCardActions(e);
@@ -86,7 +176,13 @@
       e.preventDefault();
 
       const imagesInput = form.querySelector('input[name="images"]');
-      if (imagesInput && imagesInput.files.length > 5) {
+      if (!imagesInput || imagesInput.files.length === 0) {
+        msg.textContent = 'Необходимо загрузить хотя бы одно изображение';
+        msg.style.color = '#b00020';
+        return;
+      }
+
+      if (imagesInput.files.length > 5) {
         msg.textContent = 'Максимальное количество изображений: 5';
         msg.style.color = '#b00020';
         return;
@@ -558,37 +654,45 @@
             return;
           }
 
-          // Purchase entitlement
-          const response = await csrfFetch('/api/p1/entitlements/purchase', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              type: cardType,
-              idempotencyKey: idempotencyKey
-            })
-          });
+          let purchased = 0;
+          let newBalance = currentBalance;
+          let lastError = '';
 
-          const result = await response.json();
+          for (let i = 0; i < cardsToBuy; i++) {
+            const key = i === 0 ? idempotencyKey : `${idempotencyKey}_${i}`;
+            const response = await csrfFetch('/api/p1/entitlements/purchase', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                type: cardType,
+                idempotencyKey: key
+              })
+            });
 
-          if (result.success) {
-            purchaseStatus.textContent = `Успешно! Куплено право на ${cardType === 'product' ? 'товар' : 'услугу'} за ${costPerCard} ALBA`;
+            const result = await response.json();
+            if (!result.success) {
+              lastError = result.message || 'Ошибка покупки права';
+              break;
+            }
+            purchased += 1;
+            if (typeof result.balance === 'number') {
+              newBalance = result.balance;
+            } else {
+              newBalance = Math.max(0, newBalance - costPerCard);
+            }
+          }
+
+          const typeLabel = cardType === 'product' ? 'товар' : (cardType === 'service' ? 'услугу' : 'баннер');
+          if (purchased > 0) {
+            purchaseStatus.textContent = `Успешно! Куплено прав: ${purchased} (${typeLabel}) за ${purchased * costPerCard} ALBA`;
             purchaseStatus.style.color = '#66ff66';
-
-            // Update balance display with actual returned balance
-            const newBalance = result.balance || (currentBalance - costPerCard);
             updateBalanceDisplays(newBalance);
-
-            // Reload available entitlements
             loadAvailableEntitlements();
-
-            // Reset status after 5 seconds
-            setTimeout(() => {
-              purchaseStatus.textContent = '';
-            }, 5000);
+            setTimeout(() => { purchaseStatus.textContent = ''; }, 5000);
           } else {
-            purchaseStatus.textContent = result.message || 'Ошибка покупки права';
+            purchaseStatus.textContent = lastError || 'Ошибка покупки права';
             purchaseStatus.style.color = '#ff6666';
           }
         } catch (error) {
@@ -627,6 +731,9 @@
               }
               if (entitlements.service.length > 0) {
                 html += `<li>🔧 Услуги: ${entitlements.service.length} шт.</li>`;
+              }
+              if (entitlements.banner && entitlements.banner.length > 0) {
+                html += `<li>🖼️ Баннеры: ${entitlements.banner.length} шт.</li>`;
               }
 
               html += '</ul>';

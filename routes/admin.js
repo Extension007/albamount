@@ -10,6 +10,7 @@ const { Op } = require("sequelize");
 const { USE_POSTGRES } = require("../config/database");
 const { requireAdmin, requireAuth } = require("../middleware/auth");
 const { productLimiter } = require("../middleware/rateLimiter");
+const { isValidEntityId } = require('../utils/idValidation');
 const { validateProduct, validateProductId, validateService, validateServiceId, validateBanner, validateBannerId, validateModeration } = require("../middleware/validators");
 const { csrfProtection, csrfToken } = require("../middleware/csrf");
 const { upload } = require("../utils/upload");
@@ -428,7 +429,7 @@ router.post("/banners/:id/toggle-visibility", requireAdmin, conditionalCsrfProte
     if (banner.status === "published" || banner.status === "approved") {
       banner.status = "blocked";
     } else {
-      banner.status = "published";
+      banner.status = "approved";
     }
     
     await banner.save();
@@ -1058,7 +1059,7 @@ router.post("/banners/:id/delete", requireAdmin, conditionalCsrfProtection, vali
       return res.status(503).send("Недоступно: отсутствует подключение к БД");
     }
 
-     if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
+     if (!isValidEntityId(req.params.id)) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
       if (wantsJson) return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
       return res.status(400).send("Неверный формат ID баннера");
@@ -1130,7 +1131,7 @@ router.delete("/banners/:id", requireAdmin, conditionalCsrfProtection, async (re
       return res.status(503).json({ success: false, message: 'Недоступно: нет БД' });
     }
 
-     if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
+     if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
 

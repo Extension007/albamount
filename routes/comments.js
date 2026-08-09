@@ -90,8 +90,8 @@ router.post('/:cardId', canWriteComments, commentLimiter, csrfProtection, async 
     const { cardId } = req.params;
     const { text } = req.body;
 
-    // Проверяем cardId
-    if (!cardId || !/^[a-f0-9]{32,}$/i.test(cardId)) {
+    const { isValidEntityId } = require('../utils/idValidation');
+    if (!cardId || !isValidEntityId(cardId)) {
       return res.status(400).json({ success: false, message: 'Некорректный ID карточки' });
     }
 

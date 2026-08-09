@@ -5,10 +5,11 @@ const { Product, Banner, User } = require("../config/database");
 const { Sequelize, Op } = require("../config/database");
 const { USE_POSTGRES } = require("../config/database");
 const { apiLimiter } = require("../middleware/rateLimiter");
+const { isRecordOwner } = require('../utils/ownership');
+const { isValidEntityId, isValidCardId } = require('../utils/idValidation');
 const { validateRating, validateProductId, validateServiceId, validateBannerId, validateInstagramUrl } = require("../middleware/validators");
 const csrfProtection = require('csurf')({ cookie: true });
 const { deleteImage, deleteImages } = require("../utils/imageUtils");
-const { isValidCardId } = require("../utils/idValidation");
 const { requireUser } = require("../middleware/auth");
 
 // Голосование (унифицированный формат: vote: "up"/"down")
@@ -188,7 +189,7 @@ router.delete("/images/:productId/:index", apiLimiter, csrfProtection, async (re
     
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: 'Недоступно: нет БД' });
     
-     if (!/^[a-f0-9]{32,}$/i.test(productId)) {
+     if (!isValidEntityId(productId)) {
       console.error('❌ Неверный формат ID товара:', productId);
       return res.status(400).json({ success: false, message: "Неверный формат ID товара" });
     }
@@ -206,7 +207,7 @@ router.delete("/images/:productId/:index", apiLimiter, csrfProtection, async (re
 
      // Проверка прав: админ или владелец
      const isAdmin = req.user.role === "admin";
-     const isOwner = product.owner && product.owner.toString() === req.user._id.toString();
+     const isOwner = isRecordOwner(product, req.user);
      
      if (!isAdmin && !isOwner) {
        return res.status(403).json({ success: false, message: "Доступ запрещен" });
@@ -263,7 +264,7 @@ router.delete("/products/:id", apiLimiter, requireUser, csrfProtection, async (r
       return res.status(503).json({ success: false, message: 'Недоступно: нет БД' });
     }
 
-    if (!isValidCardId(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID товара" });
     }
 
@@ -281,7 +282,7 @@ router.delete("/products/:id", apiLimiter, requireUser, csrfProtection, async (r
 
     // Проверка прав: админ или владелец
     const isAdmin = req.user.role === "admin";
-    const isOwner = product.owner && product.owner.toString() === req.user._id.toString();
+    const isOwner = isRecordOwner(product, req.user);
     
     if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, message: "Доступ запрещен" });
@@ -394,7 +395,7 @@ router.put("/products/:id", apiLimiter, requireUser, csrfProtection, async (req,
     
      // Проверка прав: админ или владелец
      const isAdmin = req.user.role === "admin";
-     const isOwner = product.owner && product.owner.toString() === req.user._id.toString();
+     const isOwner = isRecordOwner(product, req.user);
      
      if (!isAdmin && !isOwner) {
        return res.status(403).json({ success: false, message: "Доступ запрещен" });
@@ -430,7 +431,7 @@ router.get("/banners", apiLimiter, async (req, res) => {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
     
      const banners = await Banner.findAll({
-       where: { status: "published" },
+       where: { status: { [Op.in]: ["published", "approved"] } },
        order: [['id', 'DESC']],
        include: [{ model: User, as: 'owner', attributes: ['id', 'username', 'email'] }],
        nest: true,
@@ -457,7 +458,7 @@ router.get("/banners/:id", apiLimiter, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
     
-    if (!isValidCardId(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
     
@@ -531,7 +532,7 @@ router.put("/banners/:id", apiLimiter, requireUser, csrfProtection, async (req, 
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
     
-    if (!isValidCardId(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
     
@@ -542,7 +543,7 @@ router.put("/banners/:id", apiLimiter, requireUser, csrfProtection, async (req, 
     
      // Проверка прав: админ или владелец
      const isAdmin = req.user.role === "admin";
-     const isOwner = banner.owner && banner.owner.toString() === req.user._id.toString();
+     const isOwner = isRecordOwner(banner, req.user);
      
      if (!isAdmin && !isOwner) {
        return res.status(403).json({ success: false, message: "Доступ запрещен" });
@@ -580,7 +581,7 @@ router.delete("/banners/:id", apiLimiter, requireUser, csrfProtection, async (re
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
     
-    if (!isValidCardId(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
     
@@ -591,7 +592,7 @@ router.delete("/banners/:id", apiLimiter, requireUser, csrfProtection, async (re
     
      // Проверка прав: админ или владелец
      const isAdmin = req.user.role === "admin";
-     const isOwner = banner.owner && banner.owner.toString() === req.user._id.toString();
+     const isOwner = isRecordOwner(banner, req.user);
      
      if (!isAdmin && !isOwner) {
        return res.status(403).json({ success: false, message: "Доступ запрещен" });
@@ -619,7 +620,7 @@ router.post("/banners/:id/vote", apiLimiter, csrfProtection, validateBannerId, a
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Рейтинг недоступен: нет БД" });
     
-    if (!isValidCardId(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
     
@@ -727,7 +728,7 @@ router.get("/services/:id", apiLimiter, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
 
-    if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID услуги" });
     }
 
@@ -810,7 +811,7 @@ router.delete("/services/:id", apiLimiter, requireUser, csrfProtection, async (r
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
 
-    if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID услуги" });
     }
     
@@ -855,15 +856,13 @@ router.post("/services/:id/vote", apiLimiter, csrfProtection, validateServiceId,
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Рейтинг недоступен: нет БД" });
     
-     if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
+     if (!isValidEntityId(req.params.id)) {
        return res.status(400).json({ success: false, message: "Неверный формат ID услуги" });
      }
      
      const { vote } = req.body; // "up" или "down"
      const service = await Product.findOne({
-       where: { id: req.params.id, type: "service", deleted: false },
-       nest: true,
-       raw: true
+       where: { id: req.params.id, type: "service", deleted: false }
      });
 
      if (!service) {
@@ -896,8 +895,9 @@ router.post("/services/:id/vote", apiLimiter, csrfProtection, validateServiceId,
      service.rating_updated_at = Date.now();
      
      if (req.user) {
-       service.voters = service.voters || [];
-       service.voters.push(req.user._id);
+       const voters = Array.isArray(service.voters) ? [...service.voters] : [];
+       voters.push(req.user._id);
+       service.voters = voters;
      }
 
      await service.save();
@@ -959,7 +959,7 @@ router.get("/contacts", async (req, res) => {
 // Получить контакт по ID
 router.get("/contacts/:id", async (req, res) => {
   try {
-    if (!isValidCardId(req.params.id)) {
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID контакта" });
     }
 

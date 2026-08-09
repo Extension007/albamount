@@ -120,8 +120,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
     let freshUser;
     try {
       freshUser = await User.findByPk(getAuthUserId(req.user), {
-        attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt'],
-        raw: true
+        attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt']
       });
     } catch (userErr) {
       logger.error({ msg: 'cabinet_error', error: userErr.message, stack: userErr.stack, path: req.path });
@@ -130,6 +129,9 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
     if (!freshUser) {
       return res.status(500).send("Ошибка загрузки пользователя");
     }
+
+    const { ensureUserRefCode, REFERRAL_BONUS_ALBA } = require('../services/referralService');
+    await ensureUserRefCode(freshUser, User);
 
     const actualBalance = await getUserAlbaBalance(getAuthUserId(req.user));
     freshUser.albaBalance = actualBalance;
@@ -142,9 +144,11 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
     });
 
     const csrfTokenValue = res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '');
+    const userPayload = freshUser.get ? freshUser.get({ plain: true }) : freshUser;
+    userPayload.albaBalance = actualBalance;
 
     res.render("cabinet", {
-      user: freshUser,
+      user: userPayload,
       albaTransactions,
       products: myProducts,
       services: myServices || [],
@@ -152,7 +156,8 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       csrfToken: csrfTokenValue,
       socket_io_available: res.locals.socket_io_available,
       categories: categoryFlat,
-      hierarchicalCategories: categoryTree
+      hierarchicalCategories: categoryTree,
+      referralBonusAlba: REFERRAL_BONUS_ALBA
     });
   } catch (err) {
     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
@@ -203,9 +208,9 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
     const imagesCount = result.product.images?.length || 0;
 
      console.log("✅ Карточка создана пользователем:", {
-       id: result.product.id.toString(),
+       id: String(result.product.id),
        name: result.product.name,
-       owner: result.product.owner.toString(),
+       owner: String(result.product.ownerId || result.product.owner || getAuthUserId(req.user) || ''),
        imagesCount,
        deviceType: req.isMobile ? 'mobile' : 'desktop',
        tier: result.product.tier,
@@ -220,7 +225,15 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
     });
   } catch (err) {
     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
-    res.status(500).json({ success: false, message: "Ошибка создания карточки: " + err.message });
+    let message = err.message || 'Ошибка создания карточки';
+    if (message.includes('must be verified')) {
+      message = 'Подтвердите email, чтобы создавать карточки';
+    } else if (message.includes('No available entitlements')) {
+      message = 'Нет доступных прав на создание. Купите право в балансе ALBA.';
+    } else if (!message.startsWith('Ошибка')) {
+      message = 'Ошибка создания карточки: ' + message;
+    }
+    res.status(500).json({ success: false, message });
   }
 });
 
@@ -328,9 +341,9 @@ router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization
     );
     
      console.log("✅ Карточка обновлена пользователем:", {
-       id: updated.id.toString(),
+       id: String(updated.id),
        name: updated.name,
-       owner: updated.owner.toString()
+       owner: String(updated.ownerId || updated.owner || getAuthUserId(req.user) || '')
      });
     
     // Проверяем, является ли запрос AJAX
@@ -420,8 +433,8 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
            'Ссылка': bannerData.link,
            'Категория': bannerData.category,
            'Цена': bannerData.price,
-           'ID баннера': created.id.toString(),
-           'Владелец': created.owner ? created.owner.toString() : 'Неизвестен',
+           'ID баннера': String(created.id),
+           'Владелец': String(created.ownerId || getAuthUserId(req.user) || 'Неизвестен'),
            'Дата создания': new Date().toLocaleString('ru-RU')
          }
       );
@@ -430,9 +443,9 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
     }
 
      console.log("✅ Баннер создан:", {
-       id: created.id.toString(),
+       id: String(created.id),
        status: created.status,
-       owner: created.owner ? created.owner.toString() : 'null'
+       owner: String(created.ownerId || getAuthUserId(req.user) || '')
      });
      
      return res.json({ success: true, bannerId: created.id, banner: created });
@@ -598,7 +611,7 @@ router.delete("/product/:id", requireUser, conditionalCsrfProtection, async (req
            'ID карточки': product.id.toString(),
           'Название': product.name,
           'Тип': product.type || 'product',
-          'Владелец': product.owner ? product.owner.toString() : 'Неизвестен',
+          'Владелец': String(product.ownerId || getAuthUserId(req.user) || 'Неизвестен'),
           'Дата удаления': new Date().toLocaleString('ru-RU')
         }
       );
@@ -627,7 +640,8 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
     }
 
     // Валидация ID
-     if (!/^[a-f0-9]{32,}$/i.test(req.params.id)) {
+    const { isValidEntityId } = require('../utils/idValidation');
+    if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
     
@@ -637,8 +651,10 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
     }
     
     const banner = await Banner.findOne({ 
-      id: req.params.id, 
-      ownerId: getAuthUserId(req.user)
+      where: {
+        id: req.params.id, 
+        ownerId: getAuthUserId(req.user)
+      }
     });
     
     if (!banner) {
@@ -666,7 +682,7 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
         {
           'ID баннера': req.params.id,
           'Заголовок': banner.title,
-          'Владелец': banner.owner ? banner.owner.toString() : 'Неизвестен',
+          'Владелец': String(banner.ownerId || getAuthUserId(req.user) || 'Неизвестен'),
           'Дата удаления': new Date().toLocaleString('ru-RU')
         }
       );

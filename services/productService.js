@@ -13,16 +13,28 @@ async function resolveCategoryData(category) {
   if (CATEGORY_KEYS.includes(category)) {
     return { categoryId: null, categoryValue: category };
   }
-  // Simple check if it looks like a UUID/hex string
-  if (typeof category === 'string' && /^[a-f0-9]{32,}$/i.test(category)) {
-    const categoryDoc = await Category.findByPk(category, {
+
+  const asString = String(category);
+  if (/^\d+$/.test(asString)) {
+    const categoryDoc = await Category.findByPk(parseInt(asString, 10), {
       attributes: ['id', 'name']
     });
     if (categoryDoc) {
       return { categoryId: categoryDoc.id, categoryValue: categoryDoc.name };
     }
   }
-  return { categoryId: null, categoryValue: "" };
+
+  // Legacy Mongo-style hex id
+  if (/^[a-f0-9]{24,}$/i.test(asString)) {
+    const categoryDoc = await Category.findByPk(asString, {
+      attributes: ['id', 'name']
+    });
+    if (categoryDoc) {
+      return { categoryId: categoryDoc.id, categoryValue: categoryDoc.name };
+    }
+  }
+
+  return { categoryId: null, categoryValue: asString || "" };
 }
 
 /**

@@ -34,6 +34,8 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    const { ensureUserRefCode } = require("../services/referralService");
+
     const user = await User.create({
       username: username || email.split("@")[0],
       email,
@@ -42,9 +44,11 @@ exports.register = async (req, res) => {
       emailVerified: false
     });
 
-    const refCode = req.query.ref || req.body.ref || req.body.refCode;
-    if (refCode) {
-      const referrer = await User.findOne({ where: { refCode } });
+    await ensureUserRefCode(user, User);
+
+    const inviteCode = req.query.ref || req.body.ref || req.body.refCode;
+    if (inviteCode) {
+      const referrer = await User.findOne({ where: { refCode: inviteCode } });
       if (referrer && referrer.id !== user.id) {
         user.referredBy = referrer.id;
         await user.save();

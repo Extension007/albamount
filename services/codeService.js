@@ -14,13 +14,14 @@ async function createCodes({ count, kind, type, expiresAt = null, createdBy = nu
       kind,
       type,
       expiresAt,
-      createdBy
+      createdById: createdBy
     });
   }
   return Code.bulkCreate(docs);
 }
 
 async function redeemSlotCode({ user, codeValue, ip, userAgent }) {
+  const User = require('../models/User');
   const code = await Code.findOne({ where: { code: codeValue } });
   if (!code) return { ok: false, status: 404, message: 'Code not found' };
 
@@ -31,16 +32,20 @@ async function redeemSlotCode({ user, codeValue, ip, userAgent }) {
   if (code.status !== 'active') return { ok: false, status: 400, message: `Code not active (${code.status})` };
   if (code.kind !== 'slot') return { ok: false, status: 400, message: 'Not a slot code' };
 
+  const userId = user.id || user._id;
+  const dbUser = await User.findByPk(userId);
+  if (!dbUser) return { ok: false, status: 404, message: 'User not found' };
+
    await Code.update(
-     { status: 'used', usedById: user.id, usedAt: new Date() },
+     { status: 'used', usedById: dbUser.id, usedAt: new Date() },
      { where: { id: code.id, status: 'active' } }
    );
    const updated = await Code.findByPk(code.id);
    
-   if (!updated) return { ok: false, status: 409, message: 'Code already used' };
+   if (!updated || updated.status !== 'used') return { ok: false, status: 409, message: 'Code already used' };
 
    await CodeUsage.create({
-     userId: user.id,
+     userId: dbUser.id,
      codeId: updated.id,
      kind: updated.kind,
      type: updated.type,
@@ -49,11 +54,10 @@ async function redeemSlotCode({ user, codeValue, ip, userAgent }) {
      usedAt: new Date()
    });
 
-   if (!user.slots_total) user.slots_total = 0;
-   user.slots_total = Number(user.slots_total || 0) + 1;
-   await user.save();
+   dbUser.slots_total = Number(dbUser.slots_total || 0) + 1;
+   await dbUser.save();
 
-   return { ok: true, code: updated };
+   return { ok: true, code: updated, user: dbUser };
 }
 
 async function issuePaymentActivationCode({ userId, cardType, cardId, createdBy = null, expiresAt = null, meta = {} }) {
@@ -63,7 +67,7 @@ async function issuePaymentActivationCode({ userId, cardType, cardId, createdBy 
     type: cardType,
     status: 'active',
     expiresAt,
-    createdBy,
+    createdById: createdBy,
     reservedForUserId: userId,
     cardId,
     meta

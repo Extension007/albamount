@@ -192,6 +192,19 @@
     let currentType = 'product';
     let categoriesData = {};
 
+    function getCsrfToken() {
+      return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
+
+    async function csrfFetch(url, options = {}) {
+      const headers = Object.assign({}, options.headers || {});
+      const method = (options.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        headers['X-CSRF-Token'] = getCsrfToken();
+      }
+      return fetch(url, Object.assign({}, options, { headers, credentials: 'same-origin' }));
+    }
+
     // Переключение вкладок
     document.addEventListener('DOMContentLoaded', () => {
       const tabs = document.querySelectorAll('.tab');
@@ -371,7 +384,7 @@
         const url = categoryId ? `/api/categories/${categoryId}` : '/api/categories';
         const method = categoryId ? 'PUT' : 'POST';
 
-        const response = await fetch(url, {
+        const response = await csrfFetch(url, {
           method: method,
           headers: {
             'Content-Type': 'application/json',
@@ -399,7 +412,7 @@
       }
 
       try {
-        const response = await fetch(`/api/categories/${id}`, {
+        const response = await csrfFetch(`/api/categories/${id}`, {
           method: 'DELETE'
         });
 

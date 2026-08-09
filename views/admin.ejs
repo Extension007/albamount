@@ -30,6 +30,7 @@
     <div class="header-actions">
 <span class="user-chip">Админ-панель</span>
 <form id="logoutForm" method="POST" action="/logout" style="display:inline;margin-left:10px;">
+<input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
 <button type="submit" class="btn outline small">Выход</button>
 </form>
 </div>
@@ -921,7 +922,17 @@ data-type="banner">
         e.stopPropagation();
         if (!confirm('Вы уверены, что хотите выйти?')) return;
         try {
-          const res = await fetch('/logout', { method: 'POST' });
+          const csrf = (typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN)
+            || document.querySelector('input[name="_csrf"]')?.value
+            || '';
+          const res = await fetch('/logout', {
+            method: 'POST',
+            headers: {
+              'X-CSRF-Token': csrf,
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: '_csrf=' + encodeURIComponent(csrf)
+          });
           if (res.ok) {
             window.location.href = '/';
           }

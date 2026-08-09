@@ -1,5 +1,4 @@
-const { Op } = require("../config/database");
-const { fn, col, literal } = require('sequelize');
+const { fn, col } = require('sequelize');
 const AlbaTransaction = require("../models/AlbaTransaction");
 const Entitlement = require("../models/Entitlement");
 const { randomUUID } = require('crypto');
@@ -23,10 +22,11 @@ async function getUserAlbaBalance(userId) {
 }
 
 async function incBalance(UserModel, userId, delta) {
-   return UserModel.update(
-     { albaBalance: { [Op.inc]: delta } },
-     { where: { id: userId } }
-   );
+  // Sequelize has no Op.inc (Mongo-style); use increment()
+  return UserModel.increment('albaBalance', {
+    by: Number(delta) || 0,
+    where: { id: userId }
+  });
 }
 
 async function addTx(UserModel, { userId, amount, type, reason, relatedUserId=null, relatedCodeId=null, relatedCardType=null, relatedCardId=null, meta={} }) {

@@ -97,7 +97,7 @@ router.post('/alba/grant-by-login', requireAdmin, csrfProtection, async (req, re
     }
 
     // Validate that reason is one of the allowed enum values
-    const validReasons = ['referral_bonus', 'card_payment', 'admin_grant', 'manual_adjustment', 'upgrade_to_paid', 'card_entitlement_purchase'];
+    const validReasons = ['referral_bonus', 'referred_user_bonus', 'card_payment', 'admin_grant', 'manual_adjustment', 'upgrade_to_paid', 'card_entitlement_purchase'];
     if (!validReasons.includes(reason)) {
       return res.status(400).json({
         success: false,
@@ -124,7 +124,7 @@ router.post('/alba/grant-by-login', requireAdmin, csrfProtection, async (req, re
         login: result.user.username,
         albaBalance: result.user.albaBalance
       },
-      transactionId: result.tx._id.toString()
+      transactionId: String(result.tx.id || result.tx._id)
     });
   } catch (err) {
     console.error('Error granting ALBA by login:', err);
@@ -416,7 +416,7 @@ router.post('/videos', requireAuth, csrfProtection, async (req, res, next) => {
   try {
     assertVerified(req.user);
     const video = await createVideo({ user: req.user, payload: req.body });
-    await notifyUser(req.user._id, { type: 'video_created', videoId: video._id });
+    await notifyUser(req.user._id, { type: 'video_created', videoId: video.id || video._id });
     res.json({ success: true, video });
   } catch (err) {
     next(err);
@@ -456,7 +456,7 @@ router.post('/videos/:id/approve', requireAdmin, csrfProtection, async (req, res
     // adminComment is optional for approve
 
     const video = await moderate({ id: req.params.id, action: 'approve', adminComment });
-    await notifyUser(video.userId, { type: 'video_approved', videoId: video._id, adminComment });
+    await notifyUser(video.userId, { type: 'video_approved', videoId: video.id || video._id, adminComment });
     res.json({ success: true, video });
   } catch (err) {
     next(err);
@@ -472,7 +472,7 @@ router.post('/videos/:id/reject', requireAdmin, csrfProtection, async (req, res,
     if (!video) return res.status(404).json({ success: false, error: 'NotFound', message: 'Video not found' });
     if (!video.userId) return res.status(400).json({ success: false, message: 'Video has no associated user' });
 
-    await notifyUser(video.userId, { type: 'video_rejected', videoId: video._id, adminComment, rejectionReason });
+    await notifyUser(video.userId, { type: 'video_rejected', videoId: video.id || video._id, adminComment, rejectionReason });
     res.json({ success: true, video });
   } catch (err) {
     next(err);
@@ -485,7 +485,7 @@ router.post('/videos/:id/block', requireAdmin, csrfProtection, async (req, res, 
     if (!adminComment) return res.status(400).json({ success: false, message: 'adminComment required' });
 
     const video = await moderate({ id: req.params.id, action: 'block', adminComment });
-    await notifyUser(video.userId, { type: 'video_blocked', videoId: video._id, adminComment });
+    await notifyUser(video.userId, { type: 'video_blocked', videoId: video.id || video._id, adminComment });
     res.json({ success: true, video });
   } catch (err) {
     next(err);

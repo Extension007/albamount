@@ -47,7 +47,9 @@ window.AppBootstrap = {
     this.setString('USER_UPDATED_AT', config.userUpdatedAt || '');
     this.setNumber('USER_ALBA_BALANCE', config.userAlbaBalance || 0);
     this.setBoolean('USER_REF_BONUS_GRANTED', config.userRefBonusGranted || false);
+    this.setString('USER_REF_CODE', config.userRefCode || '');
     this.setString('CSRF_TOKEN', config.csrfToken || '');
+    this._config = config || {};
 
     // Специальные случаи
     if (config.currentImages) {

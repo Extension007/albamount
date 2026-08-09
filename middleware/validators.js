@@ -148,12 +148,14 @@ const validateProduct = [
 ];
 
 // Валидация ID товара (UUID hex format: 32+ hex characters)
+const { isValidEntityId } = require("../utils/idValidation");
+
 const validateProductId = [
   param("id")
     .notEmpty()
     .withMessage("ID товара обязателен")
     .custom((value) => {
-      if (!/^[a-f0-9]{32,}$/i.test(value)) {
+      if (!isValidEntityId(value)) {
         throw new Error("Некорректный ID товара");
       }
       return true;
@@ -164,13 +166,13 @@ const validateProductId = [
 // Валидация ID услуги (использует ту же логику, что и товар)
 const validateServiceId = validateProductId;
 
-// Валидация ID баннера (UUID hex format: 32+ hex characters)
+// Валидация ID баннера (integer Postgres id или legacy hex)
 const validateBannerId = [
   param("id")
     .notEmpty()
     .withMessage("ID баннера обязателен")
     .custom((value) => {
-      if (!/^[a-f0-9]{32,}$/i.test(value)) {
+      if (!isValidEntityId(value)) {
         throw new Error("Некорректный ID баннера");
       }
       return true;
