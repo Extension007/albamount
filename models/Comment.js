@@ -8,7 +8,7 @@ const Comment = sequelize.define('Comment', {
     primaryKey: true
   },
   cardId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false
   },
   cardType: {
@@ -19,7 +19,7 @@ const Comment = sequelize.define('Comment', {
     }
   },
   userId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',

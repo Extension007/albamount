@@ -7,9 +7,10 @@ const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
 const Statistics = require("../config/database").Statistics;
-const { USE_POSTGRES, hasMongo, isDbConnected, Op } = require("../config/database");
+const { USE_POSTGRES, isDatabaseConfigured, isDbConnected, Op } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
 const { requireAdmin } = require("../middleware/auth");
+const { buildVotedMap } = require("../services/voteService");
 
 const CATALOG_PAGE_SIZE = 24;
 
@@ -183,12 +184,24 @@ router.get("/", async (req, res) => {
     const userCount = users || 0;
     const totalPages = Math.max(1, Math.ceil(Math.max(productCount, serviceCount) / CATALOG_PAGE_SIZE));
 
-    const userId = (req.user?._id || req.user?.id)?.toString();
-    const votedMap = {};
-    [...products, ...services].forEach(p => {
+    const productVoted = await buildVotedMap({
+      user: req.user,
+      targetType: 'product',
+      targetIds: products.map((p) => p.id)
+    });
+    const serviceVoted = await buildVotedMap({
+      user: req.user,
+      targetType: 'service',
+      targetIds: services.map((p) => p.id)
+    });
+    const votedMap = { ...productVoted, ...serviceVoted };
+
+    // Fallback to legacy voters arrays for pre-migration votes
+    [...products, ...services].forEach((p) => {
       const plainP = p.get ? p.get({ plain: true }) : p;
       const cardId = (plainP._id || plainP.id)?.toString();
-      if (Array.isArray(plainP.voters) && plainP.voters.map(v => String(v)).includes(userId)) {
+      const userId = (req.user?._id || req.user?.id)?.toString();
+      if (userId && Array.isArray(plainP.voters) && plainP.voters.map(v => String(v)).includes(userId)) {
         votedMap[cardId] = true;
       }
     });
@@ -238,10 +251,16 @@ router.get("/__health/cloudinary", requireAdmin, async (req, res) => {
 
 // Health-check
 router.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    database: hasMongo() ? "configured" : "missing",
-    connected: isDbConnected()
+  const configured = isDatabaseConfigured();
+  const connected = isDbConnected();
+  const ok = !configured || connected;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    database: configured ? "configured" : "missing",
+    connected,
+    redis: Boolean(process.env.REDIS_URL),
+    uptimeSec: Math.round(process.uptime()),
+    nodeEnv: process.env.NODE_ENV || "development"
   });
 });
 

@@ -11,67 +11,58 @@ const { validateRating, validateProductId, validateServiceId, validateBannerId, 
 const csrfProtection = require('csurf')({ cookie: true });
 const { deleteImage, deleteImages } = require("../utils/imageUtils");
 const { requireUser } = require("../middleware/auth");
+const { castVote } = require("../services/voteService");
+const { ensureGuestId } = require("../middleware/p1Guest");
+
+function setGuestVoteCookie(res, name) {
+  res.cookie(name, '1', {
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+}
 
 // Голосование (унифицированный формат: vote: "up"/"down")
 // Поддерживает обратную совместимость с value: "like"/"dislike"
-router.post("/rating/:id", apiLimiter, csrfProtection, validateProductId, validateRating, async (req, res) => {
+router.post("/rating/:id", apiLimiter, ensureGuestId, csrfProtection, validateProductId, validateRating, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Рейтинг недоступен: нет БД" });
-    
-    // Поддержка нового формата (vote: "up"/"down") и старого (value: "like"/"dislike")
+
     const vote = req.body.vote || (req.body.value === "like" ? "up" : req.body.value === "dislike" ? "down" : null);
     if (!vote || (vote !== "up" && vote !== "down")) {
       return res.status(400).json({ success: false, message: "Неверное значение vote. Используйте 'up' или 'down'" });
     }
-    
-    const product = await Product.findByPk(req.params.id);
-    if (!product) return res.status(404).json({ success: false, message: "Товар не найден" });
 
-    // Проверяем, голосовал ли уже
-    if (req.user) {
-     const userId = req.user._id.toString();
-     const already = (product.voters || []).includes(userId);
-      if (already) {
-        return res.status(409).json({ success: false, message: "Вы уже голосовали за этот товар" });
-      }
-    } else {
+    if (!req.user) {
       const guestVoteCookie = req.cookies[`exto_vote_${req.params.id}`];
       if (guestVoteCookie) {
         return res.status(409).json({ success: false, message: "Вы уже голосовали за этот товар" });
       }
     }
 
-    // Обновляем рейтинг (используем likes/dislikes для обратной совместимости)
-    if (vote === "up") product.likes = (product.likes || 0) + 1;
-    else if (vote === "down") product.dislikes = (product.dislikes || 0) + 1;
+    const result = await castVote({
+      targetType: 'product',
+      targetId: req.params.id,
+      vote,
+      user: req.user,
+      guestKey: req.user ? null : req.guestId
+    });
 
-     product.rating_updated_at = Date.now();
-
-      if (req.user) {
-        product.voters = product.voters || [];
-        product.voters.push(req.user._id);
-      }
-
-      await product.save();
-
-    // Для гостей устанавливаем cookie
-    if (!req.user) {
-      res.cookie(`exto_vote_${req.params.id}`, '1', {
-        maxAge: 365 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
-      });
+    if (!result.ok) {
+      return res.status(result.status || 500).json({ success: false, message: result.message });
     }
+
+    if (!req.user) setGuestVoteCookie(res, `exto_vote_${req.params.id}`);
 
     res.json({
       success: true,
-      rating_up: product.likes,
-      rating_down: product.dislikes,
-      likes: product.likes, // Для обратной совместимости
-      dislikes: product.dislikes, // Для обратной совместимости
-      total: (product.likes || 0) + (product.dislikes || 0),
-      result: (product.likes || 0) - (product.dislikes || 0),
+      rating_up: result.likes,
+      rating_down: result.dislikes,
+      likes: result.likes,
+      dislikes: result.dislikes,
+      total: result.total,
+      result: result.result,
       voted: true
     });
   } catch (err) {
@@ -623,67 +614,42 @@ router.delete("/banners/:id", apiLimiter, requireUser, csrfProtection, async (re
 });
 
 // Голосование за баннер
-router.post("/banners/:id/vote", apiLimiter, csrfProtection, validateBannerId, async (req, res) => {
+router.post("/banners/:id/vote", apiLimiter, ensureGuestId, csrfProtection, validateBannerId, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Рейтинг недоступен: нет БД" });
-    
+
     if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
     }
-    
-    const { vote } = req.body; // "up" или "down"
-    const banner = await Banner.findByPk(req.params.id);;
-    
-    if (!banner) {
-      return res.status(404).json({ success: false, message: "Баннер не найден" });
-    }
-    
-     // Добавляем виртуальные поля
-     const voters = banner.voters || [];
-     const already = req.user ? voters.includes(req.user._id) : false;
-    if (already) {
-      return res.status(409).json({ success: false, message: "Вы уже голосовали за этот товар" });
-    } else if (!req.user) {
+
+    const { vote } = req.body;
+    if (!req.user) {
       const guestVoteCookie = req.cookies[`exto_banner_vote_${req.params.id}`];
       if (guestVoteCookie) {
         return res.status(409).json({ success: false, message: "Вы уже голосовали за этот баннер" });
       }
     }
-    
-    // Обновляем рейтинг
-    if (vote === "up") {
-      banner.rating_up = (banner.rating_up || 0) + 1;
-    } else if (vote === "down") {
-      banner.rating_down = (banner.rating_down || 0) + 1;
-    } else {
-      return res.status(400).json({ success: false, message: "Неверное значение vote. Используйте 'up' или 'down'" });
-    }
-    
-     banner.rating_updated_at = Date.now();
-     
-     if (req.user) {
-       banner.voters = banner.voters || [];
-       banner.voters.push(req.user._id);
-     }
 
-     await banner.save();
-    
-    // Для гостей устанавливаем cookie
-    if (!req.user) {
-      res.cookie(`exto_banner_vote_${req.params.id}`, '1', {
-        maxAge: 365 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
-      });
+    const result = await castVote({
+      targetType: 'banner',
+      targetId: req.params.id,
+      vote,
+      user: req.user,
+      guestKey: req.user ? null : req.guestId
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 500).json({ success: false, message: result.message });
     }
-    
+
+    if (!req.user) setGuestVoteCookie(res, `exto_banner_vote_${req.params.id}`);
+
     res.json({
       success: true,
-      rating_up: banner.rating_up,
-      rating_down: banner.rating_down,
-      total: banner.rating_up + banner.rating_down,
-      result: banner.rating_up - banner.rating_down,
+      rating_up: result.rating_up,
+      rating_down: result.rating_down,
+      total: result.total,
+      result: result.result,
       voted: true
     });
   } catch (err) {
@@ -859,72 +825,42 @@ router.delete("/services/:id", apiLimiter, requireUser, csrfProtection, async (r
 });
 
 // Голосование за услугу
-router.post("/services/:id/vote", apiLimiter, csrfProtection, validateServiceId, async (req, res) => {
+router.post("/services/:id/vote", apiLimiter, ensureGuestId, csrfProtection, validateServiceId, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Рейтинг недоступен: нет БД" });
-    
-     if (!isValidEntityId(req.params.id)) {
-       return res.status(400).json({ success: false, message: "Неверный формат ID услуги" });
-     }
-     
-     const { vote } = req.body; // "up" или "down"
-     const service = await Product.findOne({
-       where: { id: req.params.id, type: "service", deleted: false }
-     });
 
-     if (!service) {
-       return res.status(404).json({ success: false, message: "Услуга не найдена" });
-     }
-
-         // Проверяем, голосовал ли уже
-         if (req.user) {
-           const userId = req.user._id.toString();
-           const already = (service.voters || []).map(v => v.toString()).includes(userId);
-           if (already) {
-             return res.status(409).json({ success: false, message: "Вы уже голосовали за эту услугу" });
-           }
-         } else {
-           const guestVoteCookie = req.cookies[`exto_service_vote_${req.params.id}`];
-           if (guestVoteCookie) {
-             return res.status(409).json({ success: false, message: "Вы уже голосовали за эту услугу" });
-           }
-         }
-    
-    // Обновляем рейтинг
-    if (vote === "up") {
-      service.likes = (service.likes || 0) + 1;
-    } else if (vote === "down") {
-      service.dislikes = (service.dislikes || 0) + 1;
-    } else {
-      return res.status(400).json({ success: false, message: "Неверное значение vote. Используйте 'up' или 'down'" });
+    if (!isValidEntityId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Неверный формат ID услуги" });
     }
-    
-     service.rating_updated_at = Date.now();
-     
-     if (req.user) {
-       const voters = Array.isArray(service.voters) ? [...service.voters] : [];
-       voters.push(req.user._id);
-       service.voters = voters;
-     }
 
-     await service.save();
-    
-    // Для гостей устанавливаем cookie
+    const { vote } = req.body;
     if (!req.user) {
-      res.cookie(`exto_service_vote_${req.params.id}`, '1', {
-        maxAge: 365 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
-      });
+      const guestVoteCookie = req.cookies[`exto_service_vote_${req.params.id}`];
+      if (guestVoteCookie) {
+        return res.status(409).json({ success: false, message: "Вы уже голосовали за эту услугу" });
+      }
     }
-    
+
+    const result = await castVote({
+      targetType: 'service',
+      targetId: req.params.id,
+      vote,
+      user: req.user,
+      guestKey: req.user ? null : req.guestId
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 500).json({ success: false, message: result.message });
+    }
+
+    if (!req.user) setGuestVoteCookie(res, `exto_service_vote_${req.params.id}`);
+
     res.json({
       success: true,
-      rating_up: service.likes,
-      rating_down: service.dislikes,
-      total: service.likes + service.dislikes,
-      result: service.likes - service.dislikes,
+      rating_up: result.likes,
+      rating_down: result.dislikes,
+      total: result.total,
+      result: result.result,
       voted: true
     });
   } catch (err) {

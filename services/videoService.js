@@ -1,6 +1,7 @@
 const VideoPost = require('../models/VideoPost');
 const User = require('../models/User');
 const { Op } = require('sequelize');
+const { castVote } = require('./voteService');
 
 function normalizeGenres(input) {
   if (!input) return [];
@@ -63,17 +64,31 @@ async function moderate({ id, action, adminComment, rejectionReason }) {
   return VideoPost.findByPk(id);
 }
 
-async function vote({ id, voterKey, vote }) {
-  const doc = await VideoPost.findByPk(id);
-  if (!doc) return { ok:false, status:404, message:'Not found' };
-  if (doc.status !== 'approved') return { ok:false, status:403, message:'Voting allowed only for approved videos' };
-  if (doc.voters.find(v=>v.key===voterKey)) return { ok:false, status:409, message:'Already voted' };
+async function vote({ id, voterKey, vote: voteValue, user = null }) {
+  let guestKey = null;
+  let authUser = user;
+  if (!authUser && typeof voterKey === 'string') {
+    if (voterKey.startsWith('u:')) {
+      authUser = { id: voterKey.slice(2), _id: voterKey.slice(2) };
+    } else if (voterKey.startsWith('g:')) {
+      guestKey = voterKey.slice(2);
+    } else {
+      guestKey = voterKey;
+    }
+  }
 
-  doc.voters.push({ key:voterKey, vote });
-  if (vote==='up') doc.rating_up += 1;
-  if (vote==='down') doc.rating_down += 1;
-  await doc.save();
-  return { ok:true, doc };
+  const result = await castVote({
+    targetType: 'video',
+    targetId: id,
+    vote: voteValue,
+    user: authUser,
+    guestKey
+  });
+
+  if (!result.ok) {
+    return { ok: false, status: result.status, message: result.message };
+  }
+  return { ok: true, doc: result.doc };
 }
 
 module.exports = { createVideo, listPublic, listPending, listAll, findById, moderate, vote };

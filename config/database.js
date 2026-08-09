@@ -123,8 +123,9 @@ const User = sequelize.define('User', {
 // === PRODUCT MODEL ===
 const Product = sequelize.define('Product', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   name: {
     type: DataTypes.STRING(255),
@@ -156,7 +157,7 @@ const Product = sequelize.define('Product', {
     defaultValue: {}
   },
   ownerId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -235,7 +236,7 @@ const Product = sequelize.define('Product', {
     }
   },
   activationCodeId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'codes',
       key: 'id'
@@ -257,7 +258,6 @@ const Product = sequelize.define('Product', {
     { fields: ['status', 'category'] },
     { fields: ['status', 'deleted'] },
     { fields: ['category', 'status', 'created_at'] },
-    { fields: ['result'] },  // virtual index
     { fields: ['rating_updated_at'] }
   ]
 });
@@ -274,8 +274,9 @@ Product.prototype.total = function() {
 // === BANNER MODEL ===
 const Banner = sequelize.define('Banner', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   title: {
     type: DataTypes.STRING(255),
@@ -291,7 +292,7 @@ const Banner = sequelize.define('Banner', {
   },
   video_url: DataTypes.STRING(1000),
   ownerId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -334,7 +335,7 @@ const Banner = sequelize.define('Banner', {
   adminComment: DataTypes.STRING,
   rejectionReason: DataTypes.STRING,
   paymentStatus: DataTypes.STRING(20),
-  activationCodeId: DataTypes.STRING(50),
+  activationCodeId: DataTypes.INTEGER,
   rating_up: {
     type: DataTypes.INTEGER,
     defaultValue: 0
@@ -379,8 +380,9 @@ Banner.prototype.total = function() {
 // === CONTACTINFO MODEL ===
 const ContactInfo = sequelize.define('ContactInfo', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   type: {
     type: DataTypes.STRING(20),
@@ -422,11 +424,12 @@ const Statistics = sequelize.define('Statistics', {
 // === ALBATRANSACTION MODEL ===
 const AlbaTransaction = sequelize.define('AlbaTransaction', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   userId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',
@@ -453,14 +456,14 @@ const AlbaTransaction = sequelize.define('AlbaTransaction', {
     }
   },
   relatedUserId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
     }
   },
   relatedCodeId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'codes',
       key: 'id'
@@ -472,7 +475,7 @@ const AlbaTransaction = sequelize.define('AlbaTransaction', {
       isIn: [['product', 'service', 'banner', null]]
     }
   },
-  relatedCardId: DataTypes.STRING(50),
+  relatedCardId: DataTypes.INTEGER,
   comment: {
     type: DataTypes.TEXT,
     defaultValue: ''
@@ -490,11 +493,12 @@ const AlbaTransaction = sequelize.define('AlbaTransaction', {
 // === ENTITLEMENT MODEL ===
 const Entitlement = sequelize.define('Entitlement', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   ownerId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',
@@ -534,7 +538,7 @@ const Entitlement = sequelize.define('Entitlement', {
     unique: true
   },
   relatedTransactionId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'albatransactions',
       key: 'id'
@@ -553,8 +557,9 @@ const Entitlement = sequelize.define('Entitlement', {
 // === CODE MODEL ===
 const Code = sequelize.define('Code', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   code: {
     type: DataTypes.STRING(100),
@@ -588,14 +593,14 @@ const Code = sequelize.define('Code', {
   },
   expiresAt: DataTypes.DATE,
   createdById: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
     }
   },
   usedById: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -603,7 +608,7 @@ const Code = sequelize.define('Code', {
   },
   usedAt: DataTypes.DATE,
   reservedForUserId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -611,7 +616,7 @@ const Code = sequelize.define('Code', {
     index: true
   },
   cardId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     index: true
   },
   meta: DataTypes.JSON
@@ -620,11 +625,12 @@ const Code = sequelize.define('Code', {
 // === CODEUSAGE MODEL ===
 const CodeUsage = sequelize.define('CodeUsage', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   userId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',
@@ -633,7 +639,7 @@ const CodeUsage = sequelize.define('CodeUsage', {
     index: true
   },
   codeId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'codes',
@@ -657,7 +663,7 @@ const CodeUsage = sequelize.define('CodeUsage', {
   },
   ip: DataTypes.STRING,
   userAgent: DataTypes.TEXT,
-  cardId: DataTypes.STRING(50),
+  cardId: DataTypes.INTEGER,
   usedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
@@ -671,8 +677,9 @@ const CodeUsage = sequelize.define('CodeUsage', {
 // === AUDITLOG MODEL ===
 const AuditLog = sequelize.define('AuditLog', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   action: {
     type: DataTypes.STRING(100),
@@ -680,7 +687,7 @@ const AuditLog = sequelize.define('AuditLog', {
     index: true
   },
   userId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -688,7 +695,7 @@ const AuditLog = sequelize.define('AuditLog', {
     index: true
   },
   targetUserId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -696,7 +703,7 @@ const AuditLog = sequelize.define('AuditLog', {
     index: true
   },
   adminId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     references: {
       model: 'users',
       key: 'id'
@@ -719,11 +726,12 @@ const AuditLog = sequelize.define('AuditLog', {
 // === VIDEOPOST MODEL ===
 const VideoPost = sequelize.define('VideoPost', {
   id: {
-    type: DataTypes.STRING(50),
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   userId: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',
@@ -773,6 +781,51 @@ const VideoPost = sequelize.define('VideoPost', {
     { fields: ['user_id'] },
     { fields: ['status'] },
     { fields: ['created_at'] }
+  ]
+});
+
+// === VOTE MODEL (atomic unique votes) ===
+const Vote = sequelize.define('Vote', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  targetType: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    validate: {
+      isIn: [['product', 'service', 'banner', 'video']]
+    }
+  },
+  targetId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  guestKey: {
+    type: DataTypes.STRING(64),
+    allowNull: true
+  },
+  vote: {
+    type: DataTypes.STRING(10),
+    allowNull: false,
+    validate: {
+      isIn: [['up', 'down']]
+    }
+  }
+}, {
+  tableName: 'votes',
+  indexes: [
+    { fields: ['target_type', 'target_id'] },
+    { fields: ['user_id'] }
   ]
 });
 
@@ -834,23 +887,7 @@ CodeUsage.belongsTo(Code, { as: 'code', foreignKey: 'codeId' });
 // AuditLog associations
 AuditLog.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
-// Helper function to generate UUID
-function generateId() {
-  return require('crypto').randomBytes(16).toString('hex');
-}
-
-// Pre-create hooks to generate IDs (excluding Statistics and User which use autoIncrement)
-[
-  Product, Banner, Comment,
-  ContactInfo, AlbaTransaction,
-  Entitlement, Code, CodeUsage, AuditLog, VideoPost
-].forEach(Model => {
-  Model.addHook('beforeValidate', (instance) => {
-    if (!instance.id) {
-      instance.id = generateId();
-    }
-  });
-});
+// IDs are INTEGER SERIAL in Postgres — no client-side hex generation
 
 let dbConnected = USE_POSTGRES ? null : false;
 
@@ -928,5 +965,6 @@ module.exports = {
   CodeUsage,
   AuditLog,
   VideoPost,
-  VerificationToken
+  VerificationToken,
+  Vote
 };
