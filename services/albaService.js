@@ -80,37 +80,55 @@ async function grantAlba({ UserModel, userId, amount, reason, actorAdminId = nul
 }
 
 async function grantAlbaByUsername(login, amount, reason, adminId = null, comment = '') {
-  const user = await User.findOne({ where: { username: login } });
-  if (!user) throw new Error("User not found");
-  if (!user.emailVerified) throw new Error("Email not verified");
+  const { Op } = require('sequelize');
+  const normalizedLogin = String(login || '').trim();
+  if (!normalizedLogin) throw new Error('User not found');
+
+  const parsedAmount = Number(amount);
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    throw new Error('Amount must be a positive number');
+  }
+
+  const user = await User.findOne({
+    where: { username: { [Op.iLike]: normalizedLogin } }
+  });
+  if (!user) throw new Error('User not found');
+
+  const relatedAdminId = adminId != null && String(adminId).trim() !== ''
+    ? parseInt(String(adminId), 10)
+    : null;
+  const safeAdminId = Number.isFinite(relatedAdminId) ? relatedAdminId : null;
 
   try {
     const result = await addTx(User, {
       userId: user.id,
-      amount,
+      amount: parsedAmount,
       type: 'grant',
       reason,
-      relatedUserId: adminId,
+      relatedUserId: safeAdminId,
       meta: { source: 'admin_grant_by_username', comment: comment || '' }
     });
 
     const newBalance = await getUserAlbaBalance(user.id);
+    if (result.user) {
+      result.user.albaBalance = newBalance;
+    }
 
     await AuditLog.create({
       action: 'alba_grant',
       userId: user.id,
       targetUserId: user.id,
-      adminId,
-      amount: amount,
+      adminId: safeAdminId,
+      amount: parsedAmount,
       reason: reason,
       details: {
         newBalance,
-        login,
+        login: normalizedLogin,
         comment: comment || ''
       }
     });
 
-    return { user, tx: result.transaction };
+    return { user: result.user || user, tx: result.transaction, balance: newBalance };
   } catch (error) {
     if (error.message === 'Transaction would result in negative balance') {
       throw new Error('Grant operation would result in negative balance');

@@ -80,58 +80,77 @@ router.post('/alba/grant', requireAdmin, csrfProtection, async (req, res, next) 
 });
 
 // Grant ALBA by login (username)
-router.post('/alba/grant-by-login', requireAdmin, csrfProtection, async (req, res) => {
+router.post('/alba/grant-by-login', requireAdmin, apiCsrfProtection(), async (req, res) => {
   try {
-    const { login, amount, reason, comment } = req.body;
-    if (!login || !amount || !reason) {
+    const { login, reason, comment } = req.body;
+    const amount = Number(req.body.amount);
+
+    if (!login || !reason) {
       return res.status(400).json({
         success: false,
-        message: 'Login, amount, and reason are required'
+        message: 'Укажите логин и причину начисления'
       });
     }
 
-    if (typeof amount !== 'number' || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Amount must be a positive number'
+        message: 'Сумма должна быть положительным числом'
       });
     }
 
-    // Validate that reason is one of the allowed enum values
-    const validReasons = ['referral_bonus', 'referred_user_bonus', 'card_payment', 'admin_grant', 'manual_adjustment', 'upgrade_to_paid', 'card_entitlement_purchase'];
+    const validReasons = [
+      'referral_bonus',
+      'referred_user_bonus',
+      'card_payment',
+      'admin_grant',
+      'manual_adjustment',
+      'upgrade_to_paid',
+      'card_entitlement_purchase',
+      'moderation_refund'
+    ];
     if (!validReasons.includes(reason)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid reason. Must be one of: ${validReasons.join(', ')}`
+        message: `Некорректная причина. Допустимо: ${validReasons.join(', ')}`
       });
     }
 
-    const { grantAlbaByUsername } = require('../services/albaService');
+    const { grantAlbaByUsername, getUserAlbaBalance } = require('../services/albaService');
+    const adminId = req.user._id || req.user.id;
 
-    const result = await grantAlbaByUsername(login, amount, reason, req.user._id, comment);
+    const result = await grantAlbaByUsername(login, amount, reason, adminId, comment);
+    const balance = result.balance != null
+      ? result.balance
+      : await getUserAlbaBalance(result.user.id);
 
-    // Notify the user about the ALBA grant
-    await notifyUser(result.user._id, {
-      type: 'alba_granted',
-      amount,
-      reason,
-      comment,
-      admin: req.user.username
-    });
+    try {
+      await notifyUser(result.user.id || result.user._id, {
+        type: 'alba_granted',
+        amount,
+        reason,
+        comment,
+        admin: req.user.username
+      });
+    } catch (_) {
+      // notification is best-effort
+    }
 
     res.json({
       success: true,
       user: {
         login: result.user.username,
-        albaBalance: result.user.albaBalance
+        albaBalance: balance
       },
       transactionId: String(result.tx.id || result.tx._id)
     });
   } catch (err) {
     console.error('Error granting ALBA by login:', err);
-    res.status(500).json({
+    const message = err.message || 'Ошибка начисления ALBA';
+    const status = /not found/i.test(message) ? 404 : 500;
+    res.status(status).json({
       success: false,
-      message: err.message || 'Error granting ALBA: ' + err.message
+      message
     });
   }
 });
