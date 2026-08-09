@@ -41,7 +41,8 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
     
-    // Разделяем товары и услуги (исключаем удаленные)
+    // Cap dashboard payloads (full lists live on dedicated /admin/* pages)
+    const DASH_LIMIT = 200;
      const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, users] = await Promise.all([
         Product.findAll({
           where: {
@@ -53,6 +54,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
           },
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          limit: DASH_LIMIT,
           raw: true,
           nest: true
         }),
@@ -64,6 +66,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
           },
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          limit: DASH_LIMIT,
           raw: true,
           nest: true
         }),
@@ -89,6 +92,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
          },
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          limit: DASH_LIMIT,
           raw: true,
           nest: true
        }),
@@ -109,6 +113,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
           },
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          limit: DASH_LIMIT,
           raw: true,
           nest: true
         }),
@@ -116,6 +121,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
         Banner.findAll({
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          limit: DASH_LIMIT,
           raw: true,
           nest: true
         }),
@@ -134,6 +140,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
           },
           order: [['id', 'DESC']],
           include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
+          limit: DASH_LIMIT,
           raw: true,
           nest: true
         }),
@@ -141,6 +148,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
 VideoPost.findAll({
            order: [['id', 'DESC']],
            include: [{ model: User, as: 'user', attributes: ['id','username','email'] }],
+           limit: DASH_LIMIT,
            raw: true,
            nest: true
         }),
@@ -151,6 +159,7 @@ VideoPost.findAll({
          },
          order: [['id', 'DESC']],
          include: [{ model: User, as: 'user', attributes: ['id','username','email'] }],
+         limit: DASH_LIMIT,
          raw: true,
          nest: true
         }),

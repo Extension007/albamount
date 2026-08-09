@@ -53,7 +53,7 @@ router.get('/new', requireAuth, requireVerified, (req, res) => {
 });
 
 // Create video (API endpoint)
-router.post('/', requireAuth, requireVerified, async (req, res, next) => {
+router.post('/', requireAuth, requireVerified, csrfProtection, async (req, res, next) => {
   try {
     const video = await createVideo({ user: req.user, payload: req.body });
     await notifyUser(req.user._id, { type: 'video_created', videoId: video._id });
@@ -64,7 +64,7 @@ router.post('/', requireAuth, requireVerified, async (req, res, next) => {
 });
 
 // Video voting
-router.post('/:id/vote', ensureGuestId, guestRateLimit(), captchaHook, async (req, res, next) => {
+router.post('/:id/vote', ensureGuestId, guestRateLimit(), captchaHook, csrfProtection, async (req, res, next) => {
   try {
     const { vote } = req.body;
     if (!vote || !['up', 'down'].includes(vote)) {

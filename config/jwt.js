@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 
 // Секретный ключ для подписи JWT токенов
 const JWT_SECRET = process.env.JWT_SECRET || 'exto-jwt-secret-change-in-production';
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 
 if (isProduction) {
   const rawSecret = process.env.JWT_SECRET;

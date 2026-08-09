@@ -1,5 +1,16 @@
 // Главный файл приложения
 require("dotenv").config();
+const { assertProductionEnv, isProdLike } = require("./config/production");
+
+const prodGuards = assertProductionEnv();
+if (!prodGuards.ok) {
+  for (const e of prodGuards.errors) console.error("❌ production:", e);
+  if (isProdLike()) {
+    throw new Error(`Production env invalid: ${prodGuards.errors.join("; ")}`);
+  }
+}
+for (const w of prodGuards.warnings) console.warn("⚠️ production:", w);
+
 const express = require("express"); // важно для Vercel
 const { sequelize, testConnection } = require("./config/database");
 const { app } = require("./config/app"); // берём готовый app из config/app.js
@@ -97,7 +108,12 @@ if (require.main === module) {
     } catch (err) {
       console.error("❌ Ошибка подключения к PostgreSQL:", err);
 
-      // Запускаем сервер даже при ошибке подключения
+      if (isProdLike()) {
+        console.error("❌ Refusing to start without PostgreSQL in production");
+        process.exit(1);
+      }
+
+      // Dev only: allow boot without DB for UI work
       const PORT = process.env.PORT || 3000;
       server.listen(PORT, () => {
         console.log(`Сервер запущен на http://localhost:${PORT} (без PostgreSQL)`);

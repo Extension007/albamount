@@ -43,7 +43,7 @@ router.get("/", async (req, res) => {
     const [products, services, banners, visitors, users] = await Promise.all([
       Product.findAll({ where: { status: "approved", deleted: false, [Op.or]: [{ type: "product" }, { type: null }] }, order: [['id', 'DESC']], limit: 10 }),
       Product.findAll({ where: { type: "service", status: "approved", deleted: false }, order: [['id', 'DESC']], limit: 10 }),
-      Banner.findAll({ where: { status: { [Op.in]: ["approved", "published"] } }, order: [['id', 'DESC']] }),
+      Banner.findAll({ where: { status: { [Op.in]: ["approved", "published"] } }, order: [['id', 'DESC']], limit: 24 }),
       Statistics.increment('value', { by: 1, where: { key: "visitors" } })
         .then(() => Statistics.findOne({ where: { key: "visitors" } })),
       User.count()

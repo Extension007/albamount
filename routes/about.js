@@ -64,6 +64,7 @@ router.get("/", async (req, res) => {
       Banner.findAll({
         where: { status: "approved" },
         order: [['id', 'DESC']],
+        limit: 12,
         raw: true,
         nest: true
       }),

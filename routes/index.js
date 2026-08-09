@@ -7,10 +7,11 @@ const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
 const Statistics = require("../config/database").Statistics;
-const { USE_POSTGRES, isDatabaseConfigured, isDbConnected, Op } = require("../config/database");
+const { USE_POSTGRES, isDatabaseConfigured, isDbConnected, Op, sequelize } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
 const { requireAdmin } = require("../middleware/auth");
 const { buildVotedMap } = require("../services/voteService");
+const { isProdLike } = require("../config/production");
 
 const CATALOG_PAGE_SIZE = 24;
 
@@ -249,18 +250,53 @@ router.get("/__health/cloudinary", requireAdmin, async (req, res) => {
   }
 });
 
-// Health-check
-router.get("/health", (req, res) => {
+// Health-check (deep: DB ping + Redis presence)
+router.get("/health", async (req, res) => {
   const configured = isDatabaseConfigured();
-  const connected = isDbConnected();
-  const ok = !configured || connected;
+  let connected = isDbConnected();
+  let dbPingMs = null;
+  let redisOk = null;
+
+  if (configured) {
+    const started = Date.now();
+    try {
+      await sequelize.authenticate();
+      connected = true;
+      dbPingMs = Date.now() - started;
+    } catch (_) {
+      connected = false;
+    }
+  }
+
+  if (process.env.REDIS_URL) {
+    try {
+      const { redisClient } = require("../config/redis");
+      if (!redisClient.isOpen) await redisClient.connect();
+      if (typeof redisClient.ping === "function") {
+        await redisClient.ping();
+      } else {
+        await redisClient.get("__health__");
+      }
+      redisOk = true;
+    } catch (_) {
+      redisOk = false;
+    }
+  }
+
+  const ok =
+    (!configured || connected) &&
+    (redisOk !== false) &&
+    (!isProdLike() || configured);
+
   res.status(ok ? 200 : 503).json({
     ok,
-    database: configured ? "configured" : "missing",
+    database: configured ? (connected ? "up" : "down") : "missing",
     connected,
-    redis: Boolean(process.env.REDIS_URL),
+    dbPingMs,
+    redis: process.env.REDIS_URL ? (redisOk ? "up" : "down") : "not_configured",
     uptimeSec: Math.round(process.uptime()),
-    nodeEnv: process.env.NODE_ENV || "development"
+    nodeEnv: process.env.NODE_ENV || "development",
+    vercel: Boolean(process.env.VERCEL)
   });
 });
 

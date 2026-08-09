@@ -1,5 +1,7 @@
-// Rate limiting — uses Redis when REDIS_URL is set (shared across Vercel isolates)
+// Rate limiting — Redis when REDIS_URL is set (shared across Vercel isolates).
+// Fail-closed on Redis errors in production so limits cannot be bypassed.
 const rateLimit = require("express-rate-limit");
+const { isProdLike } = require("../config/production");
 
 function buildOptions(extra) {
   const options = {
@@ -11,7 +13,6 @@ function buildOptions(extra) {
   try {
     const { hasRedis, redisClient } = require("../config/redis");
     if (hasRedis && redisClient && process.env.REDIS_URL) {
-      // Minimal compatible store for express-rate-limit v6–v8 style increment API
       options.store = {
         async increment(key) {
           try {
@@ -27,7 +28,14 @@ function buildOptions(extra) {
               resetTime: new Date(Date.now() + Math.max(pttl, 1))
             };
           } catch (err) {
-            console.warn("rate-limit redis error:", err.message);
+            console.error("rate-limit redis error (fail-closed):", err.message);
+            if (isProdLike()) {
+              // Force over-limit so request is rejected rather than unlimited
+              return {
+                totalHits: Number.MAX_SAFE_INTEGER,
+                resetTime: new Date(Date.now() + (options.windowMs || 60000))
+              };
+            }
             return { totalHits: 1, resetTime: new Date(Date.now() + (options.windowMs || 60000)) };
           }
         },

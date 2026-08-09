@@ -13,6 +13,7 @@ const { deleteImage, deleteImages } = require("../utils/imageUtils");
 const { requireUser } = require("../middleware/auth");
 const { castVote } = require("../services/voteService");
 const { ensureGuestId } = require("../middleware/p1Guest");
+const { parsePagination } = require("../utils/pagination");
 
 function setGuestVoteCookie(res, name) {
   res.cookie(name, '1', {
@@ -306,36 +307,49 @@ router.delete("/products/:id", apiLimiter, requireUser, csrfProtection, async (r
 router.get("/products", apiLimiter, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-    const products = await Product.findAll({
-      where: {
-        [Op.or]: [
-          { type: "product" },
-          { type: null }
-        ],
-        status: "approved",
-        deleted: false
-      },
+
+    const { page, limit, offset } = parsePagination(req.query);
+    const where = {
+      [Op.or]: [
+        { type: "product" },
+        { type: null }
+      ],
+      status: "approved",
+      deleted: false
+    };
+
+    const { rows: products, count } = await Product.findAndCountAll({
+      where,
       order: [['id', 'DESC']],
       include: [{
         model: User,
         as: 'owner',
         attributes: ['id', 'username']
       }],
-      nest: true,
-      raw: true
+      limit,
+      offset,
+      distinct: true
     });
-    
-    // Добавляем виртуальные поля
-    const productsWithVirtuals = products.map(product => ({
-      ...product,
-      result: (product.likes || 0) - (product.dislikes || 0),
-      total: (product.likes || 0) + (product.dislikes || 0),
-      imageUrl: product.images && product.images.length > 0 ? product.images[0] : product.image_url,
-      title: product.name // Для совместимости с API
-    }));
-    
-    res.json({ success: true, products: productsWithVirtuals });
+
+    const productsWithVirtuals = products.map((row) => {
+      const product = row.get ? row.get({ plain: true }) : row;
+      return {
+        ...product,
+        result: (product.likes || 0) - (product.dislikes || 0),
+        total: (product.likes || 0) + (product.dislikes || 0),
+        imageUrl: product.images && product.images.length > 0 ? product.images[0] : product.image_url,
+        title: product.name
+      };
+    });
+
+    res.json({
+      success: true,
+      products: productsWithVirtuals,
+      page,
+      limit,
+      total: count,
+      totalPages: Math.max(1, Math.ceil(count / limit))
+    });
   } catch (err) {
     console.error("❌ Ошибка получения товаров:", err);
     res.status(500).json({ success: false, message: "Ошибка сервера" });
@@ -423,24 +437,37 @@ router.put("/products/:id", apiLimiter, requireUser, csrfProtection, async (req,
 router.get("/banners", apiLimiter, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-     const banners = await Banner.findAll({
-       where: { status: { [Op.in]: ["published", "approved"] } },
-       order: [['id', 'DESC']],
-       include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
-       nest: true,
-       raw: true
-     });
-    
-    // Добавляем виртуальные поля
-    const bannersWithVirtuals = banners.map(banner => ({
-      ...banner,
-      result: (banner.rating_up || 0) - (banner.rating_down || 0),
-      total: (banner.rating_up || 0) + (banner.rating_down || 0),
-      imageUrl: banner.images && banner.images.length > 0 ? banner.images[0] : banner.image_url
-    }));
-    
-    res.json({ success: true, banners: bannersWithVirtuals });
+
+    const { page, limit, offset } = parsePagination(req.query);
+    const where = { status: { [Op.in]: ["published", "approved"] } };
+
+    const { rows: banners, count } = await Banner.findAndCountAll({
+      where,
+      order: [['id', 'DESC']],
+      include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
+      limit,
+      offset,
+      distinct: true
+    });
+
+    const bannersWithVirtuals = banners.map((row) => {
+      const banner = row.get ? row.get({ plain: true }) : row;
+      return {
+        ...banner,
+        result: (banner.rating_up || 0) - (banner.rating_down || 0),
+        total: (banner.rating_up || 0) + (banner.rating_down || 0),
+        imageUrl: banner.images && banner.images.length > 0 ? banner.images[0] : banner.image_url
+      };
+    });
+
+    res.json({
+      success: true,
+      banners: bannersWithVirtuals,
+      page,
+      limit,
+      total: count,
+      totalPages: Math.max(1, Math.ceil(count / limit))
+    });
   } catch (err) {
     console.error("❌ Ошибка получения баннеров:", err);
     res.status(500).json({ success: false, message: "Ошибка сервера" });
@@ -667,15 +694,21 @@ router.post("/banners/:id/vote", apiLimiter, ensureGuestId, csrfProtection, vali
 router.get("/services", apiLimiter, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-    const services = await Product.findAll({
-      where: {
-        type: "service",
-        status: "approved",
-        deleted: false
-      },
-      include: [{ model: User, as: "owner", attributes: ["id", "username", "email"] }],
-      order: [["createdAt", "DESC"]]
+
+    const { page, limit, offset } = parsePagination(req.query);
+    const where = {
+      type: "service",
+      status: "approved",
+      deleted: false
+    };
+
+    const { rows: services, count } = await Product.findAndCountAll({
+      where,
+      include: [{ model: User, as: "owner", attributes: ["id", "username"] }],
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+      distinct: true
     });
 
     const servicesWithVirtuals = services.map((service) => {
@@ -688,8 +721,15 @@ router.get("/services", apiLimiter, async (req, res) => {
         title: plain.name
       };
     });
-    
-    res.json({ success: true, services: servicesWithVirtuals });
+
+    res.json({
+      success: true,
+      services: servicesWithVirtuals,
+      page,
+      limit,
+      total: count,
+      totalPages: Math.max(1, Math.ceil(count / limit))
+    });
   } catch (err) {
     console.error("❌ Ошибка получения услуг:", err);
     res.status(500).json({ success: false, message: "Ошибка сервера" });
@@ -707,7 +747,7 @@ router.get("/services/:id", apiLimiter, async (req, res) => {
 
     const service = await Product.findOne({
       where: { id: req.params.id, type: "service", deleted: false, status: "approved" },
-      include: [{ model: User, as: "owner", attributes: ["id", "username", "email"] }]
+      include: [{ model: User, as: "owner", attributes: ["id", "username"] }]
     });
 
     if (!service) {
@@ -744,8 +784,7 @@ router.put("/services/:id", apiLimiter, requireUser, csrfProtection, validateSer
     }
 
     const isAdmin = req.user?.role === "admin";
-    const isOwner = service.ownerId === req.user._id;
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !isRecordOwner(service, req.user)) {
       return res.status(403).json({ success: false, message: "Доступ запрещен" });
     }
 
@@ -789,9 +828,7 @@ router.delete("/services/:id", apiLimiter, requireUser, csrfProtection, async (r
     }
     
     const service = await Product.findOne({
-      where: { id: req.params.id, type: "service", deleted: false },
-      nest: true,
-      raw: true
+      where: { id: req.params.id, type: "service", deleted: false }
     });
 
     if (!service) {
@@ -800,9 +837,8 @@ router.delete("/services/:id", apiLimiter, requireUser, csrfProtection, async (r
 
      // Проверка прав: админ или владелец
      const isAdmin = req.user.role === "admin";
-     const isOwner = service.ownerId === req.user._id;
      
-     if (!isAdmin && !isOwner) {
+     if (!isAdmin && !isRecordOwner(service, req.user)) {
        return res.status(403).json({ success: false, message: "Доступ запрещен" });
      }
      

@@ -86,12 +86,14 @@ router.get("/", async (req, res) => {
       Product.findAll({
         where: finalServicesFilter,
         order: [['id', 'DESC']],
+        limit: 48,
         raw: true,
         nest: true
       }),
       Banner.findAll({
         where: { status: { [Op.in]: ["approved", "published"] } },
         order: [['id', 'DESC']],
+        limit: 48,
         raw: true,
         nest: true
       }),

@@ -12,6 +12,7 @@
     "db:migrate": "npx sequelize-cli db:migrate",
     "db:migrate:votes": "node migrations/003_create_votes.js",
     "admin:create": "node scripts/create-admin-user.js",
+    "check:prod": "node scripts/check-production-env.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"

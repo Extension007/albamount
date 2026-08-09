@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { isProdLike } = require('../config/production');
 
 function ensureGuestId(req, res, next) {
   let gid = req.cookies?.guestId;
@@ -14,30 +15,63 @@ function ensureGuestId(req, res, next) {
   next();
 }
 
+const memoryStore = new Map();
+
+async function redisIncrement(key, windowMs) {
+  const { hasRedis, redisClient } = require('../config/redis');
+  if (!(hasRedis && redisClient && process.env.REDIS_URL)) return null;
+  if (!redisClient.isOpen) await redisClient.connect();
+  const hits = await redisClient.incr(`guest-rl:${key}`);
+  if (hits === 1) await redisClient.pExpire(`guest-rl:${key}`, windowMs);
+  return hits;
+}
+
 function guestRateLimit({ windowMs = 60000, max = 20 } = {}) {
-  const store = new Map();
-  return function (req, res, next) {
+  return async function (req, res, next) {
     const key = `g:${req.guestId || 'none'}:ip:${req.ip || 'unknown'}`;
-    const now = Date.now();
-    const cur = store.get(key);
-    if (!cur || cur.resetAt <= now) {
-      store.set(key, { resetAt: now + windowMs, count: 1 });
+    try {
+      let count;
+      const redisHits = await redisIncrement(key, windowMs);
+      if (redisHits != null) {
+        count = redisHits;
+      } else {
+        if (isProdLike() && process.env.ALLOW_INMEMORY_RATE_LIMIT !== 'true') {
+          return res.status(503).json({
+            success: false,
+            message: 'Rate limiting unavailable'
+          });
+        }
+        const now = Date.now();
+        const cur = memoryStore.get(key);
+        if (!cur || cur.resetAt <= now) {
+          memoryStore.set(key, { resetAt: now + windowMs, count: 1 });
+          return next();
+        }
+        cur.count += 1;
+        memoryStore.set(key, cur);
+        count = cur.count;
+      }
+
+      if (count > max) {
+        const wantsJson =
+          (req.headers.accept || '').includes('application/json') ||
+          (req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest' ||
+          req.path.startsWith('/api/');
+        if (wantsJson) return res.status(429).json({ success: false, message: 'Rate limit exceeded (guest)' });
+        return res.status(429).send('Rate limit exceeded');
+      }
+      return next();
+    } catch (err) {
+      console.error('guest rate-limit error:', err.message);
+      if (isProdLike()) {
+        return res.status(503).json({ success: false, message: 'Rate limiting unavailable' });
+      }
       return next();
     }
-    cur.count += 1;
-    store.set(key, cur);
-    if (cur.count > max) {
-      const wantsJson =
-        (req.headers.accept || '').includes('application/json') ||
-        (req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest' ||
-        req.path.startsWith('/api/');
-      if (wantsJson) return res.status(429).json({ success: false, message: 'Rate limit exceeded (guest)' });
-      return res.status(429).send('Rate limit exceeded');
-    }
-    next();
   };
 }
 
+/** Placeholder until a real captcha provider is wired. */
 function captchaHook(req, res, next) { next(); }
 
 module.exports = { ensureGuestId, guestRateLimit, captchaHook };

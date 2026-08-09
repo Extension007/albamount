@@ -6,6 +6,7 @@ const Product = require("../config/database").Product;
 const Banner = require("../config/database").Banner;
 const { requireAdmin } = require("../middleware/auth");
 const { isValidEntityId } = require("../utils/idValidation");
+const { csrfProtection } = require("../middleware/csrf");
 
 function withLegacyId(category) {
   if (!category) return category;
@@ -59,7 +60,7 @@ router.get('/children/:id', async (req, res) => {
   }
 });
 
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, csrfProtection, async (req, res) => {
   try {
     const { name, type = 'all', icon = '', description = '', order = 0, parentId = null } = req.body;
     if (!name || !String(name).trim()) {
@@ -85,7 +86,7 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdmin, csrfProtection, async (req, res) => {
   try {
     if (!isValidEntityId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Некорректный ID категории' });
@@ -115,7 +116,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, csrfProtection, async (req, res) => {
   try {
     const { id } = req.params;
     if (!isValidEntityId(id)) {

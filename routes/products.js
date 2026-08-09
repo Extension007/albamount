@@ -83,23 +83,27 @@ router.get("/", async (req, res) => {
     const categoryFlat = await Category.getFlatList('product');
     const selectedCategoryDisplay = resolveSelectedCategoryDisplay(selected, hasDbAccess, categoryFlat);
 
+    const PAGE_LIMIT = 48;
     // Запросы
     const [products, services, banners, visitors, users] = await Promise.all([
       Product.findAll({
         where: productsFilter,
         order: [['id', 'DESC']],
+        limit: PAGE_LIMIT,
         raw: true,
         nest: true
       }),
       Product.findAll({
         where: { type: "service", status: "approved", deleted: false },
         order: [['id', 'DESC']],
+        limit: PAGE_LIMIT,
         raw: true,
         nest: true
       }),
       Banner.findAll({
         where: { status: { [Op.in]: ["approved", "published"] } },
         order: [['id', 'DESC']],
+        limit: PAGE_LIMIT,
         raw: true,
         nest: true
       }),
