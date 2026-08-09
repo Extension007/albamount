@@ -7,6 +7,7 @@ const Entitlement = require("../models/Entitlement");
 const { CATEGORY_KEYS } = require("../config/constants");
 const { processUploadedFiles, deleteProductImages } = require("./imageService");
 const { getAvailableEntitlementsCount, consumeEntitlement } = require("./albaService");
+const { normalizePrice } = require("../utils/price");
 
 async function resolveCategoryData(category) {
   if (!category) return { categoryId: null, categoryValue: "" };
@@ -82,10 +83,19 @@ async function createProduct(data, files = []) {
     contact_method: contact_method ? contact_method.trim() : ""
   };
 
+  let normalizedPrice;
+  try {
+    normalizedPrice = normalizePrice(price);
+  } catch (err) {
+    const e = new Error(err.message || 'Некорректная цена');
+    e.status = 400;
+    throw e;
+  }
+
   const productData = {
     name: name.trim(),
     description: description ? description.trim() : "",
-    price: String(Number(price) || 0),
+    price: normalizedPrice,
     link: link ? link.trim() : "",
     video_url: video_url ? video_url.trim() : "",
     images,
@@ -245,11 +255,20 @@ async function updateProduct(productId, data, files = [], options = {}) {
   }
   const typeValue = (type === "service" || type === "product") ? type : (product.type || "product");
 
+  let normalizedPrice;
+  try {
+    normalizedPrice = normalizePrice(price);
+  } catch (err) {
+    const e = new Error(err.message || 'Некорректная цена');
+    e.status = 400;
+    throw e;
+  }
+
   // Обновляем товар
   const updateData = {
     name: name.trim(),
     description: description ? description.trim() : "",
-    price: Number(price) || 0,
+    price: normalizedPrice,
     link: link ? link.trim() : "",
     video_url: video_url ? video_url.trim() : "",
     images: newImages,

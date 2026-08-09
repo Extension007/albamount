@@ -52,10 +52,20 @@ const validateProduct = [
     .withMessage("Название должно быть от 1 до 200 символов"),
   
   body("price")
+    .customSanitizer((v) => (v == null ? v : String(v).trim()))
     .notEmpty()
     .withMessage("Цена обязательна")
-    .isString()
-    .withMessage("Цена должна быть строкой"),
+    .isLength({ max: 40 })
+    .withMessage("Цена слишком длинная")
+    .custom((value) => {
+      const { normalizePrice } = require("../utils/price");
+      try {
+        normalizePrice(value);
+        return true;
+      } catch (err) {
+        throw new Error(err.message || "Некорректная цена");
+      }
+    }),
   
   body("description")
     .optional()

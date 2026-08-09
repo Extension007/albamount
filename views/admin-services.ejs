@@ -200,8 +200,8 @@
                 <p class="item-meta">Категория: <%= service.category %></p>
               <% } %>
               
-              <% if (service.price && service.price > 0) { %>
-                <p class="item-price">Цена: <%= service.price %> ₸</p>
+              <% if (service.price) { %>
+                <p class="item-price">Цена: <%= typeof formatPriceDisplay === 'function' ? formatPriceDisplay(service.price) : service.price %></p>
               <% } %>
               
               <!-- Рейтинг -->

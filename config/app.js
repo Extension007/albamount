@@ -16,6 +16,10 @@ app.set("trust proxy", isVercel ? 1 : false);
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
 
+const { formatPriceDisplay, PRICE_ON_REQUEST } = require("../utils/price");
+app.locals.formatPriceDisplay = formatPriceDisplay;
+app.locals.PRICE_ON_REQUEST = PRICE_ON_REQUEST;
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 

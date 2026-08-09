@@ -166,7 +166,7 @@
 
                 <div class="product-bottom">
 
-                  <span class="price"><%= p.price %> ₸</span>
+                  <span class="price"><%= typeof formatPriceDisplay === 'function' ? formatPriceDisplay(p.price) : (p.price + ' ₸') %></span>
 
                   <div class="product-actions">
                     <a class="btn small outline" href="<%= p.link %>" target="_blank" rel="noopener">Перейти</a>

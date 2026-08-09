@@ -247,9 +247,12 @@ router.post("/product/:id/price", requireUser, conditionalCsrfProtection, valida
        return res.redirect('/user/login');
      }
 
-     const price = req.body.price;
-     if (!price || price.trim().length === 0) {
-       return res.status(400).json({ success: false, message: "Цена не может быть пустой" });
+     const { normalizePrice, formatPriceDisplay } = require('../utils/price');
+     let normalized;
+     try {
+       normalized = normalizePrice(req.body.price);
+     } catch (err) {
+       return res.status(400).json({ success: false, message: err.message || 'Некорректная цена' });
      }
      
      // Check product ownership
@@ -260,12 +263,12 @@ router.post("/product/:id/price", requireUser, conditionalCsrfProtection, valida
        return res.status(404).json({ success: false, message: "Карточка не найдена" });
      }
 
-     const [updated] = await Product.update(
-       { price },
+     await Product.update(
+       { price: normalized },
        { where: { id: req.params.id } }
      );
      
-     res.json({ success: true, price: price });
+     res.json({ success: true, price: normalized, priceDisplay: formatPriceDisplay(normalized) });
    } catch (err) {
      logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
      res.status(500).json({ success: false, message: "Ошибка изменения цены" });
