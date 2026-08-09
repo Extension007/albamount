@@ -1,6 +1,8 @@
 // Middleware для авторизации
 const { verifyToken } = require("../config/jwt");
 const logger = require("../utils/logger");
+const { isValidEntityId } = require("../utils/idValidation");
+const { isRecordOwner } = require("../utils/ownership");
 const { normalizeUser } = require("../utils/legacyId");
 
 function resolveUserId(tokenData, sessionUser) {
@@ -188,7 +190,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
         const Model = modelName === 'Banner' ? Banner : Product;
         const itemId = req.params[paramName];
 
-        if (!/^[a-f0-9]{32,}$/i.test(itemId)) {
+        if (!isValidEntityId(itemId)) {
           if (wantsJsonResponse(req)) {
             return res.status(400).json({ success: false, error: "Bad Request", message: "Неверный формат ID" });
           }
@@ -219,10 +221,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
           return next();
         }
 
-        const userId = getAuthUserId(user);
-        const ownerId = (item.ownerId || item.owner)?.toString();
-
-        if (!userId || userId !== ownerId) {
+        if (!isRecordOwner(item, user)) {
           if (wantsJsonResponse(req)) {
             return res.status(403).json({ success: false, error: "Forbidden", message: "Доступ запрещен: вы не являетесь владельцем этой карточки" });
           }

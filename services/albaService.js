@@ -102,7 +102,7 @@ async function earnReferralBonus({ UserModel, referrerUserId, referredUserId, am
 async function spendAlba({ UserModel, userId, amount, reason, relatedCardType=null, relatedCardId=null, meta={} }) {
   if (amount <= 0) throw new Error('Amount must be positive');
 
-  const allowedUserReasons = ['card_entitlement_purchase'];
+  const allowedUserReasons = ['card_entitlement_purchase', 'upgrade_to_paid'];
   const allowedAdminReasons = ['admin_grant', 'manual_adjustment'];
 
   if (!allowedUserReasons.includes(reason) && !allowedAdminReasons.includes(reason)) {

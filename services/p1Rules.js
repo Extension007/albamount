@@ -10,20 +10,20 @@ function editLimitForTier(tier) {
 }
 
 async function consumeSlotOrThrow(UserModel, userId) {
-   const u = await UserModel.findByPk(userId, {
-     attributes: ['slots']
-   });
-   if (!u) throw httpError(404, 'User not found', 'USER_NOT_FOUND');
+  const u = await UserModel.findByPk(userId, {
+    attributes: ['id', 'slots_total', 'slots_used']
+  });
+  if (!u) throw httpError(404, 'User not found', 'USER_NOT_FOUND');
 
-   const total = Number(u.slots?.total ?? 2);
-   const used = Number(u.slots?.used ?? 0);
+  const total = Number(u.slots_total ?? 2);
+  const used = Number(u.slots_used ?? 0);
 
-   if (used >= total) throw httpError(403, 'Slot limit reached. Redeem a slot code.', 'SLOT_LIMIT');
+  if (used >= total) throw httpError(403, 'Slot limit reached. Redeem a slot code.', 'SLOT_LIMIT');
 
-   await UserModel.update(
-     { slots: { total, used: used + 1 } },
-     { where: { id: userId } }
-   );
+  await UserModel.update(
+    { slots_used: used + 1 },
+    { where: { id: userId } }
+  );
 }
 
 function assertEditAllowed(card) {

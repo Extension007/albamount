@@ -1043,12 +1043,14 @@ data-type="banner">
           else if (currentRejectType === 'video') rejectEndpoint = '/admin/videos/' + currentRejectId + '/reject';
           else rejectEndpoint = '/admin/products/' + currentRejectId + '/reject';
 
-          const payload = currentRejectType === 'video'
-            ? {
-                rejectionReason: ((new FormData(rejectForm).get('rejectionReason')) || 'Несоответствие правилам публикации'),
-                adminComment: ((new FormData(rejectForm).get('adminComment')) || '')
-              }
-            : { reason: ((new FormData(rejectForm).get('reason')) || 'Несоответствие правилам публикации') };
+          const formData = new FormData(rejectForm);
+          const reasonText = (formData.get('reason') || formData.get('rejectionReason') || 'Несоответствие правилам публикации').toString().trim();
+          const adminCommentText = (formData.get('adminComment') || 'Отклонено администратором').toString().trim();
+          const payload = {
+            rejectionReason: reasonText || 'Несоответствие правилам публикации',
+            adminComment: adminCommentText || 'Отклонено администратором',
+            reason: reasonText || 'Несоответствие правилам публикации'
+          };
 
           const res = await postJSON(rejectEndpoint, payload);
           const data = await res.json();

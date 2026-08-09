@@ -129,6 +129,7 @@
               credentials: 'include', // важное требование
               headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'X-CSRF-Token': csrf
               },
               body: JSON.stringify({ username: username, password: password })
@@ -144,18 +145,21 @@
             if (ct.indexOf('application/json') !== -1) {
               var data = await res.json();
               if (data && data.success) {
-                window.location = '/cabinet';
+                window.location = data.redirect || '/cabinet';
               } else {
                 showError(data && data.message ? data.message : 'Неверный логин или пароль');
               }
-            } else {
-              // При HTML ответе — если статус 200, считаем успешным и переходим
-              if (res.status === 200) {
-                window.location = '/cabinet';
+            } else if (res.ok) {
+              // HTML 200 без JSON — не считаем успехом (ошибка логина тоже бывает 200)
+              var text = await res.text();
+              if (/Неверный|ошибк|подтвердите/i.test(text)) {
+                showError('Неверный логин или пароль');
               } else {
-                var text = await res.text();
-                showError(text || 'Ошибка входа');
+                showError('Не удалось войти. Обновите страницу и попробуйте снова.');
               }
+            } else {
+              var errText = await res.text();
+              showError(errText || 'Ошибка входа');
             }
           } catch (err) {
             console.error('Login error:', err);

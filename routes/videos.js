@@ -35,7 +35,8 @@ router.get('/', async (req, res, next) => {
       isAdmin,
       isEmailVerified,
       userRole,
-      genres: genres.join(',')
+      genres: genres.join(','),
+      csrfToken: res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '')
     });
   } catch (err) {
     next(err);
@@ -46,7 +47,8 @@ router.get('/', async (req, res, next) => {
 router.get('/new', requireAuth, requireVerified, (req, res) => {
   res.render('videos-new', {
     isAuth: true,
-    isAdmin: req.user?.role === 'admin'
+    isAdmin: req.user?.role === 'admin',
+    csrfToken: res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '')
   });
 });
 

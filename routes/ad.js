@@ -41,9 +41,9 @@ router.get("/", async (req, res) => {
 
     // Запросы - фокус на рекламе
     const [products, services, banners, visitors, users] = await Promise.all([
-      Product.findAll({ where: { status: "approved" }, order: [['id', 'DESC']], limit: 10 }), // Ограничиваем для фокуса на рекламе
-      Product.findAll({ where: { type: "service", status: "approved" }, order: [['id', 'DESC']], limit: 10 }), // Ограничиваем для фокуса на рекламе
-      Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']] }),
+      Product.findAll({ where: { status: "approved", deleted: false, [Op.or]: [{ type: "product" }, { type: null }] }, order: [['id', 'DESC']], limit: 10 }),
+      Product.findAll({ where: { type: "service", status: "approved", deleted: false }, order: [['id', 'DESC']], limit: 10 }),
+      Banner.findAll({ where: { status: { [Op.in]: ["approved", "published"] } }, order: [['id', 'DESC']] }),
       Statistics.increment('value', { by: 1, where: { key: "visitors" } })
         .then(() => Statistics.findOne({ where: { key: "visitors" } })),
       User.count()

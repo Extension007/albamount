@@ -7,7 +7,7 @@ const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
 const Statistics = require("../config/database").Statistics;
-const { USE_POSTGRES, hasMongo, isDbConnected } = require("../config/database");
+const { USE_POSTGRES, hasMongo, isDbConnected, Op } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../config/app");
 const { requireAdmin } = require("../middleware/auth");
 
@@ -112,11 +112,13 @@ router.get("/", async (req, res) => {
 
     const productsFilter = {
       status: "approved",
-      type: "product"
+      type: "product",
+      deleted: false
     };
     const servicesFilter = {
       status: "approved",
-      type: "service"
+      type: "service",
+      deleted: false
     };
 
     await applyCategoryFilter(selected, productsFilter, servicesFilter);
@@ -124,7 +126,11 @@ router.get("/", async (req, res) => {
     const [products, services, banners, visitors, users] = await Promise.all([
       Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
       Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
-      Banner.findAll({ where: { status: "approved" }, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE }),
+      Banner.findAll({
+        where: { status: { [Op.in]: ["approved", "published"] } },
+        order: [['id', 'DESC']],
+        limit: CATALOG_PAGE_SIZE
+      }),
       Statistics.findOrCreate({
         where: { key: "visitors" },
         defaults: { key: "visitors", value: 0 }

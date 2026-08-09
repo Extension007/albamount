@@ -353,12 +353,8 @@ router.post("/products/:id/approve", requireAdmin, conditionalCsrfProtection, va
 router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, validateProductId, validateModeration, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-    const { adminComment, rejectionReason } = req.body;
-
-    // P1: Validate required fields for reject
-    if (!adminComment) {
-      return res.status(400).json({ success: false, message: "adminComment required" });
-    }
+    const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
+    const adminComment = (req.body.adminComment || 'Отклонено администратором').toString().trim();
     if (!rejectionReason) {
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
@@ -479,12 +475,8 @@ router.post("/banners/:id/approve", requireAdmin, conditionalCsrfProtection, val
 router.post("/banners/:id/reject", requireAdmin, conditionalCsrfProtection, validateBannerId, validateModeration, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-    const { adminComment, rejectionReason } = req.body;
-
-    // P1: Validate required fields for reject
-    if (!adminComment) {
-      return res.status(400).json({ success: false, message: "adminComment required" });
-    }
+    const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
+    const adminComment = (req.body.adminComment || 'Отклонено администратором').toString().trim();
     if (!rejectionReason) {
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
@@ -566,12 +558,8 @@ router.post("/services/:id/approve", requireAdmin, conditionalCsrfProtection, va
 router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, validateServiceId, validateModeration, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-    const { adminComment, rejectionReason } = req.body;
-
-    // P1: Validate required fields for reject
-    if (!adminComment) {
-      return res.status(400).json({ success: false, message: "adminComment required" });
-    }
+    const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
+    const adminComment = (req.body.adminComment || 'Отклонено администратором').toString().trim();
     if (!rejectionReason) {
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }
@@ -1236,12 +1224,8 @@ router.post('/videos/:id/reject', requireAdmin, conditionalCsrfProtection, valid
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const { moderate } = require('../services/videoService');
-    const { adminComment, rejectionReason } = req.body;
-
-    // P1: Validate required fields for reject
-    if (!adminComment) {
-      return res.status(400).json({ success: false, message: "adminComment required" });
-    }
+    const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
+    const adminComment = (req.body.adminComment || 'Отклонено администратором').toString().trim();
     if (!rejectionReason) {
       return res.status(400).json({ success: false, message: "rejectionReason required" });
     }

@@ -98,7 +98,7 @@ router.get("/", async (req, res) => {
         nest: true
       }),
       Banner.findAll({
-        where: { status: "approved" },
+        where: { status: { [Op.in]: ["approved", "published"] } },
         order: [['id', 'DESC']],
         raw: true,
         nest: true

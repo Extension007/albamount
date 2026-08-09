@@ -144,20 +144,41 @@ async function resolveUser(userId, includeRefresh = true) {
 
 exports.userLogin = async (req, res) => {
   const { username, password } = req.body;
+  const wantsJson =
+    req.xhr ||
+    req.get("accept")?.includes("application/json") ||
+    Boolean(req.is && req.is("application/json"));
+
+  const fail = (message, status = 401, extras = {}) => {
+    if (wantsJson) {
+      return res.status(status).json({ success: false, message, ...extras });
+    }
+    return res.status(status === 500 ? 500 : 200).render("user-login", {
+      error: message,
+      csrfToken: res.locals.csrfToken,
+      ...extras
+    });
+  };
+
   try {
     const user = await User.findOne({ where: { username } });
     if (!user) {
       logger.warn({ msg: 'user_login_failed', reason: 'user_not_found', username });
-      return res.render("user-login", { error: "Неверный логин или пароль", csrfToken: res.locals.csrfToken });
+      return fail("Неверный логин или пароль");
     }
     if (user.role === "admin") {
-      return res.render("user-login", {
-        error: "Для входа администратора используйте /admin/login",
-        csrfToken: res.locals.csrfToken
-      });
+      return fail("Для входа администратора используйте /admin/login", 403);
     }
     if (!user.emailVerified) {
       logger.warn({ msg: 'user_login_failed', reason: 'email_not_verified', userId: user.id });
+      if (wantsJson) {
+        return res.status(403).json({
+          success: false,
+          message: "Подтвердите email перед входом. Проверьте Входящие или Спам.",
+          showResendVerification: true,
+          email: user.email
+        });
+      }
       return res.render("user-login", {
         error: "Подтвердите email перед входом. Проверьте Входящие или Спам.",
         csrfToken: res.locals.csrfToken,
@@ -168,7 +189,7 @@ exports.userLogin = async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
       logger.warn({ msg: 'user_login_failed', reason: 'invalid_password', userId: user.id });
-      return res.render("user-login", { error: "Неверный логин или пароль", csrfToken: res.locals.csrfToken });
+      return fail("Неверный логин или пароль");
     }
 
     const { user: userPayload, token, cookieOpts } = await resolveUser(user.id);
@@ -185,9 +206,15 @@ exports.userLogin = async (req, res) => {
       role: user.role
     });
 
+    if (wantsJson) {
+      return res.json({ success: true, redirect: "/cabinet" });
+    }
     return res.redirect("/cabinet");
   } catch (err) {
     logger.error({ msg: "user_login_error", error: err.message });
+    if (wantsJson) {
+      return res.status(500).json({ success: false, message: "Ошибка базы данных" });
+    }
     return res.status(500).send("Ошибка базы данных");
   }
 };

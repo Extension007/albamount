@@ -132,12 +132,15 @@
             };
 
             try {
-                const response = await fetch('/api/videos', {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const response = await fetch('/api/p1/videos', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'X-CSRF-Token': csrf
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify(formData)
                 });
 

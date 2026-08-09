@@ -84,7 +84,7 @@ function createImageUpload(options = {}) {
               folder: "products",
               allowed_formats: ["jpg", "png", "jpeg", "webp"],
               transformation: [
-                { width: 1200, height: 120, crop: "limit" },
+                { width: 1200, height: 1200, crop: "limit" },
                 { quality: "auto" },
                 { fetch_format: "auto" },
               ],

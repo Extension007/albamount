@@ -93,8 +93,8 @@
 
                 <div class="video-footer">
                   <div class="video-rating">
-                    <button class="btn btn-sm btn-outline-success vote-btn" data-video-id="<%= video._id %>" data-vote="up">👍 <%= video.rating_up %></button>
-                    <button class="btn btn-sm btn-outline-danger vote-btn" data-video-id="<%= video._id %>" data-vote="down">👎 <%= video.rating_down %></button>
+                    <button class="btn btn-sm btn-outline-success vote-btn" data-video-id="<%= video.id || video._id %>" data-vote="up">👍 <%= video.rating_up %></button>
+                    <button class="btn btn-sm btn-outline-danger vote-btn" data-video-id="<%= video.id || video._id %>" data-vote="down">👎 <%= video.rating_down %></button>
                   </div>
                   <div class="video-date">
                     <small class="text-muted">Добавлено: <%= new Date(video.createdAt).toLocaleDateString() %></small>
