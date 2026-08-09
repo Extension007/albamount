@@ -79,6 +79,14 @@ if (require.main === module) {
       await testConnection();
       console.log("✅ PostgreSQL подключена");
 
+      try {
+        const { ensureVerificationTokensTable } = require("./services/emailVerificationService");
+        await ensureVerificationTokensTable();
+        console.log("✅ verification_tokens готова");
+      } catch (tableErr) {
+        console.warn("⚠️ verification_tokens:", tableErr.message);
+      }
+
       // Проверка конфигурации email
       checkConfiguration();
 

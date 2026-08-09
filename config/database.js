@@ -773,6 +773,7 @@ const VideoPost = sequelize.define('VideoPost', {
 
 const Category = require('../models/Category');
 const Comment = require('../models/Comment');
+const VerificationToken = require('../models/VerificationToken');
 
 // User associations
 User.hasMany(Product, { as: 'products', foreignKey: 'ownerId' });
@@ -783,6 +784,8 @@ User.hasMany(Code, { as: 'usedCodes', foreignKey: 'usedById' });
 User.hasMany(AlbaTransaction, { as: 'transactions', foreignKey: 'userId' });
 User.hasMany(Entitlement, { as: 'entitlements', foreignKey: 'ownerId' });
 User.hasMany(VideoPost, { as: 'videoPosts', foreignKey: 'userId' });
+User.hasMany(VerificationToken, { as: 'verificationTokens', foreignKey: 'userId' });
+VerificationToken.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
 // Category associations
 Category.hasMany(Product, { as: 'products', foreignKey: 'categoryId' });
@@ -917,5 +920,6 @@ module.exports = {
   Code,
   CodeUsage,
   AuditLog,
-  VideoPost
+  VideoPost,
+  VerificationToken
 };

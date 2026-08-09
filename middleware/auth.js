@@ -1,10 +1,33 @@
 // Middleware для авторизации
 const { verifyToken } = require("../config/jwt");
 const logger = require("../utils/logger");
+const { normalizeUser } = require("../utils/legacyId");
+
+function resolveUserId(tokenData, sessionUser) {
+  const raw =
+    (tokenData && (tokenData._id || tokenData.id)) ||
+    (sessionUser && (sessionUser._id || sessionUser.id));
+  return raw != null ? raw.toString() : null;
+}
+
+function buildAuthUser(freshUser) {
+  return {
+    _id: freshUser.id.toString(),
+    id: freshUser.id,
+    username: freshUser.username,
+    role: freshUser.role,
+    emailVerified: freshUser.emailVerified
+  };
+}
+
+function getAuthUserId(user) {
+  if (!user) return null;
+  return (user._id || user.id)?.toString() || null;
+}
 
 // Функция для получения пользователя из различных источников
 function getUserFromRequest(req) {
-  const token = req.cookies.exto_token || req.headers.authorization?.split(' ')[1];
+  const token = req.cookies?.exto_token || req.headers?.authorization?.split(' ')[1];
   const sessionUser = req.session?.user;
 
   let tokenData = null;
@@ -12,12 +35,13 @@ function getUserFromRequest(req) {
     tokenData = verifyToken(token);
   }
 
-  return tokenData || sessionUser || null;
+  const user = tokenData || sessionUser || null;
+  return user ? normalizeUser(user) : null;
 }
 
 // Async version for routes that need real-time sync from database
 async function getUserFromRequestAsync(req) {
-  const token = req.cookies.exto_token || req.headers.authorization?.split(' ')[1];
+  const token = req.cookies?.exto_token || req.headers?.authorization?.split(' ')[1];
   const sessionUser = req.session?.user;
 
   let tokenData = null;
@@ -25,10 +49,11 @@ async function getUserFromRequestAsync(req) {
     tokenData = verifyToken(token);
   }
 
-  const userId = (tokenData && tokenData._id) || (sessionUser && sessionUser._id);
+  const userId = resolveUserId(tokenData, sessionUser);
 
   if (!userId) {
-    return tokenData || sessionUser || null;
+    const fallback = tokenData || sessionUser;
+    return fallback ? normalizeUser(fallback) : null;
   }
 
   try {
@@ -57,12 +82,7 @@ async function getUserFromRequestAsync(req) {
         });
 
         const { generateToken } = require('../config/jwt');
-        const updatedTokenData = {
-          _id: freshUser.id.toString(),
-          username: freshUser.username,
-          role: freshUser.role,
-          emailVerified: freshUser.emailVerified
-        };
+        const updatedTokenData = buildAuthUser(freshUser);
 
         const newToken = generateToken(updatedTokenData);
         if (req.res) {
@@ -74,21 +94,14 @@ async function getUserFromRequestAsync(req) {
           });
         }
 
-        // Update session store with fresh data
         if (req.session && updatedTokenData) {
           req.session.user = updatedTokenData;
         }
       }
 
-      return {
-        _id: freshUser.id.toString(),
-        username: freshUser.username,
-        role: freshUser.role,
-        emailVerified: freshUser.emailVerified
-      };
+      return buildAuthUser(freshUser);
     }
 
-    // User not found in DB — log and return null
     logger.warn({
       msg: 'auth_user_not_found',
       userId: userId.toString(),
@@ -102,7 +115,8 @@ async function getUserFromRequestAsync(req) {
       error: error.message,
       userId: userId.toString()
     });
-    return tokenData || sessionUser;
+    const fallback = tokenData || sessionUser;
+    return fallback ? normalizeUser(fallback) : null;
   }
 }
 
@@ -205,7 +219,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
           return next();
         }
 
-        const userId = user?._id?.toString();
+        const userId = getAuthUserId(user);
         const ownerId = (item.ownerId || item.owner)?.toString();
 
         if (!userId || userId !== ownerId) {
@@ -261,5 +275,6 @@ module.exports = {
   requireOwnerOrAdmin,
   getUserFromRequest,
   getUserFromRequestAsync,
+  getAuthUserId,
   wantsJsonResponse
 };

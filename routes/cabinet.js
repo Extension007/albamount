@@ -8,7 +8,7 @@ const Category = require("../models/Category");
 const User = require("../models/User");
 const AlbaTransaction = require("../models/AlbaTransaction");
 const { USE_POSTGRES } = require("../config/database");
-const { requireUser, requireAdmin, requireAuth, requireOwnerOrAdmin } = require("../middleware/auth");
+const { requireUser, requireAdmin, requireAuth, requireOwnerOrAdmin, getAuthUserId } = require("../middleware/auth");
 const { productLimiter } = require("../middleware/rateLimiter");
 const { validateProduct, validateProductId } = require("../middleware/validators");
 const { csrfProtection, csrfToken } = require("../middleware/csrf");
@@ -46,7 +46,8 @@ function handleMulterError(err, req, res, next) {
 // Личный кабинет
 router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
   try {
-    if (!req.user?._id) {
+    const userId = getAuthUserId(req.user);
+    if (!userId) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
@@ -66,7 +67,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
     // Разделяем товары и услуги (исключаем удаленные)
     const myProducts = await Product.findAll({
       where: {
-        ownerId: req.user._id,
+        ownerId: userId,
         deleted: false,
         [Op.or]: [
           { type: "product" },
@@ -76,28 +77,28 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       order: [['id', 'DESC']]
     });
     if (myProducts.length === 0) {
-      logger.info({ msg: 'cabinet_empty_my_products', userId: req.user._id, path: req.path });
+      logger.info({ msg: 'cabinet_empty_my_products', userId: getAuthUserId(req.user), path: req.path });
     }
 
     const myServices = await Product.findAll({
       where: {
-        ownerId: req.user._id,
+        ownerId: userId,
         deleted: false,
         type: "service"
       },
       order: [['id', 'DESC']]
     });
     if (myServices.length === 0) {
-      logger.info({ msg: 'cabinet_empty_my_services', userId: req.user._id, path: req.path });
+      logger.info({ msg: 'cabinet_empty_my_services', userId: getAuthUserId(req.user), path: req.path });
     }
 
     // Получаем баннеры пользователя
     const myBanners = await Banner.findAll({
-      where: { ownerId: req.user._id },
+      where: { ownerId: getAuthUserId(req.user) },
       order: [['id', 'DESC']]
     });
     if (myBanners.length === 0) {
-      logger.info({ msg: 'cabinet_empty_my_banners', userId: req.user._id, path: req.path });
+      logger.info({ msg: 'cabinet_empty_my_banners', userId: getAuthUserId(req.user), path: req.path });
     }
 
     let categoryTree;
@@ -118,7 +119,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
 
     let freshUser;
     try {
-      freshUser = await User.findByPk(req.user._id, {
+      freshUser = await User.findByPk(getAuthUserId(req.user), {
         attributes: ['id', 'username', 'email', 'role', 'emailVerified', 'albaBalance', 'refCode', 'referredBy', 'refBonusGranted', 'createdAt', 'updatedAt'],
         raw: true
       });
@@ -130,11 +131,11 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
       return res.status(500).send("Ошибка загрузки пользователя");
     }
 
-    const actualBalance = await getUserAlbaBalance(req.user._id);
+    const actualBalance = await getUserAlbaBalance(getAuthUserId(req.user));
     freshUser.albaBalance = actualBalance;
 
     const albaTransactions = await AlbaTransaction.findAll({
-      where: { userId: req.user._id },
+      where: { userId: getAuthUserId(req.user) },
       order: [['createdAt', 'DESC']],
       limit: 50,
       raw: true
@@ -165,7 +166,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
 router.post("/product", requireUser, productLimiter, mobileOptimization, upload, handleMulterError, conditionalCsrfProtection, validateProduct, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
@@ -189,7 +190,7 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
       telegram: req.body.telegram,
       whatsapp: req.body.whatsapp,
       contact_method: req.body.contact_method,
-      ownerId: req.user._id,
+      ownerId: getAuthUserId(req.user),
       status: "pending"
     };
 
@@ -227,7 +228,7 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
 router.post("/product/:id/price", requireUser, conditionalCsrfProtection, validateProductId, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
    try {
-     if (!req.user?._id) {
+     if (!getAuthUserId(req.user)) {
        const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
        if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
        return res.redirect('/user/login');
@@ -240,7 +241,7 @@ router.post("/product/:id/price", requireUser, conditionalCsrfProtection, valida
      
      // Check product ownership
      const productCheck = await Product.findOne({
-       where: { id: req.params.id, ownerId: req.user._id, deleted: false }
+       where: { id: req.params.id, ownerId: getAuthUserId(req.user), deleted: false }
      });
      if (!productCheck) {
        return res.status(404).json({ success: false, message: "Карточка не найдена" });
@@ -266,14 +267,14 @@ router.get("/product/:id/edit", requireUser, validateProductId, conditionalCsrfT
     return res.status(503).send("Недоступно: отсутствует подключение к БД");
   }
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
     }
 
      const product = await Product.findOne({
-       where: { id: req.params.id, ownerId: req.user._id, deleted: false }
+       where: { id: req.params.id, ownerId: getAuthUserId(req.user), deleted: false }
      });
     if (!product) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -297,7 +298,7 @@ router.get("/product/:id/edit", requireUser, validateProductId, conditionalCsrfT
 router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization, upload, handleMulterError, conditionalCsrfProtection, validateProductId, validateProduct, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
@@ -323,7 +324,7 @@ router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization
       req.params.id,
       updateData,
       req.files || [],
-      { ownerId: req.user._id }
+      { ownerId: getAuthUserId(req.user) }
     );
     
      console.log("✅ Карточка обновлена пользователем:", {
@@ -355,7 +356,7 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
   }
   
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
@@ -381,8 +382,8 @@ router.post("/banner", requireUser, productLimiter, bannerUpload, handleMulterEr
     
      let ownerId = null;
      try {
-       if (req.user && req.user._id) {
-         const userId = req.user._id;
+       if (req.user && getAuthUserId(req.user)) {
+         const userId = getAuthUserId(req.user);
          // Already validated JWT, just use as-is (string)
          ownerId = userId;
        } else {
@@ -455,14 +456,14 @@ router.get("/banner/:id/edit", requireUser, conditionalCsrfToken, async (req, re
     return res.status(503).send("Недоступно: отсутствует подключение к БД");
   }
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
     }
 
     const banner = await Banner.findOne({ 
-      where: { id: req.params.id, ownerId: req.user._id }
+      where: { id: req.params.id, ownerId: getAuthUserId(req.user) }
     });
     if (!banner) {
       const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -511,14 +512,14 @@ router.get("/banner/:id/edit", requireUser, conditionalCsrfToken, async (req, re
 router.post("/banner/:id/edit", requireUser, productLimiter, bannerUpload, handleMulterError, conditionalCsrfProtection, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
     }
 
     const banner = await Banner.findOne({ 
-      where: { id: req.params.id, ownerId: req.user._id }
+      where: { id: req.params.id, ownerId: getAuthUserId(req.user) }
     });
     if (!banner) {
       return res.status(404).json({ success: false, message: "Баннер не найден или у вас нет прав для редактирования" });
@@ -571,14 +572,14 @@ router.post("/banner/:id/edit", requireUser, productLimiter, bannerUpload, handl
 router.delete("/product/:id", requireUser, conditionalCsrfProtection, async (req, res) => {
   if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
     }
 
      const product = await Product.findOne({
-       where: { id: req.params.id, ownerId: req.user._id, deleted: false }
+       where: { id: req.params.id, ownerId: getAuthUserId(req.user), deleted: false }
      });
     if (!product) {
       return res.status(404).json({ success: false, message: "Карточка не найдена или у вас нет прав для удаления" });
@@ -619,7 +620,7 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
   }
   
   try {
-    if (!req.user?._id) {
+    if (!getAuthUserId(req.user)) {
       const wantsJson = req.xhr || req.get('accept')?.includes('application/json');
       if (wantsJson) return res.status(401).json({ success: false, message: 'Необходима авторизация' });
       return res.redirect('/user/login');
@@ -631,13 +632,13 @@ router.delete("/banner/:id", requireUser, conditionalCsrfProtection, async (req,
     }
     
     // Проверка авторизации
-    if (!req.user || !req.user._id) {
+    if (!req.user || !getAuthUserId(req.user)) {
       return res.status(401).json({ success: false, message: "Требуется авторизация" });
     }
     
     const banner = await Banner.findOne({ 
       id: req.params.id, 
-      ownerId: req.user._id
+      ownerId: getAuthUserId(req.user)
     });
     
     if (!banner) {

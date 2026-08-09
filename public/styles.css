@@ -1966,7 +1966,25 @@ body::after {
 .modal input[type="password"],
 .modal textarea,
 .modal select {
-  color: #000 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+}
+
+.modal input::placeholder,
+.modal textarea::placeholder {
+  color: rgba(255, 255, 255, 0.55) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.55);
+  opacity: 1;
+}
+
+.modal input:-webkit-autofill,
+.modal input:-webkit-autofill:hover,
+.modal input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff;
+  transition: background-color 99999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px #2a2a2a inset;
 }
 
 /* Улучшения для мобильных устройств */

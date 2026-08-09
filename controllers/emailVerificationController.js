@@ -1,52 +1,42 @@
-const { verifyEmail, resendVerificationEmail } = require('../services/emailVerificationService');
+const {
+  verifyEmail,
+  verifyEmailByTokenOnly,
+  resendVerificationEmail
+} = require('../services/emailVerificationService');
 const User = require('../models/User');
 const { notifyAdmin } = require('../services/adminNotificationService');
-const { getUserFromRequest } = require('../middleware/auth');
+const { getUserFromRequest, getAuthUserId } = require('../middleware/auth');
 const { generateToken } = require('../config/jwt');
 
-exports.verifyEmail = async (req, res) => {
-  try {
-    const { token } = req.params;
-    console.log('[verifyEmail] token=%s', token);
-
-    if (req.session) {
-      req.session.user = null;
-      await new Promise((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) reject(err); else resolve();
-        });
-      });
-    }
-
-    const user = await verifyEmail(token);
-    console.log('[verifyEmail] user id=%s username=%s', user.id, user.username);
-
-    // Отправляем уведомление администратору о подтверждении email
+async function finalizeSuccessfulVerification(req, res, user, { alreadyVerified = false } = {}) {
+  if (!alreadyVerified) {
     try {
-       await notifyAdmin(
-         'Подтверждение email пользователя',
-         `Пользователь подтвердил свой email.`,
-         {
-           'Имя пользователя': user.username,
-           'Email': user.email,
-           'ID пользователя': user.id.toString(),
-           'Дата подтверждения': new Date().toLocaleString('ru-RU')
-         }
-       );
+      await notifyAdmin(
+        'Подтверждение email пользователя',
+        'Пользователь подтвердил свой email.',
+        {
+          'Имя пользователя': user.username,
+          Email: user.email,
+          'ID пользователя': user.id.toString(),
+          'Дата подтверждения': new Date().toLocaleString('ru-RU')
+        }
+      );
     } catch (notificationError) {
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
 
-    // P1: Referral bonus hook (idempotent)
     try {
       const { grantReferralBonusIfEligible } = require('../services/referralService');
       await grantReferralBonusIfEligible({ UserModel: User, user });
     } catch (referralError) {
       console.error('Ошибка при начислении реферального бонуса:', referralError);
     }
+  }
 
-    // Обновляем сессию пользователя, чтобы отразить изменение статуса emailVerified.
-    // Синхронизируем аккаунт на подтверждённого пользователя, исключая подмену ника из чужой сессии.
+  const currentId = getAuthUserId(req.user);
+  const shouldReplaceSession = !currentId || currentId === user.id.toString();
+
+  if (shouldReplaceSession) {
     if (req.session) {
       req.session.user = {
         _id: user.id.toString(),
@@ -55,14 +45,11 @@ exports.verifyEmail = async (req, res) => {
         role: user.role,
         emailVerified: true
       };
-      req.session.save((err) => {
-        if (err) {
-          console.error('Ошибка сохранения сессии после подтверждения email:', err);
-        }
+      await new Promise((resolve) => {
+        req.session.save(() => resolve());
       });
     }
 
-    // После успешной верификации обновляем JWT токен с новыми данными
     const updatedUserData = {
       _id: user.id.toString(),
       username: user.username,
@@ -74,22 +61,72 @@ exports.verifyEmail = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 1000 * 60 * 60 * 24 // 24 часа
+      maxAge: 1000 * 60 * 60 * 24
     });
+  }
 
-    // Рендерить шаблон успеха строго из данных подтверждённого пользователя
-    res.render('verification-success', {
-      message: 'Ваш email успешно подтвержден!',
-      username: user.username,
-      email: user.email,
+  return res.render('verification-success', {
+    message: alreadyVerified
+      ? 'Email уже подтверждён. Можете войти в аккаунт.'
+      : 'Ваш email успешно подтвержден!',
+    alreadyVerified,
+    username: user.username,
+    email: user.email,
+    csrfToken: res.locals.csrfToken
+  });
+}
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { userId, token } = req.params;
+
+    // Do NOT clear session/JWT before token validation
+    const result = await verifyEmail(userId, token);
+
+    if (result.status === 'already_verified' && result.user) {
+      return finalizeSuccessfulVerification(req, res, result.user, { alreadyVerified: true });
+    }
+
+    if (result.status === 'verified' && result.user) {
+      return finalizeSuccessfulVerification(req, res, result.user, { alreadyVerified: false });
+    }
+
+    // On failure: leave session and JWT untouched
+    return res.status(400).render('email-verification-error', {
+      error: 'Ссылка недействительна или устарела. Запросите новое письмо подтверждения.',
       csrfToken: res.locals.csrfToken
     });
   } catch (error) {
     console.error('Email verification error:', error.message);
+    return res.status(400).render('email-verification-error', {
+      error: 'Не удалось подтвердить email. Попробуйте позже.',
+      csrfToken: res.locals.csrfToken
+    });
+  }
+};
 
-    // Рендерить шаблон ошибки
-    res.status(400).render('email-verification-error', {
-      error: error.message,
+/** Compatibility for old emails: /verify-email/:token */
+exports.verifyEmailLegacy = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const result = await verifyEmailByTokenOnly(token);
+
+    if (result.status === 'already_verified' && result.user) {
+      return finalizeSuccessfulVerification(req, res, result.user, { alreadyVerified: true });
+    }
+
+    if (result.status === 'verified' && result.user) {
+      return finalizeSuccessfulVerification(req, res, result.user, { alreadyVerified: false });
+    }
+
+    return res.status(400).render('email-verification-error', {
+      error: 'Ссылка недействительна или устарела. Запросите новое письмо подтверждения.',
+      csrfToken: res.locals.csrfToken
+    });
+  } catch (error) {
+    console.error('Email verification (legacy) error:', error.message);
+    return res.status(400).render('email-verification-error', {
+      error: 'Не удалось подтвердить email. Попробуйте позже.',
       csrfToken: res.locals.csrfToken
     });
   }
@@ -117,14 +154,15 @@ exports.verificationStatus = async (req, res) => {
       return res.status(401).redirect('/user/login');
     }
 
-     const user = await User.findByPk(authUser._id);
+    const userId = getAuthUserId(authUser);
+    const user = await User.findByPk(userId);
 
     if (!user) {
       return res.status(404).redirect('/user/login');
     }
 
     res.render('verification-status', {
-      user: user,
+      user,
       csrfToken: res.locals.csrfToken
     });
   } catch (error) {

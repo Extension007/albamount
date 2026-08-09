@@ -19,11 +19,19 @@
 
   <main>
     <div class="container verification-page">
-      <h1 class="page-title">✅ Email подтвержден!</h1>
-      <p class="message">Поздравляем, <%= typeof username !== 'undefined' ? username : 'пользователь' %>! Ваш email успешно подтвержден. Теперь вы можете использовать все возможности нашего сервиса.</p>
+      <h1 class="page-title"><%= typeof alreadyVerified !== 'undefined' && alreadyVerified ? 'Email уже подтверждён' : '✅ Email подтвержден!' %></h1>
+      <p class="message">
+        <%= typeof message !== 'undefined' && message
+          ? message
+          : ('Поздравляем, ' + (typeof username !== 'undefined' ? username : 'пользователь') + '! Ваш email успешно подтвержден. Теперь вы можете использовать все возможности нашего сервиса.') %>
+      </p>
+      <% if (typeof email !== 'undefined' && email) { %>
+        <p class="message" style="opacity:0.85;">Адрес: <strong><%= email %></strong></p>
+      <% } %>
 
       <div class="actions">
         <a href="/user/login" class="btn primary">Войти в аккаунт</a>
+        <a href="/cabinet" class="btn outline">В кабинет</a>
         <a href="/" class="btn outline">На главную</a>
       </div>
     </div>

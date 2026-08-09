@@ -7,18 +7,26 @@ const { validateRegister } = require('../middleware/validators');
 
 function renderUserLogin(req, res, error = null) {
   if (typeof error === "function") error = null;
+  const csrfToken =
+    (typeof req.csrfToken === "function" ? req.csrfToken() : null) ||
+    res.locals.csrfToken ||
+    "";
   res.render("user-login", {
     error,
-    csrfToken: res.locals.csrfToken || ""
+    csrfToken
   });
 }
 
 function renderAdminLogin(req, res, error = null, debug = null) {
   if (typeof error === "function") error = null;
+  const csrfToken =
+    (typeof req.csrfToken === "function" ? req.csrfToken() : null) ||
+    res.locals.csrfToken ||
+    "";
   res.render("login", {
     error,
     debug,
-    csrfToken: res.locals.csrfToken || ""
+    csrfToken
   });
 }
 
@@ -47,9 +55,13 @@ router.post("/logout", (req, res) => {
 // Страница регистрации (GET)
 router.get("/register", (req, res) => {
   const refCode = req.query.ref || '';
+  const csrfToken =
+    (typeof req.csrfToken === "function" ? req.csrfToken() : null) ||
+    res.locals.csrfToken ||
+    "";
   res.render("register", {
     refCode,
-    csrfToken: res.locals.csrfToken || ""
+    csrfToken
   });
 });
 
@@ -64,9 +76,10 @@ router.get("/login", (req, res) => res.redirect("/user/login"));
 router.get("/admin/login", renderAdminLogin);
 router.post("/admin/login", loginLimiter, authController.adminLogin);
 
-// Email verification routes
-router.get('/verify-email/:token', emailVerificationController.verifyEmail);
-router.post('/resend-verification', emailVerificationController.resendVerification);
+// Email verification routes (pair userId+token preferred; legacy token-only kept)
+router.get('/verify-email/:userId/:token', emailVerificationController.verifyEmail);
+router.get('/verify-email/:token', emailVerificationController.verifyEmailLegacy);
+router.post('/resend-verification', loginLimiter, emailVerificationController.resendVerification);
 router.get('/verification-status', emailVerificationController.verificationStatus);
 
 module.exports = router;
