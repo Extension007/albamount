@@ -341,11 +341,8 @@
             <input type="url" name="video_url" placeholder="Ссылка на видео (YouTube, ВКонтакте, Instagram)">
             <div class="form-section">
               <label for="price">Цена:</label>
-              <input type="text" id="price" name="price" placeholder="Например: 15000 или Уточняйте" required maxlength="40" autocomplete="off">
-              <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                <button type="button" class="btn small outline" id="priceOnRequestBtn">Указать «Уточняйте»</button>
-                <small class="form-hint">Можно ввести сумму в ₸ или нажать кнопку для цены по запросу</small>
-              </div>
+              <input type="text" id="price" name="price" placeholder="Любой текст или число" required maxlength="80" autocomplete="off">
+              <small class="form-hint">Свободный ввод: сумма, «от …», любой текст</small>
             </div>
             
             <div class="form-section">

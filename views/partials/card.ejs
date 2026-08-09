@@ -22,11 +22,9 @@
   const itemName = item.name || item.title || `Карточка ${itemId.substring(0, 8)}`;
   const itemDescription = item.description || '';
   const itemPrice = item.price != null && String(item.price).trim() !== '' ? String(item.price).trim() : '';
-  const priceIsAsk = /^(уточняйте|по запросу|договорная)$/i.test(itemPrice);
-  const priceIsNumeric = /^\d+(\.\d+)?$/.test(itemPrice.replace(/\s/g, ''));
-  const priceLabel = priceIsAsk
-    ? itemPrice
-    : (priceIsNumeric ? `${itemPrice.replace(/\s/g, '')} ₸` : itemPrice);
+  const priceLabel = (typeof formatPriceDisplay === 'function')
+    ? formatPriceDisplay(itemPrice)
+    : itemPrice;
   const itemLink = item.link || '';
   const itemVideoUrl = item.video_url || '';
   const itemCategory = item.category || '';

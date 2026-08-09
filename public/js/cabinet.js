@@ -172,15 +172,6 @@
     const msg = document.getElementById('createProductMsg');
     if (!form || !msg) return;
 
-    const priceInput = form.querySelector('#price, input[name="price"]');
-    const priceOnRequestBtn = document.getElementById('priceOnRequestBtn');
-    if (priceOnRequestBtn && priceInput) {
-      priceOnRequestBtn.addEventListener('click', function() {
-        priceInput.value = 'Уточняйте';
-        priceInput.focus();
-      });
-    }
-
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
 

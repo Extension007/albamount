@@ -55,7 +55,7 @@ const validateProduct = [
     .customSanitizer((v) => (v == null ? v : String(v).trim()))
     .notEmpty()
     .withMessage("Цена обязательна")
-    .isLength({ max: 40 })
+    .isLength({ max: 80 })
     .withMessage("Цена слишком длинная")
     .custom((value) => {
       const { normalizePrice } = require("../utils/price");
