@@ -82,13 +82,16 @@ router.post('/alba/grant', requireAdmin, csrfProtection, async (req, res, next) 
 // Grant ALBA by login (username)
 router.post('/alba/grant-by-login', requireAdmin, apiCsrfProtection(), async (req, res) => {
   try {
-    const { login, reason, comment } = req.body;
-    const amount = Number(req.body.amount);
+    const body = req.body || {};
+    const login = String(body.login || body.username || '').trim();
+    const reason = String(body.reason || 'admin_grant').trim() || 'admin_grant';
+    const comment = body.comment != null ? String(body.comment) : '';
+    const amount = Number(body.amount);
 
-    if (!login || !reason) {
+    if (!login) {
       return res.status(400).json({
         success: false,
-        message: 'Укажите логин и причину начисления'
+        message: 'Укажите логин пользователя'
       });
     }
 
