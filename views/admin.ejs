@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=1.0.8">
+<link rel="stylesheet" href="/styles.css?v=1.0.9">
 </head>
 <body class="admin-page">
 
@@ -219,15 +219,46 @@
   </button>
 </form>
 <div id="albaGrantMsg" class="note" style="margin-top:10px; min-height:1.5em; color:#fff;"></div>
-<script src="/js/admin-alba-grant.js?v=1.0.1"></script>
+<script src="/js/admin-alba-grant.js?v=1.0.2"></script>
 
 <!-- История транзакций ALBA -->
 <div class="section-header" style="margin-top: 30px;">
 <h2>История транзакций ALBA</h2>
 </div>
-<button id="loadTransactionsBtn" class="btn small" style="margin-bottom: 15px;">Загрузить историю</button>
+<button type="button" id="loadTransactionsBtn" class="btn small" style="margin-bottom: 15px;">Обновить историю</button>
 <div id="albaTransactionsContainer">
-<p class="empty-state">Нажмите кнопку для загрузки истории транзакций</p>
+<% if (typeof albaTransactions !== 'undefined' && albaTransactions && albaTransactions.length) { %>
+<div style="overflow-x:auto;">
+<table id="albaHistoryTable" style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+<thead>
+<tr style="text-align:left;border-bottom:1px solid rgba(31,138,90,0.25);">
+<th style="padding:8px;">ID</th>
+<th style="padding:8px;">Пользователь</th>
+<th style="padding:8px;">Тип</th>
+<th style="padding:8px;">Причина</th>
+<th style="padding:8px;">Сумма</th>
+<th style="padding:8px;">Комментарий</th>
+<th style="padding:8px;">Дата</th>
+</tr>
+</thead>
+<tbody>
+<% albaTransactions.forEach(function(tx) { %>
+<tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+<td style="padding:8px;"><%= tx.id %></td>
+<td style="padding:8px;"><%= tx.username || '—' %></td>
+<td style="padding:8px;"><%= tx.typeLabel || tx.type %></td>
+<td style="padding:8px;"><%= tx.reasonLabel || tx.reason %></td>
+<td style="padding:8px;"><%= tx.amount %></td>
+<td style="padding:8px;"><%= tx.comment || '—' %></td>
+<td style="padding:8px;"><%= tx.createdAt ? new Date(tx.createdAt).toLocaleString('ru-RU') : '—' %></td>
+</tr>
+<% }) %>
+</tbody>
+</table>
+</div>
+<% } else { %>
+<p class="empty-state">Пока нет записей. Начислите ALBA или нажмите «Обновить историю».</p>
+<% } %>
 </div>
 </section>
 

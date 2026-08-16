@@ -1,4 +1,5 @@
 const { sequelize } = require("../config/database");
+const ContactMessage = require("../models/ContactMessage");
 
 async function ensureContactMessagesTable() {
   await sequelize.query(`
@@ -18,4 +19,21 @@ async function ensureContactMessagesTable() {
   ).catch(() => {});
 }
 
-module.exports = { ensureContactMessagesTable };
+async function saveContactMessage({ name, email, subject, message }) {
+  await ensureContactMessagesTable();
+  const created = await ContactMessage.create({
+    name,
+    email,
+    subject: subject || null,
+    message,
+    isRead: false
+  });
+  return created.id;
+}
+
+async function listContactMessages() {
+  await ensureContactMessagesTable();
+  return ContactMessage.findAll({ order: [["id", "DESC"]] });
+}
+
+module.exports = { ensureContactMessagesTable, saveContactMessage, listContactMessages };

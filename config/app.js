@@ -156,14 +156,26 @@ app.use((req, res, next) => {
   const origin = req.get("origin");
   const referer = req.get("referer");
 
+  function hostKey(value) {
+    if (!value) return "";
+    try {
+      return new URL(value).hostname.replace(/^www\./i, "").toLowerCase();
+    } catch (e) {
+      return "";
+    }
+  }
+
   function isAllowed(value) {
     if (!value) return false;
     try {
       const originOnly = new URL(value).origin;
-      return allowedOrigins.has(originOnly);
+      if (allowedOrigins.has(originOnly)) return true;
     } catch (e) {
       return false;
     }
+    const reqHost = String(req.get("host") || "").replace(/^www\./i, "").split(":")[0].toLowerCase();
+    const valueHost = hostKey(value);
+    return Boolean(reqHost && valueHost && reqHost === valueHost);
   }
 
   if (origin && isAllowed(origin)) {
@@ -191,6 +203,10 @@ app.use((req, res, next) => {
     allowedOrigins: Array.from(allowedOrigins)
   });
 
+  const wantsJson = String(req.get("accept") || "").includes("application/json");
+  if (wantsJson) {
+    return res.status(403).json({ success: false, message: "Forbidden" });
+  }
   return res.status(403).send("Forbidden");
 });
 

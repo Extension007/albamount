@@ -186,6 +186,30 @@ VideoPost.findAll({
     const visitorCount = visitors ? visitors.value : 0;
     const userCount = users || 0;
 
+    let albaTransactions = [];
+    try {
+      const AlbaTransaction = require("../config/database").AlbaTransaction;
+      const { formatAlbaTransaction } = require("../utils/albaLabels");
+      const rows = await AlbaTransaction.findAll({
+        order: [["id", "DESC"]],
+        limit: 80,
+        include: [
+          { model: User, as: "user", attributes: ["id", "username", "email"], required: false },
+          { model: User, as: "relatedUser", attributes: ["id", "username", "email"], required: false }
+        ]
+      });
+      albaTransactions = rows.map((row) => {
+        const formatted = formatAlbaTransaction(row);
+        const plain = row.toJSON ? row.toJSON() : row;
+        formatted.username = (plain.user && plain.user.username) || "";
+        formatted.email = (plain.user && plain.user.email) || "";
+        formatted.relatedUsername = (plain.relatedUser && plain.relatedUser.username) || "";
+        return formatted;
+      });
+    } catch (historyErr) {
+      console.error("Ошибка загрузки истории ALBA:", historyErr);
+    }
+
     // Генерируем CSRF токен для формы и API запросов
     const csrfTokenValue = res.locals.csrfToken || null;
 
@@ -203,7 +227,8 @@ VideoPost.findAll({
       registeredUsers: registeredUsers || [],
       currentAdminId: req.user?.id || req.user?._id,
       categories: require("../config/categories").FLAT_CATEGORIES,
-      csrfToken: csrfTokenValue
+      csrfToken: csrfTokenValue,
+      albaTransactions
     });
   } catch (err) {
     console.error("❌ Ошибка получения товаров (админ):", err);

@@ -457,6 +457,7 @@ const ContactMessage = sequelize.define('ContactMessage', {
   }
 }, {
   tableName: 'contact_messages',
+  freezeTableName: true,
   indexes: [
     { fields: ['is_read'] },
     { fields: ['created_at'] }
@@ -540,6 +541,8 @@ const AlbaTransaction = sequelize.define('AlbaTransaction', {
   },
   meta: DataTypes.JSON
 }, {
+  tableName: 'alba_transactions',
+  freezeTableName: true,
   indexes: [
     { fields: ['user_id'] },
     { fields: ['type'] },

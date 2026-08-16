@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.0.8">
+  <link rel="stylesheet" href="/styles.css?v=1.0.9">
   <link rel="stylesheet" href="/header-tabs.css?v=1.0.4">
 </head>
 <body>
@@ -132,21 +132,26 @@ document.addEventListener('DOMContentLoaded', function() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'X-CSRF-Token': csrf
         },
         body: JSON.stringify(data),
         credentials: 'same-origin'
       });
-      const result = await response.json();
-      if (result.success) {
+      const text = await response.text();
+      let result = {};
+      try { result = text ? JSON.parse(text) : {}; } catch (_) {}
+      if (response.ok && result.success) {
         successMessage.style.display = 'block';
+        successMessage.textContent = result.message || 'Сообщение отправлено. Мы ответим в ближайшее время.';
         contactForm.reset();
+        successMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        errorMessage.textContent = result.message || 'Ошибка отправки. Попробуйте позже.';
+        errorMessage.textContent = result.message || ('Ошибка отправки (код ' + response.status + '). Обновите страницу и попробуйте снова.');
         errorMessage.style.display = 'block';
       }
     } catch (error) {
-      errorMessage.textContent = 'Ошибка сети. Проверьте подключение к интернету.';
+      errorMessage.textContent = 'Ошибка сети. Проверьте подключение и попробуйте снова.';
       errorMessage.style.display = 'block';
     } finally {
       submitBtn.textContent = originalText;

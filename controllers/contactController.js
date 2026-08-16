@@ -1,10 +1,9 @@
 const ContactInfo = require("../models/ContactInfo");
-const ContactMessage = require("../models/ContactMessage");
 const { notifyAdmin, resolveAdminEmail } = require("../services/adminNotificationService");
 const { transporter } = require("../services/emailService");
 const emailConfig = require("../config/email");
 const { sanitizeText } = require("../utils/sanitize");
-const { ensureContactMessagesTable } = require("../services/contactMessageService");
+const { ensureContactMessagesTable, saveContactMessage } = require("../services/contactMessageService");
 
 const SUBJECT_LABELS = {
   general: "Общие вопросы",
@@ -149,15 +148,13 @@ exports.sendContactMessage = async (req, res) => {
 
     const subjectLabel = SUBJECT_LABELS[subjectKey] || subjectKey || "Без темы";
 
-    await ensureContactMessagesTable();
-    await ContactMessage.create({
+    const savedId = await saveContactMessage({
       name,
       email,
       subject: subjectLabel,
-      message,
-      isRead: false
+      message
     });
-    console.log("contact_message_saved", { email, subject: subjectLabel });
+    console.log("contact_message_saved", { id: savedId, email, subject: subjectLabel });
 
     try {
       await notifyAdmin("Сообщение с формы контактов", "Новое обращение с сайта.", {

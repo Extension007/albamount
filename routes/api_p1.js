@@ -316,8 +316,8 @@ router.get('/alba/transactions-history', requireAdmin, async (req, res) => {
       offset: skip,
       limit,
       include: [
-        { model: User, as: 'user', attributes: ['id', 'username', 'email'] },
-        { model: User, as: 'relatedUser', attributes: ['id', 'username', 'email'] }
+        { model: User, as: 'user', attributes: ['id', 'username', 'email'], required: false },
+        { model: User, as: 'relatedUser', attributes: ['id', 'username', 'email'], required: false }
       ]
     });
 

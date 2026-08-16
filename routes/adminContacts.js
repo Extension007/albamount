@@ -4,14 +4,13 @@ const ContactMessage = require("../models/ContactMessage");
 const { USE_POSTGRES } = require("../config/database");
 const { requireAdmin } = require("../middleware/auth");
 const { csrfToken, csrfProtection } = require("../middleware/csrf");
-const { ensureContactMessagesTable } = require("../services/contactMessageService");
+const { listContactMessages } = require("../services/contactMessageService");
 
 router.get("/", requireAdmin, csrfToken, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
 
-    await ensureContactMessagesTable();
-    const messages = await ContactMessage.findAll({ order: [["createdAt", "DESC"]] });
+    const messages = await listContactMessages();
     const unreadCount = messages.filter((m) => !m.isRead).length;
 
     const Statistics = require("../models/Statistics");
