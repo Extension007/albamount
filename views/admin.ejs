@@ -85,11 +85,7 @@
 <% pendingProducts.forEach(p => { %>
 <div class="product-card" style="border:2px solid #ff9800;">
 <h3 class="product-title"><%= p.name %></h3>
-<% if (p.image_url) { %>
-<img src="<%= p.image_url %>" alt="<%= p.name %>">
-<% } else { %>
-<div class="no-image">Нет изображения</div>
-<% } %>
+<%- include('partials/admin-card-images', { item: p }) %>
 
 <div class="product-bottom">
 <p class="product-desc"><%= p.description || "—" %></p>
@@ -109,12 +105,11 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:8px;">
-<button class="btn small approve-btn" data-id="<%= p.id %>" data-type="product">
-✅ Одобрить
-</button>
-<button class="btn small reject-btn" data-id="<%= p.id %>" data-type="product">
-❌ Отклонить
-</button>
+<form method="POST" action="/admin/products/<%= p.id %>/approve">
+<input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' && csrfToken ? csrfToken : '' %>">
+<button type="submit" class="btn small">Одобрить</button>
+</form>
+<button type="button" class="btn small reject-btn" data-id="<%= p.id %>" data-type="product">Отклонить</button>
 <% if (p.link) { %>
 <a class="btn small outline" href="<%= p.link %>" target="_blank" rel="noopener">Ссылка</a>
 <% } %>
@@ -149,11 +144,7 @@
 <% pendingServices.forEach(s => { %>
 <div class="product-card" style="border:2px solid #ff9800;">
 <h3 class="product-title"><%= s.name %></h3>
-<% if (s.image_url) { %>
-<img src="<%= s.image_url %>" alt="<%= s.name %>">
-<% } else { %>
-<div class="no-image">Нет изображения</div>
-<% } %>
+<%- include('partials/admin-card-images', { item: s }) %>
 
 <div class="product-bottom">
 <p class="product-desc"><%= s.description || "—" %></p>
@@ -173,12 +164,11 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:8px;">
-<button class="btn small approve-btn" data-id="<%= s.id %>" data-type="service">
-✅ Одобрить
-</button>
-<button class="btn small reject-btn" data-id="<%= s.id %>" data-type="service">
-❌ Отклонить
-</button>
+<form method="POST" action="/admin/services/<%= s.id %>/approve">
+<input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' && csrfToken ? csrfToken : '' %>">
+<button type="submit" class="btn small">Одобрить</button>
+</form>
+<button type="button" class="btn small reject-btn" data-id="<%= s.id %>" data-type="service">Отклонить</button>
 <% if (s.link) { %>
 <a class="btn small outline" href="<%= s.link %>" target="_blank" rel="noopener">Ссылка</a>
 <% } %>
@@ -330,11 +320,7 @@
 <% products.forEach(p => { %>
 <div class="product-card status-<%= p.status || 'pending' %>">
 <h3 class="product-title"><%= p.name %></h3>
-<% if (p.image_url) { %>
-<img src="<%= p.image_url %>" alt="<%= p.name %>">
-<% } else { %>
-<div class="no-image">Нет изображения</div>
-<% } %>
+<%- include('partials/admin-card-images', { item: p }) %>
 
 <div class="product-bottom">
 <!-- Статус карточки -->
@@ -441,11 +427,7 @@ data-status="<%= p.status %>">
 <% services.forEach(s => { %>
 <div class="product-card status-<%= s.status || 'pending' %>">
 <h3 class="product-title"><%= s.name %></h3>
-<% if (s.image_url) { %>
-<img src="<%= s.image_url %>" alt="<%= s.name %>">
-<% } else { %>
-<div class="no-image">Нет изображения</div>
-<% } %>
+<%- include('partials/admin-card-images', { item: s }) %>
 
 <div class="product-bottom">
 <!-- Статус карточки -->
@@ -585,7 +567,7 @@ data-status="<%= s.status %>">
       isAdmin: true,
       socketIoAvailable: typeof socket_io_available !== 'undefined' ? socket_io_available : false,
       userRole: typeof userRole !== 'undefined' ? userRole : 'admin',
-      IS_CABINET_PAGE: false
+      csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : ''
     });
   </script>
 
@@ -598,14 +580,21 @@ data-status="<%= s.status %>">
     const CSRF_TOKEN = <%- JSON.stringify(csrfToken ? String(csrfToken) : '') %>;
 
     async function postJSON(url, data) {
-      return fetch(url, {
+      const payload = Object.assign({ _csrf: CSRF_TOKEN }, data || {});
+      const res = await fetch(url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'X-CSRF-Token': CSRF_TOKEN
         },
-        body: JSON.stringify(data || {})
+        body: JSON.stringify(payload)
       });
+      const text = await res.text();
+      let json = {};
+      try { json = text ? JSON.parse(text) : {}; } catch (e) { json = {}; }
+      return { ok: res.ok, status: res.status, json: json, text: text };
     }
 
     const logoutForm = document.getElementById('logoutForm');
@@ -646,13 +635,12 @@ data-status="<%= s.status %>">
           const itemType = btn.getAttribute('data-type') || 'product';
           const endpoint = '/admin/' + itemType + 's/' + id + '/approve';
 
-          const res = await postJSON(endpoint);
-          const data = await res.json();
-          if (data.success) {
+          const result = await postJSON(endpoint);
+          if (result.json.success) {
             alert('Карточка одобрена!');
             location.reload();
           } else {
-            alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+            alert('Ошибка: ' + (result.json.message || ('HTTP ' + result.status)));
           }
         } catch (err) {
           alert('Ошибка сети: ' + err.message);
@@ -673,13 +661,12 @@ data-status="<%= s.status %>">
 
         try {
           const endpoint = '/admin/' + itemType + 's/' + id + '/toggle-visibility';
-          const res = await postJSON(endpoint);
-          const data = await res.json();
-          if (data.success) {
-            alert(data.message || 'Статус карточки изменен');
+          const result = await postJSON(endpoint);
+          if (result.json.success) {
+            alert(result.json.message || 'Статус карточки изменен');
             location.reload();
           } else {
-            alert('Ошибка: ' + (data.message || 'Не удалось изменить статус'));
+            alert('Ошибка: ' + (result.json.message || ('HTTP ' + result.status)));
           }
         } catch (err) {
           alert('Ошибка сети: ' + err.message);
@@ -745,14 +732,12 @@ data-status="<%= s.status %>">
             reason: reasonText || 'Несоответствие правилам публикации'
           };
 
-          const res = await postJSON(rejectEndpoint, payload);
-          const data = await res.json();
-
-          if (data.success) {
+          const result = await postJSON(rejectEndpoint, payload);
+          if (result.json.success) {
             alert(currentRejectType === 'video' ? 'Видео отклонено' : 'Карточка отклонена');
             location.reload();
           } else {
-            alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+            alert('Ошибка: ' + (result.json.message || ('HTTP ' + result.status)));
           }
         } catch (err) {
           alert('Ошибка сети: ' + err.message);
@@ -762,8 +747,24 @@ data-status="<%= s.status %>">
   });
   </script>
 
-<style>
-/* Status styles for product cards */
+.moderation-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.moderation-thumb {
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(31,138,90,0.35);
+}
+.moderation-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .status-approved {
 border: 2px solid #4caf50;
 }

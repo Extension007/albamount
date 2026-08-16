@@ -21,6 +21,35 @@ const { deleteImage, deleteImages } = require("../utils/imageUtils");
 const conditionalCsrfToken = csrfToken;
 const conditionalCsrfProtection = csrfProtection;
 
+function normalizeCardMedia(rows) {
+  return (rows || []).map((row) => {
+    const item = { ...row };
+    let list = item.images;
+    if (typeof list === "string") {
+      try {
+        list = JSON.parse(list);
+      } catch (_) {
+        list = [];
+      }
+    }
+    if (!Array.isArray(list)) list = [];
+    item.images = list.map((u) => String(u || "").trim()).filter(Boolean);
+    if (!item.images.length && item.image_url) {
+      item.images = [String(item.image_url)];
+    }
+    return item;
+  });
+}
+
+function wantsJsonAdmin(req) {
+  return req.xhr || String(req.get("accept") || "").includes("application/json");
+}
+
+function respondModeration(req, res, payload) {
+  if (wantsJsonAdmin(req)) return res.json(payload);
+  return res.redirect("/admin");
+}
+
 // Middleware для обработки ошибок multer
 function handleMulterError(err, req, res, next) {
   if (err) {
@@ -214,10 +243,10 @@ VideoPost.findAll({
     const csrfTokenValue = res.locals.csrfToken || null;
 
     res.render("admin", {
-      products: allProducts,
-      services: allServices || [],
-      pendingProducts,
-      pendingServices: pendingServices || [],
+      products: normalizeCardMedia(allProducts),
+      services: normalizeCardMedia(allServices || []),
+      pendingProducts: normalizeCardMedia(pendingProducts),
+      pendingServices: normalizeCardMedia(pendingServices || []),
       banners: allBanners || [],
       pendingBanners: pendingBanners || [],
       videos: allVideos || [],
@@ -410,7 +439,7 @@ router.post("/products/:id/approve", requireAdmin, conditionalCsrfProtection, va
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
     
-    res.json({ success: true, status: product.status });
+    respondModeration(req, res, { success: true, status: product.status });
   } catch (err) {
     console.error("❌ Ошибка одобрения карточки:", err);
     res.status(500).json({ success: false, message: "Ошибка одобрения карточки" });
@@ -469,7 +498,7 @@ router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, val
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
 
-    res.json({
+    return respondModeration(req, res, {
       success: true,
       status: product.status,
       rejection_reason: product.rejection_reason,
@@ -635,7 +664,7 @@ router.post("/services/:id/approve", requireAdmin, conditionalCsrfProtection, va
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
     
-    res.json({ success: true, status: service.status });
+    return respondModeration(req, res, { success: true, status: service.status });
   } catch (err) {
     console.error("❌ Ошибка одобрения услуги:", err);
     res.status(500).json({ success: false, message: "Ошибка одобрения услуги" });

@@ -1,0 +1,16 @@
+<%
+  const imgs = (item.images && item.images.length)
+    ? item.images
+    : (item.image_url ? [item.image_url] : []);
+%>
+<% if (imgs.length) { %>
+<div class="moderation-gallery">
+  <% imgs.forEach(function(src, idx) { %>
+    <a href="<%= src %>" target="_blank" rel="noopener noreferrer" class="moderation-thumb" title="Фото <%= idx + 1 %> — открыть">
+      <img src="<%= src %>" alt="Фото <%= idx + 1 %>">
+    </a>
+  <% }) %>
+</div>
+<% } else { %>
+<div class="no-image">Нет изображения</div>
+<% } %>
