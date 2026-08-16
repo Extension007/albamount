@@ -652,6 +652,7 @@ const Code = sequelize.define('Code', {
   expiresAt: DataTypes.DATE,
   createdById: {
     type: DataTypes.INTEGER,
+    field: 'created_by',
     references: {
       model: 'users',
       key: 'id'
@@ -659,6 +660,7 @@ const Code = sequelize.define('Code', {
   },
   usedById: {
     type: DataTypes.INTEGER,
+    field: 'used_by',
     references: {
       model: 'users',
       key: 'id'
@@ -727,6 +729,7 @@ const CodeUsage = sequelize.define('CodeUsage', {
     defaultValue: DataTypes.NOW
   }
 }, {
+  tableName: 'code_usage',
   indexes: [
     { fields: ['user_id', 'code_id'], unique: true }
   ]
