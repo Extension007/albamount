@@ -16,6 +16,7 @@ const { publicErrorMessage } = require("../utils/httpError");
 const { createProduct, updateProduct } = require("../services/productService");
 const { notifyAdmin } = require("../services/adminNotificationService");
 const { getUserAlbaBalance } = require("../services/albaService");
+const { allowedCardType, assertCanCreateCardType } = require("../utils/accountType");
 
 const isVercel = Boolean(process.env.VERCEL);
 
