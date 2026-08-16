@@ -62,7 +62,7 @@
             multiple
             data-max-files="5"
           >
-          <small class="form-hint">Можно загрузить до 5 изображений. Форматы: PNG, JPEG, JPG, WEBP. Максимальный размер: 5MB на файл.</small>
+          <small class="form-hint">До 5 фото. Перед отправкой они автоматически сжимаются.</small>
           <div id="imagePreview" class="image-preview-container"></div>
         </div>
 
@@ -90,6 +90,7 @@
   </main>
 
 
+  <script src="/js/compress-images.js?v=1.0.0"></script>
   <script>
     // FIX: Валидация количества файлов перед отправкой
     document.getElementById('addProductForm').addEventListener('submit', function(e) {
@@ -113,8 +114,8 @@
       }
 
       Array.from(this.files).forEach((file, index) => {
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`Файл "${file.name}" превышает размер 5MB`);
+        if (file.size > 20 * 1024 * 1024) {
+          alert(`Файл "${file.name}" слишком большой (максимум 20MB)`);
           return;
         }
 
@@ -135,8 +136,26 @@
     // FIX: Обработка отправки формы
     document.getElementById('addProductForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const formData = new FormData(this);
       const msg = document.getElementById('addProductMsg');
+      if (msg) {
+        msg.textContent = 'Сжатие фото...';
+        msg.style.color = '#666';
+      }
+      let formData;
+      try {
+        if (window.ImageUploadCompress && window.ImageUploadCompress.replaceFormDataImages) {
+          formData = await window.ImageUploadCompress.replaceFormDataImages(this, 'images');
+        } else {
+          formData = new FormData(this);
+        }
+      } catch (err) {
+        if (msg) {
+          msg.textContent = 'Не удалось сжать изображения';
+          msg.style.color = '#b00020';
+        }
+        return;
+      }
+      if (msg) msg.textContent = 'Отправка...';
       
       try {
         const res = await fetch('/products', {

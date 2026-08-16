@@ -346,8 +346,8 @@
       }
 
       Array.from(this.files).forEach((file) => {
-        if (file.size > 5 * 1024 * 1024) {
-          showToast(`Файл "${file.name}" превышает размер 5MB`, 'error');
+        if (file.size > 20 * 1024 * 1024) {
+          showToast(`Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`, 'error');
           return;
         }
 
@@ -406,13 +406,31 @@
         return false;
       }
 
-      const formData = new FormData(this);
       const msg = document.getElementById('editProductMsg');
       
       if (msg) {
-        msg.textContent = "Отправка...";
+        msg.textContent = "Сжатие фото...";
         msg.style.color = "#666";
         msg.setAttribute('aria-live', 'polite');
+      }
+
+      let formData;
+      try {
+        if (window.ImageUploadCompress && window.ImageUploadCompress.replaceFormDataImages) {
+          formData = await window.ImageUploadCompress.replaceFormDataImages(this, 'images');
+        } else {
+          formData = new FormData(this);
+        }
+      } catch (compressErr) {
+        if (msg) {
+          msg.textContent = "Не удалось сжать изображения";
+          msg.style.color = "#b00020";
+        }
+        return;
+      }
+
+      if (msg) {
+        msg.textContent = "Отправка...";
       }
       
       try {

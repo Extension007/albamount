@@ -195,18 +195,31 @@
       if (imagesInput && imagesInput.files.length > 0) {
         for (let i = 0; i < imagesInput.files.length; i++) {
           const file = imagesInput.files[i];
-          if (file.size > 5 * 1024 * 1024) {
-            msg.textContent = `Файл "${file.name}" превышает 5MB`;
+          if (file.size > 20 * 1024 * 1024) {
+            msg.textContent = `Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`;
             msg.style.color = '#b00020';
             return;
           }
         }
       }
 
-      msg.textContent = 'Отправка...';
+      msg.textContent = 'Сжатие фото...';
       msg.style.color = '#666';
 
-      const formData = new FormData(form);
+      let formData;
+      try {
+        if (window.ImageUploadCompress && window.ImageUploadCompress.replaceFormDataImages) {
+          formData = await window.ImageUploadCompress.replaceFormDataImages(form, 'images');
+        } else {
+          formData = new FormData(form);
+        }
+      } catch (compressErr) {
+        msg.textContent = 'Не удалось сжать изображения. Попробуйте другие файлы.';
+        msg.style.color = '#b00020';
+        return;
+      }
+
+      msg.textContent = 'Отправка...';
 
       try {
         const res = await csrfFetch('/cabinet/product', {
@@ -331,8 +344,8 @@
       const next = selectedFiles.slice();
       for (let i = 0; i < incoming.length; i++) {
         const file = incoming[i];
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`Файл "${file.name}" слишком большой (максимум 5MB)`);
+        if (file.size > 20 * 1024 * 1024) {
+          alert(`Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`);
           continue;
         }
         const duplicate = next.some(function(f) {
@@ -373,8 +386,8 @@
       bannerImageInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-          if (file.size > 5 * 1024 * 1024) {
-            alert(`Файл "${file.name}" слишком большой (максимум 5MB)`);
+          if (file.size > 20 * 1024 * 1024) {
+            alert(`Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`);
             e.target.value = '';
             bannerPreview.style.display = 'none';
             return;
@@ -397,17 +410,31 @@
 
       if (bannerImageInput && bannerImageInput.files.length > 0) {
         const file = bannerImageInput.files[0];
-        if (file.size > 5 * 1024 * 1024) {
-          bannerMsg.textContent = `Файл "${file.name}" превышает 5MB`;
+        if (file.size > 20 * 1024 * 1024) {
+          bannerMsg.textContent = `Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`;
           bannerMsg.style.color = '#b00020';
           return;
         }
       }
 
-      bannerMsg.textContent = 'Отправка...';
+      bannerMsg.textContent = 'Сжатие фото...';
       bannerMsg.style.color = '#666';
 
-      const formData = new FormData(bannerForm);
+      let formData;
+      try {
+        const field = bannerImageInput ? bannerImageInput.name : 'images';
+        if (window.ImageUploadCompress && window.ImageUploadCompress.replaceFormDataImages) {
+          formData = await window.ImageUploadCompress.replaceFormDataImages(bannerForm, field);
+        } else {
+          formData = new FormData(bannerForm);
+        }
+      } catch (compressErr) {
+        bannerMsg.textContent = 'Не удалось сжать изображение.';
+        bannerMsg.style.color = '#b00020';
+        return;
+      }
+
+      bannerMsg.textContent = 'Отправка...';
 
       try {
         const res = await csrfFetch('/cabinet/banner', {
