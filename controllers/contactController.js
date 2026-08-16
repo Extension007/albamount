@@ -1,19 +1,21 @@
 const ContactInfo = require("../models/ContactInfo");
+const ContactMessage = require("../models/ContactMessage");
 const { notifyAdmin, resolveAdminEmail } = require("../services/adminNotificationService");
 const { transporter } = require("../services/emailService");
 const emailConfig = require("../config/email");
+const { sanitizeText } = require("../utils/sanitize");
+const { ensureContactMessagesTable } = require("../services/contactMessageService");
+
+const SUBJECT_LABELS = {
+  general: "Общие вопросы",
+  partnership: "Сотрудничество",
+  technical: "Техническая поддержка",
+  business: "Коммерческие предложения",
+  other: "Другое"
+};
 
 exports.getContacts = async (req, res) => {
   try {
-    let contacts = [];
-    try {
-      contacts = await ContactInfo.findAll({ order: [["type", "ASC"]] });
-    } catch (dbErr) {
-      // Если таблица не существует, используем пустой массив
-      console.warn('⚠️ ContactInfo table not available, using empty contacts:', dbErr.message);
-      contacts = [];
-    }
-
     res.render("contacts", {
       products: [],
       services: [],
@@ -31,8 +33,7 @@ exports.getContacts = async (req, res) => {
       categories: {},
       selectedCategory: "all",
       csrfToken: req.csrfToken ? req.csrfToken() : "",
-      activeTab: "contacts",
-      contacts
+      activeTab: "contacts"
     });
   } catch (err) {
     console.error("Ошибка получения контактов:", err);
@@ -128,7 +129,10 @@ exports.deleteContact = async (req, res) => {
 
 exports.sendContactMessage = async (req, res) => {
   try {
-    const { name, email, subject, message } = req.body;
+    const name = sanitizeText(req.body.name, 120);
+    const email = sanitizeText(req.body.email, 255).toLowerCase();
+    const subjectKey = sanitizeText(req.body.subject, 40);
+    const message = sanitizeText(req.body.message, 4000);
 
     if (!name || !email || !message) {
       return res.status(400).json({
@@ -142,28 +146,41 @@ exports.sendContactMessage = async (req, res) => {
       return res.status(400).json({ success: false, message: "Неверный формат email" });
     }
 
-    const adminContact = await ContactInfo.findOne({ where: { type: "admin" } });
-    const adminEmail = resolveAdminEmail(adminContact?.email);
-    const emailSubject = subject ? `[Albamount] ${subject}` : "[Albamount] Сообщение с сайта";
+    const subjectLabel = SUBJECT_LABELS[subjectKey] || subjectKey || "Без темы";
 
-    const emailText = `
-Новое сообщение с формы контактов
+    await ensureContactMessagesTable();
+    await ContactMessage.create({
+      name,
+      email,
+      subject: subjectLabel,
+      message,
+      isRead: false
+    });
 
-От: ${name} <${email}>
-Тема: ${subject || "Без темы"}
-Дата: ${new Date().toLocaleString("ru-RU")}
-
-${message}
-    `.trim();
+    try {
+      await notifyAdmin("Сообщение с формы контактов", "Новое обращение с сайта.", {
+        От: name,
+        Email: email,
+        Тема: subjectLabel
+      });
+    } catch (notificationError) {
+      console.error("Ошибка уведомления:", notificationError);
+    }
 
     if (emailConfig.enabled) {
-      await transporter.sendMail({
-        from: emailConfig.from,
-        to: adminEmail,
-        subject: emailSubject,
-        text: emailText,
-        replyTo: email
-      });
+      try {
+        const adminContact = await ContactInfo.findOne({ where: { type: "admin" } });
+        const adminEmail = resolveAdminEmail(adminContact?.email);
+        await transporter.sendMail({
+          from: emailConfig.from,
+          to: adminEmail,
+          subject: `[Albamount] ${subjectLabel}`,
+          text: `От: ${name} <${email}>\nТема: ${subjectLabel}\n\n${message}`,
+          replyTo: email
+        });
+      } catch (mailErr) {
+        console.error("Ошибка email по контакту:", mailErr.message);
+      }
     }
 
     res.json({ success: true, message: "Сообщение отправлено" });

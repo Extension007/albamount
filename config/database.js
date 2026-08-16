@@ -427,7 +427,41 @@ const ContactInfo = sequelize.define('ContactInfo', {
   ]
 });
 
-// === STATISTICS MODEL ===
+// === CONTACTMESSAGE MODEL ===
+const ContactMessage = sequelize.define('ContactMessage', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  name: {
+    type: DataTypes.STRING(120),
+    allowNull: false
+  },
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: false
+  },
+  subject: {
+    type: DataTypes.STRING(200),
+    allowNull: true
+  },
+  message: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  isRead: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  }
+}, {
+  tableName: 'contact_messages',
+  indexes: [
+    { fields: ['is_read'] },
+    { fields: ['created_at'] }
+  ]
+});
 const Statistics = sequelize.define('Statistics', {
   id: {
     type: DataTypes.INTEGER,
@@ -989,6 +1023,7 @@ module.exports = {
   Category,
   Comment,
   ContactInfo,
+  ContactMessage,
   Statistics,
   AlbaTransaction,
   Entitlement,

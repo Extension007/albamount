@@ -30,6 +30,7 @@
       </div>
     <div class="header-actions">
 <span class="user-chip">Админ-панель</span>
+<a href="/admin/contacts" class="btn outline small" style="margin-left:10px;">Сообщения</a>
 <form id="logoutForm" method="POST" action="/logout" style="display:inline;margin-left:10px;">
 <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
 <button type="submit" class="btn outline small">Выход</button>

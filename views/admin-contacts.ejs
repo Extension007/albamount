@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Админка — Управление контактами</title>
- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Админка — Сообщения</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.0.4">
+  <link rel="stylesheet" href="/styles.css?v=1.0.6">
 </head>
 <body class="admin-page">
   <div id="bg-animated" aria-hidden="true"></div>
@@ -16,21 +16,12 @@
       <div class="header-top">
         <div class="header-left">
           <a class="logo" href="/"><img src="/albamount.png" alt="ALBAMOUNT" class="logo-img"></a>
-          <div class="header-stats">
-            <div class="stat-item">
-              <span style="opacity: 0.8;">👥</span>
-              <strong style="color: #4caf50;"><%= typeof visitorCount !== 'undefined' ? visitorCount : 0 %></strong>
-            </div>
-            <div class="stat-item">
-              <span style="opacity: 0.8;">👤</span>
-              <strong style="color: #2196f3;"><%= typeof userCount !== 'undefined' ? userCount : 0 %></strong>
-            </div>
-          </div>
         </div>
         <div class="header-actions">
-          <span class="user-chip">Админ-панель - Контакты</span>
-          <a href="/admin" class="btn outline small" style="margin-right: 10px;">Назад</a>
+          <span class="user-chip">Сообщения с сайта</span>
+          <a href="/admin" class="btn outline small">Назад</a>
           <form id="logoutForm" method="POST" action="/logout" style="display:inline;">
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <button type="submit" class="btn outline small">Выход</button>
           </form>
         </div>
@@ -38,304 +29,45 @@
     </div>
   </header>
 
-  <main style="margin-bottom: 64px;">
-    <!-- Добавить контакт -->
+  <main class="container" style="margin-bottom: 64px;">
     <section class="section">
       <div class="section-header">
-        <h2>Добавить контакт</h2>
-      </div>
-      <form id="addContactForm" class="form-grid">
-        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-        <select name="type" required>
-          <option value="">Выберите тип</option>
-          <option value="admin">Админ</option>
-          <option value="founder">Основатель</option>
-          <option value="service">Служба поддержки</option>
-        </select>
-        <input type="email" name="email" placeholder="Email" required>
-        <input type="tel" name="phone" placeholder="Телефон">
-        <textarea name="description" placeholder="Описание" rows="3"></textarea>
-        <button type="submit" class="btn primary">Добавить контакт</button>
-      </form>
-      <div id="addContactMsg" class="note" style="margin-top:10px;"></div>
-    </section>
-
-    <!-- Каталог контактов -->
-    <section class="section">
-      <div class="section-header">
-        <h2>Каталог контактов</h2>
-        <span class="badge" style="background:#666;color:#fff;padding:4px 12px;border-radius:6px;font-size:0.9rem;">
-          Всего: <%= contacts ? contacts.length : 0 %>
+        <h2>Напишите нам</h2>
+        <span class="badge" style="background:#666;color:#fff;padding:4px 12px;border-radius:6px;">
+          Всего: <%= messages ? messages.length : 0 %> · непрочитанных: <%= unreadCount || 0 %>
         </span>
       </div>
 
-      <% if (contacts && contacts.length) { %>
-        <div class="product-grid">
-          <% contacts.forEach(c => { %>
-            <div class="product-card">
-              <h3 class="product-title"><%= c.type.charAt(0).toUpperCase() + c.type.slice(1) %></h3>
-              
-              <div class="product-bottom">
-                <p class="product-desc">
-                  <strong>Email:</strong> <a href="mailto:<%= c.email %>"><%= c.email %></a>
-                </p>
-                
-                <% if (c.phone) { %>
-                  <p class="product-desc">
-                    <strong>Телефон:</strong> <%= c.phone %>
-                  </p>
-                <% } %>
-                
-                <% if (c.description) { %>
-                  <p class="product-desc">
-                    <strong>Описание:</strong> <%= c.description %>
-                  </p>
-                <% } %>
-                
-                <p class="muted" style="text-align:center;font-size:0.85rem;margin-top:5px;">
-                  Обновлено: <%= new Date(c.updatedAt).toLocaleString('ru-RU') %>
-                </p>
-                
-                <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
-                  <button class="btn small edit-btn" 
-                          data-id="<%= c._id %>" 
-                          data-type="<%= c.type %>" 
-                          data-email="<%= c.email %>" 
-                          data-phone="<%= c.phone || '' %>" 
-                          data-description="<%= c.description || '' %>">
-                    ✏️ Редактировать
-                  </button>
-                  
-                  <form method="POST" action="/admin/contacts/<%= c._id %>/delete" style="display:inline" onsubmit="return confirm('Удалить контакт?');">
-                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-                    <button type="submit" class="btn small outline" style="width:100%;">🗑️ Удалить</button>
-                  </form>
-                </div>
+      <% if (messages && messages.length) { %>
+        <div class="inbox-list">
+          <% messages.forEach(m => { %>
+            <article class="inbox-item <%= m.isRead ? '' : 'inbox-unread' %>">
+              <div class="inbox-meta">
+                <strong><%= m.name %></strong>
+                <a href="mailto:<%= m.email %>"><%= m.email %></a>
+                <span><%= m.subject || 'Без темы' %></span>
+                <time><%= new Date(m.createdAt).toLocaleString('ru-RU') %></time>
               </div>
-            </div>
+              <p class="inbox-body"><%= m.message %></p>
+              <div class="inbox-actions">
+                <% if (!m.isRead) { %>
+                  <form method="POST" action="/admin/contacts/messages/<%= m.id %>/read" style="display:inline;">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn small">Прочитано</button>
+                  </form>
+                <% } %>
+                <form method="POST" action="/admin/contacts/messages/<%= m.id %>/delete" style="display:inline;" onsubmit="return confirm('Удалить сообщение?');">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn small outline">Удалить</button>
+                </form>
+              </div>
+            </article>
           <% }) %>
         </div>
       <% } else { %>
-        <p class="empty-state">Пока нет контактов</p>
+        <p class="empty-state">Пока нет сообщений с формы «Напишите нам»</p>
       <% } %>
     </section>
- </main>
-
-  <!-- Модальное окно редактирования -->
-  <div id="editModal" class="modal" aria-hidden="true" style="display:none;">
-    <div class="modal-content" role="dialog" aria-modal="true" aria-label="Редактировать контакт">
-      <button class="close" data-close-edit aria-label="Закрыть">&times;</button>
-      <h3>Редактировать контакт</h3>
-      <form id="editContactForm">
-        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-        <input type="hidden" id="editContactId" name="id">
-        <select id="editContactType" name="type" required>
-          <option value="admin">Админ</option>
-          <option value="founder">Основатель</option>
-          <option value="service">Служба поддержки</option>
-        </select>
-        <input type="email" id="editContactEmail" name="email" placeholder="Email" required>
-        <input type="tel" id="editContactPhone" name="phone" placeholder="Телефон">
-        <textarea id="editContactDescription" name="description" placeholder="Описание" rows="3"></textarea>
-        <button type="submit" class="btn" style="margin-top:10px;">Сохранить</button>
-      </form>
-    </div>
-  </div>
-
-
-  <!-- Передаем информацию о доступности Socket.IO на клиент -->
-  <!-- Bootstrap script for safe EJS → JS data transfer -->
-  <script src="/utils/bootstrap.js"></script>
-  <script>
-    // Safe initialization of global variables
-    window.AppBootstrap.init(<%- JSON.stringify({
-      isAuth: true,
-      isAdmin: true,
-      socketIoAvailable: typeof socket_io_available !== 'undefined' ? socket_io_available : false,
-      userRole: typeof userRole !== 'undefined' ? userRole : 'admin'
-    }) %>);
-  </script>
-
-  <script>
-    // Глобальный CSRF токен
-    const CSRF_TOKEN = "<%- typeof csrfToken !== 'undefined' ? csrfToken : '' %>";
-
-    // Helper функция для POST запросов с CSRF
-    async function postJSON(url, data = {}) {
-      return fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": CSRF_TOKEN
-        },
-        body: JSON.stringify(data)
-      });
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-
-      // Обработка выхода
-      const logoutForm = document.getElementById("logoutForm");
-      if (logoutForm) {
-        logoutForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          if (!confirm("Вы уверены, что хотите выйти?")) return;
-          try {
-            const res = await fetch("/logout", { method: "POST" });
-            if (res.ok) {
-              window.location.href = "/";
-            }
-          } catch (err) {
-            window.location.href = "/";
-          }
-        });
-      }
-
-      // Обработка формы добавления контакта
-      const addContactForm = document.getElementById('addContactForm');
-      const addContactMsg = document.getElementById('addContactMsg');
-
-      if (addContactForm) {
-        addContactForm.addEventListener('submit', async function(e) {
-          e.preventDefault();
-
-          addContactMsg.textContent = 'Отправка...';
-          addContactMsg.style.color = '#666';
-
-          const formData = new FormData(addContactForm);
-          const contactData = Object.fromEntries(formData.entries());
-
-          try {
-            const res = await postJSON('/admin/contacts/create', contactData);
-            const data = await res.json();
-            
-            if (data.success) {
-              addContactMsg.textContent = 'Контакт успешно добавлен!';
-              addContactMsg.style.color = 'green';
-              addContactForm.reset();
-              setTimeout(() => {
-                location.reload();
-              }, 1500);
-            } else {
-              addContactMsg.textContent = data.message || 'Ошибка при добавлении контакта';
-              addContactMsg.style.color = '#b00020';
-            }
-          } catch (err) {
-            addContactMsg.textContent = 'Ошибка сети: ' + err.message;
-            addContactMsg.style.color = '#b00020';
-          }
-        });
-      }
-
-      // Обработка кнопок редактирования
-      const editBtns = document.querySelectorAll('.edit-btn');
-      const editModal = document.getElementById('editModal');
-      const editContactForm = document.getElementById('editContactForm');
-      const editContactId = document.getElementById('editContactId');
-      const editContactType = document.getElementById('editContactType');
-      const editContactEmail = document.getElementById('editContactEmail');
-      const editContactPhone = document.getElementById('editContactPhone');
-      const editContactDescription = document.getElementById('editContactDescription');
-
-      editBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          // Заполняем форму данными контакта
-          editContactId.value = btn.getAttribute('data-id');
-          editContactType.value = btn.getAttribute('data-type');
-          editContactEmail.value = btn.getAttribute('data-email');
-          editContactPhone.value = btn.getAttribute('data-phone');
-          editContactDescription.value = btn.getAttribute('data-description');
-          
-          // Показываем модальное окно
-          editModal.style.display = 'block';
-          editModal.setAttribute('aria-hidden', 'false');
-        });
-      });
-
-      // Закрытие модального окна
-      const closeEditBtn = document.querySelector("[data-close-edit]");
-      if (closeEditBtn) {
-        closeEditBtn.addEventListener('click', () => {
-          editModal.style.display = 'none';
-          editModal.setAttribute('aria-hidden', 'true');
-        });
-      }
-
-      // Обработка формы редактирования
-      if (editContactForm) {
-        editContactForm.addEventListener('submit', async function(e) {
-          e.preventDefault();
-
-          const formData = new FormData(editContactForm);
-          const contactData = Object.fromEntries(formData.entries());
-
-          try {
-            const res = await postJSON(`/admin/contacts/${contactData.id}/update`, {
-              type: contactData.type,
-              email: contactData.email,
-              phone: contactData.phone,
-              description: contactData.description
-            });
-            const data = await res.json();
-            
-            if (data.success) {
-              alert('Контакт успешно обновлен!');
-              location.reload();
-            } else {
-              alert(data.message || 'Ошибка при обновлении контакта');
-            }
-          } catch (err) {
-            alert('Ошибка сети: ' + err.message);
-          }
-        });
-      }
-
-      // Закрытие модального окна при клике вне его
-      window.addEventListener('click', (e) => {
-        if (e.target === editModal) {
-          editModal.style.display = 'none';
-          editModal.setAttribute('aria-hidden', 'true');
-        }
-      });
-    });
-  </script>
-
-  <style>
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 2000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.8);
-    }
-    .modal-content {
-      background-color: #1a1a1a;
-      margin: 5% auto;
-      padding: 20px;
-      border: 1px solid #444;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 600px;
-      position: relative;
-    }
-    .close {
-      color: #aaa;
-      float: right;
-      font-size: 28px;
-      font-weight: bold;
-      cursor: pointer;
-      background: none;
-      border: none;
-      position: absolute;
-      right: 15px;
-      top: 10px;
-    }
-    .close:hover {
-      color: #fff;
-    }
-  </style>
-  </body>
-  </html>
+  </main>
+</body>
+</html>
