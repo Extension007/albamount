@@ -76,6 +76,14 @@ const User = sequelize.define('User', {
       isIn: [['user', 'admin']]
     }
   },
+  accountType: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'showcase',
+    validate: {
+      isIn: [['showcase', 'services']]
+    }
+  },
   emailVerified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
@@ -914,6 +922,13 @@ async function refreshDbConnection() {
   }
   try {
     await sequelize.authenticate();
+    try {
+      await sequelize.query(
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) NOT NULL DEFAULT 'showcase'`
+      );
+    } catch (schemaErr) {
+      console.warn("account_type column ensure skipped:", schemaErr.message);
+    }
     dbConnected = true;
     return true;
   } catch (error) {

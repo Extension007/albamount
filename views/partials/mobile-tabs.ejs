@@ -1,0 +1,13 @@
+<footer class="mobile-tabs-footer">
+  <div class="mobile-tabs-container">
+    <a href="/ad" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && (activeTab === 'products' || activeTab === 'ad') ? 'active' : '' %>">
+      Реклама
+    </a>
+    <a href="/services" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'services' ? 'active' : '' %>">
+      Услуги
+    </a>
+    <a href="/contacts" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'contacts' ? 'active' : '' %>">
+      Контакты
+    </a>
+  </div>
+</footer>

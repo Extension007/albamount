@@ -92,7 +92,29 @@
       cursor: not-allowed;
     }
 
-    .register-button {
+    .account-type-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .account-type-option {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px;
+      border: 1px solid rgba(255, 51, 51, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--color-surface-alt);
+    }
+    .account-type-option small {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255,255,255,0.6);
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+    }
       width: 100%;
       padding: 14px;
       font-size: 1rem;
@@ -161,6 +183,20 @@
           <input type="password" id="password" name="password" placeholder="Ваш пароль" required>
         </div>
 
+        <div class="form-group">
+          <label>Тип аккаунта</label>
+          <div class="account-type-options">
+            <label class="account-type-option">
+              <input type="radio" name="accountType" value="showcase" required>
+              <span><strong>Реклама</strong><small>Публикация рекламы</small></span>
+            </label>
+            <label class="account-type-option">
+              <input type="radio" name="accountType" value="services">
+              <span><strong>Услуги</strong><small>Публикация услуг</small></span>
+            </label>
+          </div>
+        </div>
+
         <% if (refCode) { %>
           <div class="form-group">
             <label for="refCode">Реферальный код</label>
@@ -207,6 +243,7 @@ try {
             username: formData.get('username'),
             email: formData.get('email'),
             password: formData.get('password'),
+            accountType: formData.get('accountType'),
             refCode: formData.get('refCode'),
             ref: formData.get('ref')
           })

@@ -806,13 +806,10 @@
               html += '<ul style="color: #ccc; margin-left: 20px;">';
 
               if (entitlements.product.length > 0) {
-                html += `<li>📦 Товары: ${entitlements.product.length} шт.</li>`;
+                html += `<li>Реклама: ${entitlements.product.length} шт.</li>`;
               }
               if (entitlements.service.length > 0) {
-                html += `<li>🔧 Услуги: ${entitlements.service.length} шт.</li>`;
-              }
-              if (entitlements.banner && entitlements.banner.length > 0) {
-                html += `<li>🖼️ Баннеры: ${entitlements.banner.length} шт.</li>`;
+                html += `<li>Услуги: ${entitlements.service.length} шт.</li>`;
               }
 
               html += '</ul>';

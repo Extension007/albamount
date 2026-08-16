@@ -136,29 +136,7 @@
     </section>
   </main>
 
-  <!-- Footer с вкладками для мобильных устройств -->
-  <footer class="mobile-tabs-footer">
-    <div class="mobile-tabs-container">
-      <a href="/products" class="mobile-tab-button <%= '' %>">
-        Товары
-      </a>
-      <a href="/services" class="mobile-tab-button <%= '' %>">
-        Услуги
-      </a>
-      <a href="/ad" class="mobile-tab-button <%= '' %>">
-        Реклама
-      </a>
-      <a href="/about" class="mobile-tab-button <%= '' %>">
-        О Нас
-      </a>
-      <a href="/contacts" class="mobile-tab-button active">
-        Контакты
-      </a>
-      <a href="/videos" class="mobile-tab-button <%= '' %>">
-        Видео
-      </a>
-    </div>
-  </footer>
+  <%- include('partials/mobile-tabs') %>
 
 <!-- Модальное окно регистрации -->
 <div id="registerModal" class="modal" aria-hidden="true" style="display:none;">
@@ -169,6 +147,10 @@
       <input type="text" name="username" placeholder="Никнейм" required>
       <input type="email" name="email" placeholder="Email" required>
       <input type="password" name="password" placeholder="Пароль" minlength="6" required>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
+        <label><input type="radio" name="accountType" value="showcase" required> Реклама</label>
+        <label><input type="radio" name="accountType" value="services"> Услуги</label>
+      </div>
       <button type="submit">Создать аккаунт</button>
     </form>
     <div id="registerError" class="error" style="color:#b00020;margin-top:10px;display:none;"></div>

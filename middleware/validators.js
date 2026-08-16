@@ -304,6 +304,15 @@ const validateRegister = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage("Пароль должен содержать хотя бы одну заглавную букву, одну строчную букву и одну цифру"),
 
+  body("accountType")
+    .custom((value) => {
+      const { normalizeAccountType } = require("../utils/accountType");
+      if (!normalizeAccountType(value)) {
+        throw new Error("Выберите тип аккаунта: Витрина или Услуги");
+      }
+      return true;
+    }),
+
   handleValidationErrors
 ];
 

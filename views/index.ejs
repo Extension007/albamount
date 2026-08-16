@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Albamount — Каталог</title>
+  <title>Albamount — <%= typeof activeTab !== 'undefined' && activeTab === 'services' ? 'Услуги' : 'Реклама' %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.instagram.com https://graph.instagram.com wss://socket.io https://*.cloudinary.com https://localhost:* http://localhost:*; frame-src 'self' https://www.youtube.com https://vk.com https://instagram.com https://www.instagram.com; trusted-types youtube-widget-api;">
@@ -37,7 +37,7 @@
   <main>
     <section id="catalog" class="section">
       <div class="section-header">
-        <h2>Каталог товаров</h2>
+        <h2><%= typeof activeTab !== 'undefined' && activeTab === 'services' ? 'Каталог услуг' : 'Реклама' %></h2>
         <div class="category-selector-container">
           <button id="openCategories" type="button" class="btn small outline">
             Категории <span style="opacity:.8">(<%= selectedCategory === 'all' ? 'все' : selectedCategory %>)</span>
@@ -214,12 +214,6 @@
     </section>
 
     <!-- Секция услуг перенесена в отдельную страницу /services -->
-    
-    <!-- Секция рекламы перенесена в отдельную страницу /ad -->
-
-    <!-- Секции "О проекте" и "Контакты" перенесены в отдельные страницы -->
-    <!-- /about - страница "О нас" -->
-    <!-- /contacts - страница контактов -->
 
     <!-- Модальные окна чата для всех карточек -->
     <% if (products && products.length) { %>
@@ -278,29 +272,7 @@
   </main>
 
 
-  <!-- Footer с вкладками для мобильных устройств -->
-  <footer class="mobile-tabs-footer">
-    <div class="mobile-tabs-container">
-      <a href="/products" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'products' ? 'active' : '' %>">
-        Товары
-      </a>
-      <a href="/services" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'services' ? 'active' : '' %>">
-        Услуги
-      </a>
-      <a href="/ad" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'ad' ? 'active' : '' %>">
-        Реклама
-      </a>
-      <a href="/about" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'about' ? 'active' : '' %>">
-        О Нас
-      </a>
-      <a href="/contacts" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'contacts' ? 'active' : '' %>">
-        Контакты
-      </a>
-      <a href="/videos" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'videos' ? 'active' : '' %>">
-        Видео
-      </a>
-    </div>
-  </footer>
+  <%- include('partials/mobile-tabs') %>
 
 <!-- FIX: Полноэкранный overlay для YouTube видео -->
 <div id="videoOverlay" class="video-overlay" aria-hidden="true" style="display:none;">

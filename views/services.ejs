@@ -213,29 +213,7 @@
     </section>
   </main>
 
-  <!-- Footer с вкладками для мобильных устройств -->
-  <footer class="mobile-tabs-footer">
-    <div class="mobile-tabs-container">
-      <a href="/products" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'products' ? 'active' : '' %>">
-        Товары
-      </a>
-      <a href="/services" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'services' ? 'active' : '' %>">
-        Услуги
-      </a>
-      <a href="/ad" class="mobile-tab-button <%= '' %>">
-        Реклама
-      </a>
-      <a href="/about" class="mobile-tab-button <%= '' %>">
-        О Нас
-      </a>
-      <a href="/contacts" class="mobile-tab-button <%= '' %>">
-        Контакты
-      </a>
-      <a href="/videos" class="mobile-tab-button <%= typeof activeTab !== 'undefined' && activeTab === 'videos' ? 'active' : '' %>">
-        Видео
-      </a>
-    </div>
-  </footer>
+  <%- include('partials/mobile-tabs') %>
 
   <!-- Модальные окна чата для всех карточек -->
   <% if (services && services.length) { %>

@@ -169,6 +169,17 @@ router.post('/entitlements/purchase', requireAuth, apiCsrfProtection(), async (r
       });
     }
 
+    const { allowedCardType } = require('../utils/accountType');
+    const allowed = allowedCardType(req.user.accountType);
+    if (type !== allowed) {
+      return res.status(403).json({
+        success: false,
+        message: allowed === 'service'
+          ? 'Этот аккаунт может покупать права только на услуги'
+          : 'Этот аккаунт может покупать права только на рекламу'
+      });
+    }
+
     const User = require('../models/User');
     const { purchaseEntitlement } = require('../services/albaService');
 

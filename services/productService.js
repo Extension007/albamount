@@ -370,13 +370,20 @@ async function getProducts(filters = {}, options = {}) {
  * @returns {Promise<Object>} - Created product or error
  */
 async function createProductWithEntitlementCheck(data, files = [], user) {
-  const { type = 'product' } = data;
+  const { allowedCardType } = require("../utils/accountType");
 
   if (!user || !user.emailVerified) {
     throw new Error('User must be verified to create products');
   }
 
   const userId = user._id || user.id;
+  let accountType = user.accountType;
+  if (!accountType) {
+    const dbUser = await User.findByPk(userId, { attributes: ['accountType'] });
+    accountType = dbUser?.accountType || 'showcase';
+  }
+  const type = allowedCardType(accountType);
+  data.type = type;
 
   // One free card per type (product / service). Any existing non-deleted card
   // of that type means further creates require a purchased entitlement.

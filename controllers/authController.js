@@ -9,9 +9,14 @@ const { isUniqueConstraintError, getDuplicateFieldMessage } = require("../utils/
 exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
+    const { normalizeAccountType } = require("../utils/accountType");
+    const accountType = normalizeAccountType(req.body.accountType);
     if (!email || !password) {
       logger.error({ msg: 'register_missing_fields', email: !!email, password: !!password });
       return res.status(400).json({ success: false, message: "Email и пароль обязательны" });
+    }
+    if (!accountType) {
+      return res.status(400).json({ success: false, message: "Выберите тип аккаунта: Витрина или Услуги" });
     }
 
     const orConditions = [{ email }];
@@ -41,6 +46,7 @@ exports.register = async (req, res) => {
       email,
       password_hash: hashedPassword,
       role: "user",
+      accountType,
       emailVerified: false
     });
 
@@ -62,6 +68,7 @@ exports.register = async (req, res) => {
         {
           "Имя пользователя": user.username,
           Email: user.email,
+          "Тип аккаунта": accountType === "services" ? "Услуги" : "Реклама",
           "Дата регистрации": new Date().toLocaleString("ru-RU"),
           "ID пользователя": user.id
         }
@@ -117,7 +124,7 @@ exports.register = async (req, res) => {
 async function resolveUser(userId, includeRefresh = true) {
   const UserModel = require('../models/User');
   const freshUser = await UserModel.findByPk(userId, {
-    attributes: ['id', 'username', 'role', 'emailVerified', 'email']
+    attributes: ['id', 'username', 'role', 'emailVerified', 'email', 'accountType']
   });
   if (!freshUser) return null;
 
@@ -127,6 +134,7 @@ async function resolveUser(userId, includeRefresh = true) {
     role: freshUser.role,
     emailVerified: !!freshUser.emailVerified,
     email: freshUser.email || undefined,
+    accountType: freshUser.accountType || 'showcase',
   };
 
   const token = require('../config/jwt').generateToken(userPayload);

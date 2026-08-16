@@ -18,7 +18,8 @@ function buildAuthUser(freshUser) {
     id: freshUser.id,
     username: freshUser.username,
     role: freshUser.role,
-    emailVerified: freshUser.emailVerified
+    emailVerified: freshUser.emailVerified,
+    accountType: freshUser.accountType || 'showcase'
   };
 }
 
@@ -61,7 +62,7 @@ async function getUserFromRequestAsync(req) {
   try {
     const User = require('../models/User');
     const freshUser = await User.findByPk(userId, {
-      attributes: ['id', 'username', 'role', 'emailVerified']
+      attributes: ['id', 'username', 'role', 'emailVerified', 'accountType']
     });
 
     if (freshUser) {

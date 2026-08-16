@@ -207,16 +207,19 @@
       
       <!-- Вкладки -->
       <div class="tabs">
-        <button class="tab active" data-tab="products">Мои товары</button>
-        <button class="tab" data-tab="services">Мои услуги</button>
-        <button class="tab" data-tab="banners">Мои баннеры</button>
+        <% if (user.isShowcaseAccount) { %>
+          <button class="tab active" data-tab="products">Моя реклама</button>
+        <% } else { %>
+          <button class="tab active" data-tab="services">Мои услуги</button>
+        <% } %>
         <button class="tab" data-tab="alba">ALBA</button>
         <button class="tab" data-tab="create">Создать карточку</button>
       </div>
 
       <!-- Вкладка: Мои товары -->
+      <% if (user.isShowcaseAccount) { %>
       <div class="tab-content active" id="tab-products">
-        <h2>Мои товары</h2>
+        <h2>Моя реклама</h2>
         <% if (products && products.length > 0) { %>
           <div class="product-grid">
             <% products.forEach(product => { %>
@@ -225,14 +228,16 @@
           </div>
         <% } else { %>
           <div class="empty-state">
-            <p>У вас пока нет товаров.</p>
-            <button class="tab btn primary" data-tab="create" style="margin-top: 20px;">Создать товар</button>
+            <p>У вас пока нет рекламы.</p>
+            <button class="tab btn primary" data-tab="create" style="margin-top: 20px;">Создать рекламу</button>
           </div>
         <% } %>
       </div>
+      <% } %>
 
       <!-- Вкладка: Мои услуги -->
-      <div class="tab-content" id="tab-services">
+      <% if (!user.isShowcaseAccount) { %>
+      <div class="tab-content active" id="tab-services">
         <h2>Мои услуги</h2>
         <% if (services && services.length > 0) { %>
           <div class="product-grid">
@@ -247,23 +252,7 @@
           </div>
         <% } %>
       </div>
-
-      <!-- Вкладка: Мои баннеры -->
-      <div class="tab-content" id="tab-banners">
-        <h2>Мои баннеры</h2>
-        <% if (banners && banners.length > 0) { %>
-          <div class="product-grid">
-            <% banners.forEach(banner => { %>
-              <%- include('partials/card', { banner, itemType: 'banner', mode: 'user', user }) %>
-            <% }) %>
-          </div>
-        <% } else { %>
-          <div class="empty-state">
-            <p>У вас пока нет баннеров.</p>
-            <button class="tab btn primary" data-tab="create" style="margin-top: 20px;">Создать баннер</button>
-          </div>
-        <% } %>
-      </div>
+      <% } %>
 
       <!-- Вкладка: ALBA баланс -->
       <div class="tab-content" id="tab-alba">
@@ -331,14 +320,17 @@
         
         <!-- Форма создания товара/услуги -->
         <div id="createProductSection">
-          <h3>Товар или услуга</h3>
+          <h3><%= user.isShowcaseAccount ? 'Новая реклама' : 'Новая услуга' %></h3>
           <form id="createProductForm" class="form-grid" enctype="multipart/form-data" method="POST" action="/cabinet/product">
             <div class="form-section">
-              <label for="type">Тип публикации:</label>
-              <select id="type" name="type" required>
-                <option value="product">Товар</option>
-                <option value="service">Услуга</option>
-              </select>
+              <label>Тип публикации:</label>
+              <% if (user.isShowcaseAccount) { %>
+                <input type="hidden" name="type" value="product">
+                <p>Аккаунт рекламы — карточка витрины</p>
+              <% } else { %>
+                <input type="hidden" name="type" value="service">
+                <p>Аккаунт услуг — карточка услуги</p>
+              <% } %>
             </div>
             
             <input type="text" name="name" placeholder="Название" required>
@@ -391,26 +383,6 @@
           </form>
           <div id="createProductMsg" class="note" style="margin-top:10px;"></div>
         </div>
-
-        <!-- Форма создания баннера -->
-        <div id="createBannerSection" style="margin-top: 40px;">
-          <h3>Баннер рекламы</h3>
-          <p style="margin-bottom: 15px; color: #666;">Загрузите баннер для секции "Тут ваша реклама" на главной странице. Баннер будет отправлен на модерацию.</p>
-          <form id="createBannerForm" class="form-grid" enctype="multipart/form-data" method="POST" action="/cabinet/banner">
-            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-            <div class="form-section">
-              <label for="bannerImage">Изображение баннера:</label>
-              <input type="file" id="bannerImage" name="image" accept="image/*" required>
-              <div id="bannerPreview" class="image-preview-container" style="display: none; margin-top: 10px;">
-                <img id="bannerPreviewImg" src="" alt="Предпросмотр баннера" style="max-width: 100%; max-height: 300px; border-radius: 8px;">
-              </div>
-              <small class="form-hint">Максимальный размер файла: 5MB. Рекомендуемые размеры: 1200x400px</small>
-            </div>
-            <input type="url" name="link" placeholder="Ссылка для перехода (необязательно)">
-            <button type="submit" class="btn primary">Отправить на модерацию</button>
-          </form>
-          <div id="createBannerMsg" class="note" style="margin-top:10px;"></div>
-        </div>
       </div>
     </section>
   </main>
@@ -444,14 +416,17 @@
       <div style="margin-bottom: 20px; padding: 15px; background: rgba(255, 51, 51, 0.05); border-radius: 10px; border: 1px solid rgba(255, 51, 51, 0.2);">
         <h3 style="color: #ff9999; margin-bottom: 10px; font-size: 1.1rem;">Покупка дополнительных карточек</h3>
         <p style="color: #ccc; margin-bottom: 15px; font-size: 0.95rem; line-height: 1.5;">
-          Используйте ALBA для покупки права на создание дополнительных карточек товаров, услуг или баннеров.
+          Используйте ALBA для покупки права на создание дополнительных карточек.
         </p>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; color: #ff9999; margin-bottom: 8px; font-weight: 600;">Тип карточки:</label>
           <select id="cardType" style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid rgba(255, 51, 51, 0.3); border-radius: 8px; color: #fff;">
-            <option value="product" data-cost="30">Товар (30 ALBA)</option>
-            <option value="service" data-cost="30">Услуга (30 ALBA)</option>
+            <% if (user.isShowcaseAccount) { %>
+              <option value="product" data-cost="30">Реклама (30 ALBA)</option>
+            <% } else { %>
+              <option value="service" data-cost="30">Услуга (30 ALBA)</option>
+            <% } %>
           </select>
         </div>
 

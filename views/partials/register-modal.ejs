@@ -17,6 +17,19 @@
         <input type="password" id="reg-password" name="password" placeholder="Ваш пароль" autocomplete="new-password" minlength="6" required>
       </div>
       <div class="form-group">
+        <label>Тип аккаунта</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <label style="display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid rgba(255,51,51,.3);border-radius:8px;cursor:pointer;">
+            <input type="radio" name="accountType" value="showcase" required>
+            <span>Реклама<br><small style="opacity:.7">Витрина</small></span>
+          </label>
+          <label style="display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid rgba(255,51,51,.3);border-radius:8px;cursor:pointer;">
+            <input type="radio" name="accountType" value="services">
+            <span>Услуги<br><small style="opacity:.7">Услуги</small></span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
         <label for="reg-refCode">Реферальный код</label>
         <input type="text" id="reg-refCode" name="refCode" placeholder="Если у вас есть реферальный код">
       </div>

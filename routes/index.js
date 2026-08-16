@@ -66,12 +66,20 @@ router.use("/admin", require("./admin"));
 router.use("/api/categories", require("./categories"));
 
 // Страницы с вкладками
-router.use("/products", require("./products"));
+router.use("/ad", require("./products"));
+router.get("/products", (req, res) => {
+  const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  res.redirect(301, "/ad" + qs);
+});
 router.use("/services", require("./services"));
-router.use("/ad", require("./ad"));
-router.use("/about", require("./about"));
 router.use("/contacts", require("./contacts"));
-router.use("/videos", require("./videos"));
+
+router.get(["/about", "/videos", "/videos/new"], (req, res) => {
+  res.redirect(301, "/");
+});
+router.get(/^\/videos\/.+/, (req, res) => {
+  res.redirect(301, "/");
+});
 
 async function resolveCategoryDisplay(selected, hasDbAccess) {
   if (!selected || selected === "all") return "all";
@@ -224,7 +232,8 @@ router.get("/", async (req, res) => {
       categories,
       hierarchicalCategories: HIERARCHICAL_CATEGORIES,
       selectedCategory: selectedCategoryDisplay,
-      csrfToken: req.csrfToken ? req.csrfToken() : ''
+      csrfToken: req.csrfToken ? req.csrfToken() : '',
+      activeTab: "products"
     });
   } catch (err) {
     console.error("❌ Ошибка:", err);
