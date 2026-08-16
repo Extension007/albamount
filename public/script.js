@@ -93,7 +93,6 @@ function fillYoutubeIframe(iframe, videoId) {
   iframe.setAttribute('title', 'Видеообзор');
   iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
 }
-}
 
 // Функция для получения URL постера YouTube
 function getYoutubePosterUrl(url) {
