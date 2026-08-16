@@ -397,7 +397,7 @@ router.post("/products/:id/approve", requireAdmin, conditionalCsrfProtection, va
 });
 
 // Модерация: отклонить карточку
-router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, validateProductId, validateModeration, async (req, res) => {
+router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, validateProductId, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
@@ -413,7 +413,7 @@ router.post("/products/:id/reject", requireAdmin, conditionalCsrfProtection, val
     const shouldRefundAlba = wasPending && product.tier === 'paid';
 
     await Product.update(
-      { status: "rejected", adminComment, rejection_reason: rejectionReason },
+      { status: "rejected", adminComment, rejectionReason: rejectionReason },
       { where: { id: req.params.id } }
     );
     await product.reload();
@@ -524,7 +524,7 @@ router.post("/services/:id/approve", requireAdmin, conditionalCsrfProtection, va
 });
 
 // Модерация: отклонить услугу
-router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, validateServiceId, validateModeration, async (req, res) => {
+router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, validateServiceId, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
     const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
@@ -543,7 +543,7 @@ router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, val
     const shouldRefundAlba = wasPending && service.tier === 'paid';
 
     await Product.update(
-      { status: "rejected", adminComment, rejection_reason: rejectionReason },
+      { status: "rejected", adminComment, rejectionReason: rejectionReason },
       { where: { id: req.params.id } }
     );
     await service.reload();
@@ -578,10 +578,10 @@ router.post("/services/:id/reject", requireAdmin, conditionalCsrfProtection, val
       console.error('Ошибка при отправке уведомления администратору:', notificationError);
     }
 
-    res.json({
+    return respondModeration(req, res, {
       success: true,
       status: service.status,
-      rejection_reason: service.rejection_reason,
+      rejection_reason: service.rejectionReason || service.rejection_reason,
       albaRefunded: Boolean(albaRefund?.refunded)
     });
   } catch (err) {

@@ -526,24 +526,18 @@
 </footer>
 
 <!-- Модальное окно для отклонения -->
- <div id="rejectModal" class="modal" aria-hidden="true" style="display:none;">
- <div class="modal-content" role="dialog" aria-modal="true" aria-label="Отклонить карточку">
- <button class="close" data-close-reject aria-label="Закрыть">&times;</button>
- <h3 id="rejectModalTitle">Отклонить карточку</h3>
- <form id="rejectForm">
- <!-- Поля для видео -->
- <div id="videoRejectionFields" style="display:none;">
-   <textarea name="rejectionReason" placeholder="Причина отклонения" rows="4" required style="width:100%;padding:8px;border-radius:6px;border:1px solid #444;background:#2b2b2b;color:#fff;resize:vertical;"></textarea>
-   <textarea name="adminComment" placeholder="Комментарий администратора (необязательно)" rows="2" style="width:100%;padding:8px;border-radius:6px;border:1px solid #444;background:#2b2b2b;color:#fff;resize:vertical;margin-top:10px;"></textarea>
- </div>
- <!-- Поля для продуктов/услуг/баннеров -->
- <div id="generalRejectionFields" style="display:block;">
-   <textarea name="reason" placeholder="Причина отклонения (необязательно)" rows="4" style="width:100%;padding:8px;border-radius:6px;border:1px solid #444;background:#2b2b2b;color:#fff;resize:vertical;"></textarea>
- </div>
- <button type="submit" class="btn" style="margin-top:10px;">Отклонить</button>
- </form>
- </div>
- </div>
+<dialog id="rejectModal" class="reject-dialog">
+  <form id="rejectForm" method="POST">
+    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' && csrfToken ? csrfToken : '' %>">
+    <h3 id="rejectModalTitle">Отклонить карточку</h3>
+    <textarea name="rejectionReason" placeholder="Причина отклонения" rows="4" required></textarea>
+    <textarea name="adminComment" placeholder="Комментарий администратора (необязательно)" rows="2"></textarea>
+    <div class="reject-dialog-actions">
+      <button type="submit" class="btn">Отклонить</button>
+      <button type="button" class="btn outline" data-close-reject>Отмена</button>
+    </div>
+  </form>
+</dialog>
 
 <!-- FIX: Полноэкранный overlay для YouTube видео -->
 <div id="videoOverlay" class="video-overlay" aria-hidden="true" style="display:none;">
@@ -570,7 +564,7 @@
     });
   </script>
 
-  <script src="/script.js?v=1.0.1"></script>
+  <script src="/script.js?v=1.0.2"></script>
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     if (window.__ADMIN_BOOTSTRAP_DONE) return;
@@ -628,7 +622,24 @@
         e.preventDefault();
         e.stopPropagation();
         var url = btn.getAttribute('data-video');
-        if (url) window.open(url, '_blank', 'noopener');
+        var overlay = document.getElementById('videoOverlay');
+        var box = document.getElementById('videoIframeContainer');
+        if (!url || !overlay || !box) return;
+        var id = null;
+        var m = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?&/]+)/) || url.match(/\/embed\/([^?&/]+)/) || url.match(/\/shorts\/([^?&/]+)/);
+        if (m) id = m[1];
+        box.innerHTML = '';
+        var iframe = document.createElement('iframe');
+        iframe.src = id
+          ? ('https://www.youtube.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1')
+          : url;
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
+        box.appendChild(iframe);
+        overlay.classList.add('show');
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
       });
     });
 
@@ -684,76 +695,36 @@
 
     const rejectModal = document.getElementById('rejectModal');
     const rejectForm = document.getElementById('rejectForm');
-    let currentRejectId = null;
-    let currentRejectType = 'product';
 
     document.querySelectorAll('.reject-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        if (!rejectModal) return;
-        currentRejectId = btn.getAttribute('data-id');
-        currentRejectType = btn.getAttribute('data-type') || 'product';
-
-        const modalTitle = document.getElementById('rejectModalTitle');
-        if (modalTitle) {
-          modalTitle.textContent = currentRejectType === 'video' ? 'Отклонить видео' : 'Отклонить карточку';
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!rejectModal || !rejectForm) return;
+        const id = btn.getAttribute('data-id');
+        const itemType = btn.getAttribute('data-type') === 'service' ? 'services' : 'products';
+        rejectForm.action = '/admin/' + itemType + '/' + id + '/reject';
+        const title = document.getElementById('rejectModalTitle');
+        if (title) title.textContent = 'Отклонить карточку';
+        if (typeof rejectModal.showModal === 'function') {
+          if (!rejectModal.open) rejectModal.showModal();
+        } else {
+          rejectModal.style.display = 'block';
         }
-
-        const videoFields = document.getElementById('videoRejectionFields');
-        const generalFields = document.getElementById('generalRejectionFields');
-        if (videoFields && generalFields) {
-          videoFields.style.display = currentRejectType === 'video' ? 'block' : 'none';
-          generalFields.style.display = currentRejectType === 'video' ? 'none' : 'block';
-        }
-
-        rejectModal.style.display = 'block';
-        rejectModal.setAttribute('aria-hidden', 'false');
       });
     });
 
     const closeRejectBtn = document.querySelector('[data-close-reject]');
     if (closeRejectBtn) {
       closeRejectBtn.addEventListener('click', function() {
-        rejectModal.style.display = 'none';
-        rejectModal.setAttribute('aria-hidden', 'true');
+        if (rejectModal && typeof rejectModal.close === 'function') rejectModal.close();
+        else if (rejectModal) rejectModal.style.display = 'none';
         if (rejectForm) rejectForm.reset();
-        currentRejectId = null;
-        currentRejectType = 'product';
-      });
-    }
-
-    if (rejectForm) {
-      rejectForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (!currentRejectId) return;
-        try {
-          let rejectEndpoint;
-          if (currentRejectType === 'service') rejectEndpoint = '/admin/services/' + currentRejectId + '/reject';
-          else rejectEndpoint = '/admin/products/' + currentRejectId + '/reject';
-
-          const formData = new FormData(rejectForm);
-          const reasonText = (formData.get('reason') || formData.get('rejectionReason') || 'Несоответствие правилам публикации').toString().trim();
-          const adminCommentText = (formData.get('adminComment') || 'Отклонено администратором').toString().trim();
-          const payload = {
-            rejectionReason: reasonText || 'Несоответствие правилам публикации',
-            adminComment: adminCommentText || 'Отклонено администратором',
-            reason: reasonText || 'Несоответствие правилам публикации'
-          };
-
-          const result = await postJSON(rejectEndpoint, payload);
-          if (result.json.success) {
-            alert('Карточка отклонена');
-            location.reload();
-          } else {
-            alert('Ошибка: ' + (result.json.message || ('HTTP ' + result.status)));
-          }
-        } catch (err) {
-          alert('Ошибка сети: ' + err.message);
-        }
       });
     }
   });
   </script>
-
+<style>
 .moderation-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
@@ -831,6 +802,35 @@ top: 10px;
 }
 .close:hover {
   color: #fff;
+}
+
+.reject-dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 22px;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  background: #122018;
+  color: #fff;
+}
+.reject-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+.reject-dialog textarea {
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #2b2b2b;
+  color: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.reject-dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 </style>

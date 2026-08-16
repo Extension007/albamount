@@ -188,6 +188,14 @@ let imageModalTotal = document.getElementById('imageModalTotal');
 let imageModalTitle = document.getElementById('imageModalTitle');
 
 document.addEventListener("DOMContentLoaded", () => {
+  videoOverlay = document.getElementById('videoOverlay');
+  videoIframeContainer = document.getElementById('videoIframeContainer');
+  imageOverlay = document.getElementById('imageOverlay');
+  imageModal = document.getElementById('imageModal');
+  imageModalImage = document.getElementById('imageModalImage');
+  imageModalCurrent = document.getElementById('imageModalCurrent');
+  imageModalTotal = document.getElementById('imageModalTotal');
+  imageModalTitle = document.getElementById('imageModalTitle');
   console.log('🔄 DOM загружен, инициализация скрипта...');
   console.log('🌐 Текущий URL:', window.location.href);
   console.log('📊 User Agent:', navigator.userAgent);
@@ -247,103 +255,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Создание YouTube iframe с использованием YouTube IFrame API
   function createYouTubeIframe(videoId) {
-    if (!videoId || !videoIframeContainer) {
-      console.error('❌ createYouTubeIframe: отсутствует videoId или videoIframeContainer');
-      if (currentVideoUrl) {
-        window.open(currentVideoUrl, '_blank');
-      }
-      closeVideoOverlay();
-      return;
-    }
+    videoOverlay = document.getElementById('videoOverlay');
+    videoIframeContainer = document.getElementById('videoIframeContainer');
+    if (!videoId || !videoIframeContainer) return;
 
-    // Сбрасываем флаги воспроизведения
-    isPlaying = false;
-    isPaused = false;
-
-    // Уничтожаем предыдущий плеер, если он существует
-    if (youtubePlayer) {
-      try {
-        youtubePlayer.destroy();
-        console.log('🗑️ Предыдущий YouTube плеер уничтожен');
-      } catch (e) {
-        console.warn('⚠️ Ошибка при уничтожении предыдущего плеера:', e);
-      }
-      youtubePlayer = null;
-    }
-
-    // Очищаем контейнер
     videoIframeContainer.innerHTML = '';
-
-    // Проверяем, что overlay видим перед созданием плеера
-    if (!videoOverlay || videoOverlay.style.display === 'none' || !videoOverlay.classList.contains('show')) {
-      console.error('❌ Overlay не виден, невозможно создать YouTube плеер');
-      if (currentVideoUrl) {
-        window.open(currentVideoUrl, '_blank');
-      }
-      closeVideoOverlay();
-      return;
-    }
-
-    // Проверяем размеры контейнера
-    const containerRect = videoIframeContainer.getBoundingClientRect();
-    console.log('📐 Размеры контейнера перед созданием плеера:', {
-      width: containerRect.width,
-      height: containerRect.height,
-      visible: containerRect.width > 0 && containerRect.height > 0
-    });
-
-    if (containerRect.width === 0 || containerRect.height === 0) {
-      console.error('❌ Контейнер имеет нулевые размеры, невозможно создать плеер');
-      setTimeout(() => {
-        createYouTubeIframe(videoId);
-      }, 100);
-      return;
-    }
-
-    try {
-      console.log('🎬 Создание YouTube плеера через IFrame API:', videoId);
-
-      youtubePlayer = new YT.Player(videoIframeContainer, {
-        videoId: videoId,
-        width: '100%',
-        height: '100%',
-        playerVars: {
-          'autoplay': 0,
-          'playsinline': 1,
-          'controls': 1,
-          'rel': 0,
-          'enablejsapi': 1,
-          'origin': window.location.origin,
-          'modestbranding': 1
-        },
-        events: {
-          'onReady': function(event) {
-            console.log('✅ YouTube плеер готов');
-            currentVideoIframe = videoIframeContainer.querySelector('iframe');
-          },
-          'onError': function(event) {
-            console.error('❌ Ошибка YouTube плеера:', event.data);
-            if (currentVideoUrl) {
-              window.open(currentVideoUrl, '_blank');
-            }
-            closeVideoOverlay();
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Ошибка создания YouTube IFrame API плеера:', error);
-      if (currentVideoUrl) {
-        window.open(currentVideoUrl, '_blank');
-      }
-      closeVideoOverlay();
-    }
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&playsinline=1';
+    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('title', 'Видеообзор');
+    iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
+    videoIframeContainer.appendChild(iframe);
+    currentVideoIframe = iframe;
   }
 
-  // Глобальная функция для обработки готовности YouTube IFrame API
-  window.onYouTubeIframeAPIReady = function() {
-    console.log('✅ YouTube IFrame API загружен');
-  };
+  window.onYouTubeIframeAPIReady = function() {};
 
   // Создание VK iframe
   function createVkIframe(url) {
@@ -762,53 +689,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (videoType === 'youtube') {
           const videoId = extractVideoId(videoUrl);
-          if (!videoId) {
-            console.warn('⚠️ Не удалось извлечь videoId из URL:', videoUrl);
-            window.open(videoUrl, '_blank');
+          videoOverlay = document.getElementById('videoOverlay');
+          videoIframeContainer = document.getElementById('videoIframeContainer');
+          if (!videoId || !videoOverlay || !videoIframeContainer) {
             return false;
           }
 
-          if (!videoOverlay || !videoIframeContainer) {
-            console.error('❌ Video overlay elements not found');
-            window.open(videoUrl, '_blank');
-            return false;
-          }
-
-          // Очищаем предыдущий контент
-          if (currentVideoIframe) {
-            try {
-              currentVideoIframe.src = '';
-            } catch (e) {
-              // Игнорируем ошибки
-            }
-            currentVideoIframe = null;
-          }
-          if (youtubePlayer) {
-            try {
-              youtubePlayer.destroy();
-            } catch (e) {
-              // Игнорируем ошибки
-            }
-            youtubePlayer = null;
-          }
           videoIframeContainer.innerHTML = '';
-
-          // Показываем overlay
           videoOverlay.classList.add('show');
           videoOverlay.setAttribute('aria-hidden', 'false');
           videoOverlay.style.display = 'flex';
           document.body.style.overflow = 'hidden';
-
           currentVideoUrl = videoUrl;
-
-          // Создаём плеер
-          if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
-            console.warn('⚠️ YouTube API не загружен');
-            window.open(videoUrl, '_blank');
-            closeVideoOverlay();
-          } else {
-            createYouTubeIframe(videoId);
-          }
+          createYouTubeIframe(videoId);
         } else if (videoType === 'vk') {
           if (!videoOverlay || !videoIframeContainer) {
             console.error('❌ Video overlay elements not found');
@@ -841,8 +734,21 @@ document.addEventListener("DOMContentLoaded", () => {
             window.open(videoUrl, '_blank');
           });
         } else {
-          console.warn('⚠️ Неизвестный тип видео:', videoType);
-          window.open(videoUrl, '_blank');
+          videoOverlay = document.getElementById('videoOverlay');
+          videoIframeContainer = document.getElementById('videoIframeContainer');
+          if (!videoOverlay || !videoIframeContainer) return false;
+          videoIframeContainer.innerHTML = '';
+          const iframe = document.createElement('iframe');
+          iframe.src = videoUrl;
+          iframe.setAttribute('allow', 'autoplay; fullscreen');
+          iframe.setAttribute('allowfullscreen', '');
+          iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
+          videoIframeContainer.appendChild(iframe);
+          videoOverlay.classList.add('show');
+          videoOverlay.style.display = 'flex';
+          videoOverlay.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+          currentVideoUrl = videoUrl;
         }
       }
       return false;
