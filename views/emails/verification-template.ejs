@@ -1,7 +1,7 @@
 <%- include('partials/email-start', { subject, preheader, logoUrl }) %>
 <div style="padding: 0 28px 26px; font-family: 'Poppins', Arial, sans-serif; background: linear-gradient(180deg, #0f0f10, #141418);">
-  <div style="padding: 20px; border: 1px solid rgba(255,51,51,0.35); border-radius: 14px; background: rgba(255,51,51,0.04); box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
-    <h1 style="margin: 0 0 14px; font-size: 24px; color: #ff4d4d; text-align: center; font-weight: 700; letter-spacing: 0.6px;">
+  <div style="padding: 20px; border: 1px solid rgba(31,138,90,0.35); border-radius: 14px; background: rgba(31,138,90,0.04); box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+    <h1 style="margin: 0 0 14px; font-size: 24px; color: #e6c96a; text-align: center; font-weight: 700; letter-spacing: 0.6px;">
       Добро пожаловать в ALBAMOUNT
     </h1>
     <p style="margin: 0 0 12px; font-size: 15px; line-height: 1.7; color: #e5e7eb; text-align: center;">
@@ -9,20 +9,20 @@
     </p>
     <div style="text-align: center; margin: 22px 0 12px;">
       <a href="<%= verificationLink %>" target="_blank"
-         style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #ff3333, #ff6b6b); color: #fff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; letter-spacing: 0.3px; box-shadow: 0 10px 25px rgba(255, 51, 51, 0.35);">
+         style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #1f8a5a, #c9a227); color: #fff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; letter-spacing: 0.3px; box-shadow: 0 10px 25px rgba(31, 138, 90, 0.35);">
         Подтвердить email
       </a>
     </div>
     <p style="margin: 14px 0 10px; font-size: 13px; color: #9ca3af; text-align: center;">
       Если кнопка не работает, скопируйте ссылку:
     </p>
-    <p style="margin: 0; padding: 12px; font-size: 13px; word-break: break-all; color: #d1d5db; text-align: center; background: rgba(255,51,51,0.06); border: 1px dashed rgba(255,51,51,0.4); border-radius: 10px;">
+    <p style="margin: 0; padding: 12px; font-size: 13px; word-break: break-all; color: #d1d5db; text-align: center; background: rgba(31,138,90,0.06); border: 1px dashed rgba(31,138,90,0.4); border-radius: 10px;">
       <a href="<%= verificationLink %>" style="color: #ff8f8f; text-decoration: none;"><%= verificationLink %></a>
     </p>
-    <div style="margin: 18px 0 0; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,51,51,0.25); background: rgba(255,51,51,0.08); text-align: center; color: #fca5a5; font-size: 13px;">
+    <div style="margin: 18px 0 0; padding: 12px; border-radius: 10px; border: 1px solid rgba(31,138,90,0.25); background: rgba(31,138,90,0.08); text-align: center; color: #e8d5a3; font-size: 13px;">
       Ссылка действует <%= validityPeriod %> и работает один раз.
     </div>
-    <div style="margin: 22px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,51,51,0.2);">
+    <div style="margin: 22px 0 0; padding-top: 14px; border-top: 1px solid rgba(31,138,90,0.2);">
       <p style="margin: 0 0 8px; font-size: 14px; color: #d1d5db; text-align: center;">
         После подтверждения вы сможете:
       </p>

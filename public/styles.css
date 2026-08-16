@@ -1,28 +1,31 @@
-/* === GLOBAL FIX === */
+/* === GLOBAL FIX ===
+   Тема: изумруд + золото + кремовый.
+   Откат: фон /bg-scene-classic.png и красный акцент #ff3333 / #ff0000.
+*/
 :root {
   --color-bg: transparent;
-  --color-surface: rgba(16, 16, 20, 0.42);
-  --color-surface-alt: rgba(26, 26, 32, 0.55);
-  --color-glass: rgba(14, 14, 18, 0.32);
-  --color-glass-strong: rgba(10, 10, 14, 0.78);
-  --color-text: #ffffff;
-  --color-muted: #999999;
-  --color-accent: #ff3333;
-  --color-accent-strong: #ff0000;
-  --color-accent-soft: rgba(255, 51, 51, 0.2);
+  --color-surface: rgba(12, 28, 22, 0.48);
+  --color-surface-alt: rgba(18, 36, 28, 0.62);
+  --color-glass: rgba(10, 24, 18, 0.38);
+  --color-glass-strong: rgba(8, 18, 14, 0.82);
+  --color-text: #f6f1e4;
+  --color-muted: #b7c4b6;
+  --color-accent: #1f8a5a;
+  --color-accent-strong: #c9a227;
+  --color-accent-soft: rgba(31, 138, 90, 0.22);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 15px;
-  --shadow-accent: 0 0 10px rgba(255, 0, 0, 0.35), 0 0 22px rgba(255, 0, 0, 0.2);
-  --shadow-card: 0 0 8px rgba(255, 0, 0, 0.4);
-  --border-accent: 1px solid rgba(255, 0, 0, 0.25);
-  --btn-bg: linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
-  --btn-bg-outline: linear-gradient(#2e0b0b, #2e0b0b) padding-box,
-    linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
+  --shadow-accent: 0 0 10px rgba(31, 138, 90, 0.35), 0 0 22px rgba(201, 162, 39, 0.18);
+  --shadow-card: 0 0 8px rgba(31, 138, 90, 0.35);
+  --border-accent: 1px solid rgba(201, 162, 39, 0.35);
+  --btn-bg: linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
+  --btn-bg-outline: linear-gradient(#0a1f16, #0a1f16) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   --btn-radius: var(--radius-md);
   --btn-shadow: var(--shadow-accent);
-  --btn-shadow-hover: 0 0 14px rgba(255, 0, 0, 0.55), 0 0 28px rgba(255, 0, 0, 0.28);
+  --btn-shadow-hover: 0 0 14px rgba(201, 162, 39, 0.45), 0 0 28px rgba(31, 138, 90, 0.28);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,10 +33,10 @@
 html, body { height: 100%; margin: 0; }
 
 html {
-  background-color: #07060a;
+  background-color: #06140e;
   background-image:
-    linear-gradient(180deg, rgba(8, 6, 12, 0.28) 0%, rgba(6, 5, 10, 0.55) 100%),
-    url("/bg-scene.png");
+    linear-gradient(180deg, rgba(8, 32, 22, 0.5) 0%, rgba(6, 16, 12, 0.72) 100%),
+    url("/bg-scene-emerald.png");
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
@@ -67,8 +70,8 @@ body.admin-page.loaded #bg-animated{
   z-index:-1;
   background-color: transparent;
   background-image:
-    linear-gradient(180deg, rgba(8, 6, 12, 0.22) 0%, rgba(6, 5, 10, 0.5) 100%),
-    url("/bg-scene.png");
+    linear-gradient(180deg, rgba(8, 32, 22, 0.42) 0%, rgba(6, 16, 12, 0.62) 100%),
+    url("/bg-scene-emerald.png");
   background-repeat:no-repeat;
   background-position:center center;
   background-size:cover;
@@ -96,7 +99,7 @@ input[type="number"],
 select,
 textarea {
   background: var(--color-surface-alt);
-  border: 1px solid rgba(255, 51, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font-family: inherit;
@@ -112,7 +115,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 8px rgba(255, 51, 51, 0.3);
+  box-shadow: 0 0 8px rgba(31, 138, 90, 0.3);
 }
 
 /* Максимально яркий белый цвет для всех текстов */
@@ -123,7 +126,7 @@ textarea:focus {
 /* Шапка */
 .main-header {
   background: linear-gradient(to top, transparent, rgba(8, 8, 12, 0.28));
-  border-bottom: 1px solid rgba(255,0,0,0.25);
+  border-bottom: 1px solid rgba(31, 138, 90,0.25);
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
   position: fixed;
   top: 0;
@@ -141,7 +144,7 @@ textarea:focus {
   left: 0;
   right: 0;
   background: linear-gradient(to bottom, transparent, rgba(12, 8, 8, 0.35));
-  border-top: 1px solid rgba(255,0,0,0.25);
+  border-top: 1px solid rgba(31, 138, 90,0.25);
   box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
   z-index: 1000;
   padding: 8px 0;
@@ -169,17 +172,17 @@ textarea:focus {
    text-align: center;
    border-radius: 10px;
    border: 2px solid transparent;
-   box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 0 22px rgba(255, 0, 0, 0.2);
+   box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 0 22px rgba(31, 138, 90, 0.2);
 }
 
 .mobile-tab-button:hover {
   color: #fff;
-  background: rgba(255, 51, 51, 0.1);
+  background: rgba(31, 138, 90, 0.1);
 }
 
 .mobile-tab-button.active {
-  color: #ff3333;
-  background: rgba(255, 51, 51, 0.1);
+  color: var(--color-accent);
+  background: rgba(31, 138, 90, 0.1);
 }
 
 .mobile-tab-button.active::after {
@@ -189,7 +192,7 @@ textarea:focus {
    left: 0;
    right: 0;
    height: 2px;
-   background: #ff3333;
+   background: var(--color-accent);
    border-radius: 0 0 8px 8px;
 }
 
@@ -619,12 +622,12 @@ textarea:focus {
   align-items: center;
   gap: 20px;
 }
-.logo { font-size: 1.2rem; color: #ff3333; font-weight: 800; text-decoration: none; letter-spacing: 1px; display: flex; align-items: center; }
+.logo { font-size: 1.2rem; color: var(--color-accent); font-weight: 800; text-decoration: none; letter-spacing: 1px; display: flex; align-items: center; }
 .logo-img { height: 40px; width: auto; max-width: 120px; }
 .nav { flex: 1; display: flex; justify-content: center; }
 .nav-list { display: flex; align-items: center; gap: 20px; list-style: none; }
 .nav-link { color: #eee; text-decoration: none; font-size: 0.98rem; padding: 0 12px; height: 36px; display: inline-flex; align-items: center; border-radius: 8px; }
-.nav-link:hover, .nav-link:focus-visible { color: #fff; background: rgba(255,0,0,0.12); }
+.nav-link:hover, .nav-link:focus-visible { color: #fff; background: rgba(31, 138, 90,0.12); }
 .header-stats { 
   display: flex; 
   align-items: center; 
@@ -659,7 +662,7 @@ textarea:focus {
   background: rgba(20, 20, 24, 0.35);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,0,0.25);
+  border-bottom: 1px solid rgba(201, 162, 39, 0.28);
   position: relative;
   z-index: 999;
 }
@@ -690,11 +693,11 @@ textarea:focus {
 
 .tab-button:hover {
   color: #fff;
-  background: rgba(255, 51, 51, 0.1);
+  background: rgba(31, 138, 90, 0.1);
 }
 
 .tab-button.active {
-  color: #ff3333;
+  color: var(--color-accent);
   background: #111;
 }
 
@@ -705,7 +708,7 @@ textarea:focus {
   left: 0;
   right: 0;
   height: 2px;
-  background: #ff3333;
+  background: var(--color-accent);
 }
 
 /* Адаптивность для мобильных устройств */
@@ -811,9 +814,9 @@ textarea:focus {
 .btn {
   /* Внутри — тускло‑красный фон */
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
+    linear-gradient(#0d281c, #0d281c) padding-box,
     /* Снаружи — градиентная обводка/свечение */
-    linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: var(--color-text);
   border: 2px solid transparent;
   padding: 8px 14px;
@@ -831,21 +834,21 @@ textarea:focus {
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
 }
 .btn:hover {
-  box-shadow: 0 0 14px rgba(255, 0, 0, 0.55), 0 0 28px rgba(255, 0, 0, 0.28);
+  box-shadow: 0 0 14px rgba(31, 138, 90, 0.55), 0 0 28px rgba(31, 138, 90, 0.28);
   transform: translateY(-1px);
   filter: brightness(1.03);
 }
 .btn.primary {
   /* Тот же стиль — единый визуал для всех кнопок */
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
+    linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
 }
 .btn.outline {
   /* Outline теперь также имеет градиентный контур и тусклый красный внутри */
   background:
-    linear-gradient(#2e0b0b, #2e0b0b) padding-box,
-    linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
+    linear-gradient(#0a1f16, #0a1f16) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: var(--color-text);
 }
 .btn.small { padding: 6px 10px; font-size: 0.9rem; }
@@ -877,7 +880,7 @@ textarea:focus {
 .btn:disabled {
   opacity: .65;
   cursor: default;
-  box-shadow: 0 0 6px rgba(255, 0, 0, 0.22);
+  box-shadow: 0 0 6px rgba(31, 138, 90, 0.22);
   filter: none;
   transform: none;
 }
@@ -886,9 +889,9 @@ textarea:focus {
 button {
  /* Внутри — тускло‑красный фон */
  background:
-   linear-gradient(#3a0e0e, #3a0e0e) padding-box,
+   linear-gradient(#0d281c, #0d281c) padding-box,
    /* Снаружи — градиентная обводка/свечение */
-   linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
+   linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
  color: var(--color-text);
  border: 2px solid transparent;
  padding: 8px 14px;
@@ -907,7 +910,7 @@ button {
 }
 
 button:hover {
- box-shadow: 0 14px rgba(255, 0, 0, 0.55), 0 28px rgba(255, 0, 0, 0.28);
+ box-shadow: 0 14px rgba(31, 138, 90, 0.55), 0 28px rgba(31, 138, 90, 0.28);
  transform: translateY(-1px);
  filter: brightness(1.03);
 }
@@ -915,7 +918,7 @@ button:hover {
 button:disabled {
  opacity: .65;
  cursor: default;
- box-shadow: 0 0 6px rgba(255, 0, 0, 0.22);
+ box-shadow: 0 0 6px rgba(31, 138, 90, 0.22);
  filter: none;
  transform: none;
 }
@@ -924,8 +927,8 @@ button:disabled {
 .btn-edit, .btn-delete, .btn-publish, .btn-block, .btn-link, .btn-outline {
   /* Убедимся, что они тоже используют общий стиль */
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   padding: 8px 14px;
@@ -938,15 +941,15 @@ button:disabled {
   gap: 6px;
   height: 36px;
   line-height: 1;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 0 22px rgba(255, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 0 22px rgba(31, 138, 90, 0.2);
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
 }
 
 /* Специфичные классы кнопок из карточек товаров */
 .product-actions button, .item-actions button {
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   padding: 8px 14px;
@@ -959,15 +962,15 @@ button:disabled {
   gap: 6px;
   height: 36px;
   line-height: 1;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 22px rgba(255, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 22px rgba(31, 138, 90, 0.2);
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
 }
 
 /* Кнопки рейтинга */
 .btn-rating, .product-like-btn, .product-dislike-btn, .like-btn, .dislike-btn {
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   padding: 8px 14px;
@@ -980,15 +983,15 @@ button:disabled {
   gap: 6px;
   height: 36px;
   line-height: 1;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 22px rgba(255, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 22px rgba(31, 138, 90, 0.2);
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
 }
 
 /* Кнопки чата */
 .chat-btn, .chat-send-btn {
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   padding: 8px 14px;
@@ -1001,11 +1004,11 @@ button:disabled {
   gap: 6px;
   height: 36px;
   line-height: 1;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 22px rgba(255, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 22px rgba(31, 138, 90, 0.2);
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
 }
 
-.user-chip { background: rgba(255,0,0,0.15); color: #ff9999; padding: 6px 10px; border-radius: 999px; font-size: .9rem; }
+.user-chip { background: rgba(31, 138, 90,0.15); color: #e8d5a3; padding: 6px 10px; border-radius: 999px; font-size: .9rem; }
 
 /* Секции */
 .section {
@@ -1017,8 +1020,8 @@ button:disabled {
   border-radius: 15px;
   max-width: 1400px;
   width: 96%;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.28), 0 0 20px rgba(255, 0, 0, 0.12);
-  border: 1px solid rgba(255, 51, 51, 0.18);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.28), 0 0 20px rgba(31, 138, 90, 0.12);
+  border: 1px solid rgba(31, 138, 90, 0.18);
   position: relative;
 }
 
@@ -1036,9 +1039,9 @@ button:disabled {
   right: 0; /* Прикрепляем к правой стороне кнопки */
   top: calc(100% + 6px); /* Размещаем сразу под кнопкой */
   background: #111;
-  border: 1px solid rgba(255,0,0,0.25);
+  border: 1px solid rgba(31, 138, 90,0.25);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(255,0,0,0.2) inset;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(31, 138, 90,0.2) inset;
   min-width: 200px;
   width: max-content; /* Ширина по содержимому */
   max-width: 100%; /* Не выходит за пределы родительского контейнера */
@@ -1081,9 +1084,9 @@ button:disabled {
   right: 0;
   top: calc(100% + 6px);
   background: #111;
-  border: 1px solid rgba(255,0,0,0.25);
+  border: 1px solid rgba(31, 138, 90,0.25);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(255,0,0,0.2) inset;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(31, 138, 90,0.2) inset;
   min-width: 220px;
   padding: 8px;
   display: none;
@@ -1094,21 +1097,21 @@ button:disabled {
   width: 100%;
   text-align: left;
   background:
-    linear-gradient(#2e0b0b, #2e0b0b) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0a1f16, #0a1f16) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   border-radius: 8px;
   padding: 10px 12px;
   cursor: pointer;
   /* Добавляем те же стили эффекта при наведении, что и у кнопки .btn.outline */
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 0 22px rgba(255, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 0 22px rgba(31, 138, 90, 0.2);
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
 }
 .dropdown-item + .dropdown-item { margin-top: 8px; }
 .dropdown-item:hover {
   filter: brightness(1.05);
-  box-shadow: 0 0 14px rgba(255, 0, 0, 0.55), 0 0 28px rgba(255, 0, 0, 0.28);
+  box-shadow: 0 0 14px rgba(31, 138, 90, 0.55), 0 0 28px rgba(31, 138, 90, 0.28);
   transform: translateY(-1px);
 }
 
@@ -1133,7 +1136,7 @@ button:disabled {
   background: var(--color-surface);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 51, 51, 0.16);
+  border: 1px solid rgba(31, 138, 90, 0.16);
   border-radius: var(--radius-md);
   padding: 15px;
   text-align: center;
@@ -1144,7 +1147,7 @@ button:disabled {
   position: relative;
 }
 .product-card:hover {
-  box-shadow: 0 0 16px rgba(255,0,0,0.7);
+  box-shadow: 0 0 16px rgba(31, 138, 90,0.7);
   transform: translateY(-2px);
 }
 
@@ -1157,8 +1160,8 @@ button:disabled {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(255, 51, 51, 0.3);
-  border: 2px solid rgba(255, 51, 51, 0.7);
+  background: rgba(31, 138, 90, 0.3);
+  border: 2px solid rgba(31, 138, 90, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1167,7 +1170,7 @@ button:disabled {
   transition: all 0.2s ease;
   font-size: 16px;
   font-weight: 700;
-  color: #ff3333;
+  color: var(--color-accent);
   font-style: italic;
   /* Анимация мигания (полный цикл 2 секунды) */
   animation: blink 2s ease-in-out infinite;
@@ -1197,8 +1200,8 @@ button:disabled {
 }
 
 .product-info-icon:hover {
-  background: rgba(255, 51, 51, 0.5);
-  border-color: #ff3333;
+  background: rgba(31, 138, 90, 0.5);
+  border-color: var(--color-accent);
   transform: scale(1.1);
   animation: none; /* Останавливаем мигание при наведении */
 }
@@ -1343,7 +1346,7 @@ button:disabled {
 }
 
 .slider-arrow:hover {
-  background: rgba(255, 51, 51, 0.8);
+  background: rgba(31, 138, 90, 0.8);
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -1376,7 +1379,7 @@ button:disabled {
 }
 
 .slider-indicator.active {
-  background: #ff3333;
+  background: var(--color-accent);
   width: 24px;
   border-radius: 4px;
 }
@@ -1386,15 +1389,15 @@ button:disabled {
   margin-bottom: 12px;
   text-align: left;
   padding: 10px;
-  background: rgba(255, 51, 51, 0.05);
+  background: rgba(31, 138, 90, 0.05);
   border-radius: 8px;
-  border: 1px solid rgba(255, 51, 51, 0.2);
+  border: 1px solid rgba(31, 138, 90, 0.2);
 }
 
 .product-contacts-title {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #ff9999;
+  color: #e8d5a3;
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1418,14 +1421,14 @@ button:disabled {
 }
 
 .contact-link {
-  color: #ff9999;
+  color: #e8d5a3;
   text-decoration: none;
   word-break: break-all;
   transition: color 0.2s ease;
 }
 
 .contact-link:hover {
-  color: #ff3333;
+  color: var(--color-accent);
   text-decoration: underline;
 }
 
@@ -1433,7 +1436,7 @@ button:disabled {
 .contacts-title {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #ff3333;
+  color: var(--color-accent);
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1451,14 +1454,14 @@ button:disabled {
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: #ff9999;
+  color: #e8d5a3;
   text-decoration: none;
   word-break: break-all;
   transition: color 0.2s ease;
 }
 
 .contact-item:hover {
-  color: #ff3333;
+  color: var(--color-accent);
   text-decoration: underline;
 }
 
@@ -1466,12 +1469,12 @@ button:disabled {
 .contact-method {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 51, 51, 0.2);
+  border-top: 1px solid rgba(31, 138, 90, 0.2);
 }
 
 .contact-method-label {
   font-weight: 600;
-  color: #ff3333;
+  color: var(--color-accent);
   font-size: 0.85rem;
   margin-right: 6px;
 }
@@ -1500,7 +1503,7 @@ button:disabled {
   padding: 20px;
   background: #2a2a2a;
   border-radius: 12px;
-  border: 1px solid rgba(255, 51, 51, 0.2);
+  border: 1px solid rgba(31, 138, 90, 0.2);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -1511,7 +1514,7 @@ button:disabled {
 .product-description-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #ff9999;
+  color: #e8d5a3;
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1799,7 +1802,7 @@ button:disabled {
 }
 
 .image-overlay-close:hover {
-  background: rgba(255, 51, 51, 0.8);
+  background: rgba(31, 138, 90, 0.8);
   transform: scale(1.1);
 }
 
@@ -1823,7 +1826,7 @@ button:disabled {
 }
 
 .image-overlay-nav:hover {
-  background: rgba(255, 51, 51, 0.8);
+  background: rgba(31, 138, 90, 0.8);
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -1841,7 +1844,7 @@ button:disabled {
 }
 
 .product-card .price {
-  color: #ff3333;
+  color: var(--color-accent);
   font-weight: 700;
   font-size: 1rem;
   margin-bottom: 12px;
@@ -1870,7 +1873,7 @@ button:disabled {
   padding: 20px;
   background: linear-gradient(to bottom, transparent, rgba(17, 17, 17, 0.8));
   color: #fff;
-  box-shadow: 0 -2px 10px rgba(255,0,0,0.5); /* тень сверху, как у шапки */
+  box-shadow: 0 -2px 10px rgba(31, 138, 90,0.5); /* тень сверху, как у шапки */
   font-size: 2.25rem;
 }
 
@@ -1941,7 +1944,7 @@ body::after {
   border-radius: 10px;
   width: 90%;
   max-width: 900px;
-  box-shadow: 0 0 20px #ff3333;
+  box-shadow: 0 0 20px var(--color-accent);
   position: relative;
 }
 
@@ -2033,7 +2036,7 @@ body::after {
   right: 14px;
 }
 .modal .close:hover {
-  color: #ff3333;
+  color: var(--color-accent);
 }
 
 /* Модальное окно описания товара - больший размер */
@@ -2152,8 +2155,8 @@ body::after {
 }
 
 .image-nav-btn:hover {
-  background: rgba(255, 51, 51, 0.8);
-  border-color: #ff3333;
+  background: rgba(31, 138, 90, 0.8);
+  border-color: var(--color-accent);
   transform: scale(1.1);
 }
 
@@ -2178,8 +2181,8 @@ body::after {
 }
 
 .image-modal .close:hover {
-  background: rgba(255, 51, 51, 0.8);
-  border-color: #ff3333;
+  background: rgba(31, 138, 90, 0.8);
+  border-color: var(--color-accent);
   transform: scale(1.1);
 }
 
@@ -2235,7 +2238,7 @@ body::after {
 
 .product-rating .rating-value {
   font-weight: 700;
-  color: #ff3333;
+  color: var(--color-accent);
   font-size: 1.1rem;
 }
 
@@ -2257,7 +2260,7 @@ body::after {
   width: 100%;
   padding: 12px;
   background: #2a2a2a;
-  border: 1px solid rgba(255, 51, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: 8px;
   color: #fff;
   font-family: 'Poppins', Arial, sans-serif;
@@ -2268,8 +2271,8 @@ body::after {
 .form-grid textarea:focus,
 .form-grid select:focus {
   outline: none;
-  border-color: #ff3333;
-  box-shadow: 0 0 8px rgba(255, 51, 51, 0.3);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(31, 138, 90, 0.3);
 }
 
 .form-grid textarea {
@@ -2279,15 +2282,15 @@ body::after {
 
 .form-section {
   padding: 16px;
-  background: rgba(255, 51, 51, 0.05);
-  border: 1px solid rgba(255, 51, 51, 0.2);
+  background: rgba(31, 138, 90, 0.05);
+  border: 1px solid rgba(31, 138, 90, 0.2);
   border-radius: 8px;
   margin-bottom: 16px;
 }
 
 .form-section h3 {
   font-size: 1rem;
-  color: #ff9999;
+  color: #e8d5a3;
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2317,7 +2320,7 @@ body::after {
 
 .image-preview-container img {
   border-radius: 8px;
-  border: 2px solid rgba(255, 51, 51, 0.3);
+  border: 2px solid rgba(31, 138, 90, 0.3);
   object-fit: cover;
   width: 100%;
   height: 100%;
@@ -2342,7 +2345,7 @@ body::after {
   height: 120px;
   object-fit: cover;
   border-radius: 8px;
-  border: 2px solid rgba(255, 51, 51, 0.3);
+  border: 2px solid rgba(31, 138, 90, 0.3);
 }
 
 .remove-image-btn {
@@ -2352,7 +2355,7 @@ body::after {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(255, 51, 51, 0.9);
+  background: rgba(31, 138, 90, 0.9);
   border: 2px solid #fff;
   color: #fff;
   font-size: 18px;
@@ -2365,7 +2368,7 @@ body::after {
 }
 
 .remove-image-btn:hover {
-  background: #ff3333;
+  background: var(--color-accent);
   transform: scale(1.1);
 }
 
@@ -2402,7 +2405,7 @@ body::after {
   max-width: 600px;
   margin: 10px 0;
   background: #2a2a2a;
-  border: 1px solid rgba(255, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: 8px;
   padding: 16px;
 }
@@ -2415,7 +2418,7 @@ body::after {
   width: 100%;
   padding: 10px;
   background: #3a3a3a;
-  border: 1px solid rgba(255, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: 6px;
   color: #fff;
   font-size: 0.95rem;
@@ -2423,8 +2426,8 @@ body::after {
 
 .category-search input:focus {
   outline: none;
-  border-color: #ff3333;
-  box-shadow: 0 0 8px rgba(255, 51, 0.3);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(31, 138, 90, 0.3);
 }
 
 .category-tree {
@@ -2461,12 +2464,12 @@ body::after {
 }
 
 .category-node:hover {
-  background-color: rgba(255, 51, 51, 0.1);
+  background-color: rgba(31, 138, 90, 0.1);
 }
 
 .category-item.selected .category-node {
-  background-color: rgba(255, 51, 0.2);
-  border: 1px solid rgba(255, 51, 0.4);
+  background-color: rgba(31, 138, 90, 0.2);
+  border: 1px solid rgba(31, 138, 90, 0.4);
 }
 
 .category-toggle {
@@ -2504,12 +2507,12 @@ body::after {
 .selected-category-display {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 51, 0.2);
+  border-top: 1px solid rgba(31, 138, 90, 0.2);
 }
 
 .selected-category-display span {
   font-weight: 600;
-  color: #ff9999;
+  color: #e8d5a3;
 }
 
 .category-search-results {
@@ -2526,7 +2529,7 @@ body::after {
 }
 
 .search-result:hover {
-  background-color: rgba(255, 51, 0.1);
+  background-color: rgba(31, 138, 90, 0.1);
 }
 
 .no-results {
@@ -2570,7 +2573,7 @@ body::after {
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 51, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
 }
 
 .chat-modal-header {
@@ -2578,13 +2581,13 @@ body::after {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 51, 51, 0.2);
-  background: rgba(255, 51, 51, 0.05);
+  border-bottom: 1px solid rgba(31, 138, 90, 0.2);
+  background: rgba(31, 138, 90, 0.05);
 }
 
 .chat-modal-header h3 {
   margin: 0;
-  color: #ff9999;
+  color: #e8d5a3;
   font-size: 1.1rem;
   font-weight: 600;
 }
@@ -2601,8 +2604,8 @@ body::after {
 }
 
 .chat-close-btn:hover {
-  background: rgba(255, 51, 51, 0.2);
-  color: #ff3333;
+  background: rgba(31, 138, 90, 0.2);
+  color: var(--color-accent);
 }
 
 .chat-messages {
@@ -2618,7 +2621,7 @@ body::after {
   padding: 12px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-  border-left: 3px solid rgba(255, 51, 51, 0.5);
+  border-left: 3px solid rgba(31, 138, 90, 0.5);
 }
 
 .chat-message:last-child {
@@ -2635,7 +2638,7 @@ body::after {
 }
 
 .chat-message-header strong {
-  color: #ff9999;
+  color: #e8d5a3;
   font-weight: 600;
 }
 
@@ -2659,8 +2662,8 @@ body::after {
 
 .chat-input-container {
   padding: 16px 20px;
-  border-top: 1px solid rgba(255, 51, 51, 0.2);
-  background: rgba(255, 51, 51, 0.05);
+  border-top: 1px solid rgba(31, 138, 90, 0.2);
+  background: rgba(31, 138, 90, 0.05);
   display: flex;
   gap: 12px;
   align-items: flex-end;
@@ -2670,7 +2673,7 @@ body::after {
   flex: 1;
   padding: 12px;
   background: #2a2a2a;
-  border: 1px solid rgba(255, 51, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: 8px;
   color: #fff;
   font-family: 'Poppins', Arial, sans-serif;
@@ -2683,15 +2686,15 @@ body::after {
 
 .chat-input:focus {
   outline: none;
-  border-color: #ff3333;
-  box-shadow: 0 0 8px rgba(255, 51, 51, 0.3);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(31, 138, 90, 0.3);
 }
 
 .chat-send-btn {
   padding: 12px 16px;
   background:
-    linear-gradient(#3a0e0e, #3a0e0e) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0d281c, #0d281c) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   border-radius: 8px;
@@ -2703,7 +2706,7 @@ body::after {
 }
 
 .chat-send-btn:hover:not(:disabled) {
-  box-shadow: 0 0 12px rgba(255, 0, 0, 0.4);
+  box-shadow: 0 0 12px rgba(31, 138, 90, 0.4);
   transform: translateY(-1px);
 }
 
@@ -2746,9 +2749,9 @@ body::after {
   right: 0; /* Выравниваем по правой стороне кнопки */
   top: calc(100% + 6px); /* Размещаем сразу под кнопкой */
   background: #111;
-  border: 1px solid rgba(255,0,0,0.25);
+  border: 1px solid rgba(31, 138, 90,0.25);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(255,0,0,0.2) inset;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(31, 138, 90,0.2) inset;
   min-width: 200px;
   width: max-content; /* Ширина по содержимому */
   max-width: 100%; /* Не выходит за пределы родительского контейнера */
@@ -2827,8 +2830,8 @@ body::after {
   width: 100%;
   text-align: left;
   background:
-    linear-gradient(#2e0b0b, #2e0b0b) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0a1f16, #0a1f16) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   border-radius: 8px;
@@ -2884,8 +2887,8 @@ body::after {
   border-radius: 15px;
  max-width: 1400px;
   width: 96%;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.28), 0 0 20px rgba(255, 0, 0, 0.12);
-  border: 1px solid rgba(255, 51, 51, 0.18);
+  box-shadow: 0 0 10px rgba(31, 138, 90, 0.28), 0 0 20px rgba(31, 138, 90, 0.12);
+  border: 1px solid rgba(31, 138, 90, 0.18);
   position: relative; /* Для корректного позиционирования выпадающих элементов */
   overflow: visible; /* Позволяем выпадающим меню выходить за пределы секции при необходимости */
   overflow-x: clip; /* Обрезаем элементы, которые выходят за пределы ширины */
@@ -2950,7 +2953,7 @@ body::after {
 }
 
 .inbox-unread {
-  border-color: rgba(255, 51, 51, 0.45);
+  border-color: rgba(31, 138, 90, 0.45);
 }
 
 .inbox-meta {
@@ -2974,7 +2977,7 @@ body::after {
 
 .contact-info h3,
 .contact-form-section h3 {
-  color: #ff9999;
+  color: #e8d5a3;
   margin-bottom: 20px;
   font-size: 1.3rem;
 }
@@ -2986,8 +2989,8 @@ body::after {
 }
 
 .contact-card {
-  background: rgba(255, 51, 51, 0.05);
-  border: 1px solid rgba(255, 51, 51, 0.2);
+  background: rgba(31, 138, 90, 0.05);
+  border: 1px solid rgba(31, 138, 90, 0.2);
   border-radius: var(--radius-md);
   padding: 20px;
   display: flex;
@@ -2997,7 +3000,7 @@ body::after {
 }
 
 .contact-card:hover {
-  background: rgba(255, 51, 51, 0.1);
+  background: rgba(31, 138, 90, 0.1);
   transform: translateY(-2px);
 }
 
@@ -3008,13 +3011,13 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 51, 51, 0.1);
+  background: rgba(31, 138, 90, 0.1);
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .contact-details h4 {
-  color: #ff3333;
+  color: var(--color-accent);
   margin-bottom: 5px;
   font-size: 1.1rem;
 }
@@ -3032,8 +3035,8 @@ body::after {
 }
 
 .contact-form {
-  background: rgba(255, 51, 51, 0.05);
-  border: 1px solid rgba(255, 51, 51, 0.2);
+  background: rgba(31, 138, 90, 0.05);
+  border: 1px solid rgba(31, 138, 90, 0.2);
   border-radius: 12px;
   padding: 25px;
 }
@@ -3044,7 +3047,7 @@ body::after {
 
 .contact-form .form-group label {
   display: block;
-  color: #ff9999;
+  color: #e8d5a3;
   margin-bottom: 8px;
   font-weight: 600;
   font-size: 0.95rem;
@@ -3056,7 +3059,7 @@ body::after {
   width: 100%;
   padding: 12px 14px;
   background: var(--color-surface-alt);
-  border: 1px solid rgba(255, 51, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: 8px;
   color: #fff;
   font-family: 'Poppins', Arial, sans-serif;
@@ -3068,8 +3071,8 @@ body::after {
 .contact-form .form-group select:focus,
 .contact-form .form-group textarea:focus {
   outline: none;
-  border-color: #ff3333;
-  box-shadow: 0 0 8px rgba(255, 51, 51, 0.3);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(31, 138, 90, 0.3);
 }
 
 .contact-form .form-group textarea {
@@ -3118,7 +3121,7 @@ body::after {
   width: 100%;
   padding: 10px;
   background: #3a3a3a;
-  border: 1px solid rgba(255, 51, 0.3);
+  border: 1px solid rgba(31, 138, 90, 0.3);
   border-radius: 6px;
   color: #fff;
   font-size: 0.95rem;
@@ -3129,8 +3132,8 @@ body::after {
   width: 100%;
   text-align: left;
   background:
-    linear-gradient(#2e0b0b, #2e0b0b) padding-box,
-    linear-gradient(45deg, #ff0000, #ff4d4d) border-box;
+    linear-gradient(#0a1f16, #0a1f16) padding-box,
+    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
   color: #fff;
   border: 2px solid transparent;
   border-radius: 8px;

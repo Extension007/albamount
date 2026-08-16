@@ -18,7 +18,7 @@
   background: rgba(12, 12, 16, 0.4);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255,0,0.25);
+  border-top: 1px solid rgba(201, 162, 39, 0.28);
   z-index: 1000;
   display: none;
 }
@@ -48,11 +48,11 @@
 
 .mobile-content-tabs-footer .mobile-tab-button:hover {
   color: #fff;
- background: rgba(255, 51, 51, 0.1);
+ background: rgba(31, 138, 90, 0.1);
 }
 
 .mobile-content-tabs-footer .mobile-tab-button.active {
-  color: #ff3333;
+  color: var(--color-accent);
   background: #111;
 }
 
@@ -63,7 +63,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #ff3333;
+  background: var(--color-accent);
 }
 
 .mobile-content-tabs-footer .tab-icon {

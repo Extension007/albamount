@@ -16,6 +16,7 @@ const SUBJECT_LABELS = {
 
 exports.getContacts = async (req, res) => {
   try {
+    await ensureContactMessagesTable().catch(() => {});
     res.render("contacts", {
       products: [],
       services: [],
@@ -156,6 +157,7 @@ exports.sendContactMessage = async (req, res) => {
       message,
       isRead: false
     });
+    console.log("contact_message_saved", { email, subject: subjectLabel });
 
     try {
       await notifyAdmin("Сообщение с формы контактов", "Новое обращение с сайта.", {

@@ -798,8 +798,8 @@
           const entitlementsInfo = document.getElementById('entitlementsInfo');
 
           if (entitlementsInfo) {
-            let html = '<div style="margin-top: 20px; padding: 15px; background: rgba(255, 51, 51, 0.05); border-radius: 8px;">';
-            html += '<h4 style="color: #ff9999; margin-bottom: 10px;">Доступные права</h4>';
+            let html = '<div style="margin-top: 20px; padding: 15px; background: rgba(31, 138, 90, 0.05); border-radius: 8px;">';
+            html += '<h4 style="color: #e8d5a3; margin-bottom: 10px;">Доступные права</h4>';
 
             if (entitlements.total > 0) {
               html += `<p style="color: #ccc; margin-bottom: 10px;">У вас есть ${entitlements.total} доступных прав:</p>`;

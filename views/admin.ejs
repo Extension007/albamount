@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=1.0.4">
+<link rel="stylesheet" href="/styles.css?v=1.0.8">
 </head>
 <body class="admin-page">
 
@@ -30,7 +30,7 @@
       </div>
     <div class="header-actions">
 <span class="user-chip">Админ-панель</span>
-<a href="/admin/contacts" class="btn outline small" style="margin-left:10px;">Сообщения</a>
+<a href="/admin/contacts" class="btn outline small" style="margin-left:10px;">Напишите нам</a>
 <form id="logoutForm" method="POST" action="/logout" style="display:inline;margin-left:10px;">
 <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
 <button type="submit" class="btn outline small">Выход</button>
@@ -244,7 +244,7 @@
 <div style="overflow-x:auto;">
 <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
 <thead>
-<tr style="text-align:left;border-bottom:1px solid rgba(255,51,51,0.25);">
+<tr style="text-align:left;border-bottom:1px solid rgba(31,138,90,0.25);">
 <th style="padding:8px;">ID</th>
 <th style="padding:8px;">Логин</th>
 <th style="padding:8px;">Email</th>

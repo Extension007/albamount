@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Админка — Сообщения</title>
+  <title>Админка — Напишите нам</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.0.6">
+  <link rel="stylesheet" href="/styles.css?v=1.0.8">
 </head>
 <body class="admin-page">
   <div id="bg-animated" aria-hidden="true"></div>
@@ -18,7 +18,7 @@
           <a class="logo" href="/"><img src="/albamount.png" alt="ALBAMOUNT" class="logo-img"></a>
         </div>
         <div class="header-actions">
-          <span class="user-chip">Сообщения с сайта</span>
+          <span class="user-chip">Напишите нам</span>
           <a href="/admin" class="btn outline small">Назад</a>
           <form id="logoutForm" method="POST" action="/logout" style="display:inline;">
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">

@@ -8,13 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.0.4">
+  <link rel="stylesheet" href="/styles.css?v=1.0.8">
   <style>
     .tabs {
       display: flex;
       gap: 10px;
       margin-bottom: 20px;
-      border-bottom: 2px solid rgba(255, 51, 51, 0.25);
+      border-bottom: 2px solid rgba(31, 138, 90, 0.25);
     }
     .tab {
       padding: 12px 24px;
@@ -32,7 +32,7 @@
     }
     .tab.active {
       color: #ff6666;
-      border-bottom-color: #ff3333;
+      border-bottom-color: #1f8a5a;
     }
     .tab-content {
       display: none;
@@ -46,14 +46,14 @@
       color: #aaa;
     }
     .alba-balance-card {
-      background: rgba(255, 51, 51, 0.08);
-      border: 1px solid rgba(255, 51, 51, 0.25);
+      background: rgba(31, 138, 90, 0.08);
+      border: 1px solid rgba(31, 138, 90, 0.25);
       padding: 20px;
       border-radius: 12px;
       margin-bottom: 20px;
     }
     .alba-balance-card h3 {
-      color: #ff9999;
+      color: #e8d5a3;
       margin-bottom: 10px;
     }
     .alba-balance-card p {
@@ -63,7 +63,7 @@
     }
     #tab-alba h2,
     #tab-alba h3 {
-      color: #ff9999;
+      color: #e8d5a3;
     }
     .alba-tx-list {
       background: rgba(0, 0, 0, 0.25);
@@ -104,17 +104,17 @@
       text-align: center;
       border-radius: 10px;
       border: 2px solid transparent;
-      box-shadow: 0 0 10px rgba(255, 0, 0, 0.35), 0 0 22px rgba(255, 0, 0, 0.2);
+      box-shadow: 0 0 10px rgba(31, 138, 90, 0.35), 0 0 22px rgba(31, 138, 90, 0.2);
       background:
-        linear-gradient(#2e0b0b, #2e0b0b) padding-box,
-        linear-gradient(45deg, var(--color-accent-strong), #ff4d4d) border-box;
+        linear-gradient(#0a1f16, #0a1f16) padding-box,
+        linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
     }
 
     .footer-btn:hover {
       color: #fff;
-      background: rgba(255, 51, 51, 0.1);
+      background: rgba(31, 138, 90, 0.1);
       transform: translateY(-1px);
-      box-shadow: 0 0 14px rgba(255, 0, 0, 0.55), 0 0 28px rgba(255, 0, 0, 0.28);
+      box-shadow: 0 0 14px rgba(31, 138, 90, 0.55), 0 0 28px rgba(31, 138, 90, 0.28);
     }
 
     .footer-btn:active {
@@ -143,7 +143,7 @@
       border-radius: 10px;
       width: 95%;
       max-width: 900px;
-      box-shadow: 0 0 20px #ff3333;
+      box-shadow: 0 0 20px #1f8a5a;
       position: relative;
       box-sizing: border-box;
     }
@@ -161,7 +161,7 @@
     }
 
     .modal .close:hover {
-      color: #ff3333;
+      color: #1f8a5a;
     }
 
     /* Адаптивность для мобильных устройств */
@@ -305,7 +305,7 @@
           <button type="button" id="refreshAlbaBtn" class="btn small" style="margin-bottom: 15px;">Обновить</button>
           <div id="albaTransactionsContainer">
             <% if (typeof albaTransactions !== 'undefined' && albaTransactions.length > 0) { %>
-              <div class="alba-tx-list" style="max-height: 420px; overflow-y: auto; border: 1px solid rgba(255,51,51,0.25); border-radius: 8px; padding: 12px;">
+              <div class="alba-tx-list" style="max-height: 420px; overflow-y: auto; border: 1px solid rgba(31,138,90,0.25); border-radius: 8px; padding: 12px;">
                 <% albaTransactions.forEach(function(tx) {
                   const amountNum = Number(tx.amount);
                   const isCredit = amountNum > 0;
@@ -428,9 +428,9 @@
   <div id="albaBalanceModal" class="modal">
     <div class="modal-content">
       <span class="close" id="closeAlbaModal">&times;</span>
-      <h2 style="color: #ff3333; margin-bottom: 20px;">Ваш ALBA баланс</h2>
+      <h2 style="color: #1f8a5a; margin-bottom: 20px;">Ваш ALBA баланс</h2>
       <% if (typeof user.albaBalance !== 'undefined') { %>
-        <div id="modalAlbaBalance" style="font-size: 2.5rem; font-weight: bold; color: #ff3333; margin-bottom: 20px; text-align: center;">
+        <div id="modalAlbaBalance" style="font-size: 2.5rem; font-weight: bold; color: #1f8a5a; margin-bottom: 20px; text-align: center;">
           <%= user.albaBalance %> ALBA
         </div>
       <% } else { %>
@@ -439,15 +439,15 @@
         </div>
       <% } %>
 
-      <div style="margin-bottom: 20px; padding: 15px; background: rgba(255, 51, 51, 0.05); border-radius: 10px; border: 1px solid rgba(255, 51, 51, 0.2);">
-        <h3 style="color: #ff9999; margin-bottom: 10px; font-size: 1.1rem;">Покупка дополнительных карточек</h3>
+      <div style="margin-bottom: 20px; padding: 15px; background: rgba(31, 138, 90, 0.05); border-radius: 10px; border: 1px solid rgba(31, 138, 90, 0.2);">
+        <h3 style="color: #e8d5a3; margin-bottom: 10px; font-size: 1.1rem;">Покупка дополнительных карточек</h3>
         <p style="color: #ccc; margin-bottom: 15px; font-size: 0.95rem; line-height: 1.5;">
           Используйте ALBA для покупки права на создание дополнительных карточек.
         </p>
 
         <div style="margin-bottom: 15px;">
-          <label style="display: block; color: #ff9999; margin-bottom: 8px; font-weight: 600;">Тип карточки:</label>
-          <select id="cardType" style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid rgba(255, 51, 51, 0.3); border-radius: 8px; color: #fff;">
+          <label style="display: block; color: #e8d5a3; margin-bottom: 8px; font-weight: 600;">Тип карточки:</label>
+          <select id="cardType" style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid rgba(31, 138, 90, 0.3); border-radius: 8px; color: #fff;">
             <% if (user.isShowcaseAccount) { %>
               <option value="product" data-cost="30">Реклама (30 ALBA)</option>
             <% } else { %>
@@ -457,18 +457,18 @@
         </div>
 
         <div style="margin-bottom: 15px;">
-          <label style="display: block; color: #ff9999; margin-bottom: 8px; font-weight: 600;">Количество:</label>
+          <label style="display: block; color: #e8d5a3; margin-bottom: 8px; font-weight: 600;">Количество:</label>
           <input type="number" id="cardsToBuy" min="1" max="10" value="1"
-                 style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid rgba(255, 51, 51, 0.3); border-radius: 8px; color: #fff; text-align: center;">
+                 style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid rgba(31, 138, 90, 0.3); border-radius: 8px; color: #fff; text-align: center;">
         </div>
 
-        <div style="margin-bottom: 15px; padding: 12px; background: rgba(255, 51, 51, 0.1); border-radius: 8px; border: 1px solid rgba(255, 51, 51, 0.2);">
-          <strong style="color: #ff9999;">Общая стоимость:</strong>
+        <div style="margin-bottom: 15px; padding: 12px; background: rgba(31, 138, 90, 0.1); border-radius: 8px; border: 1px solid rgba(31, 138, 90, 0.2);">
+          <strong style="color: #e8d5a3;">Общая стоимость:</strong>
           <span id="totalCostDisplay" style="color: #fff; font-weight: bold; margin-left: 10px;">30 ALBA</span>
         </div>
 
         <button id="buyEntitlementBtn" class="btn primary" style="width: 100%; padding: 14px;">Купить право на карточку</button>
-        <div id="purchaseStatus" style="text-align: center; font-size: 0.9rem; color: #ff9999; min-height: 24px; margin-top: 10px;"></div>
+        <div id="purchaseStatus" style="text-align: center; font-size: 0.9rem; color: #e8d5a3; min-height: 24px; margin-top: 10px;"></div>
       </div>
 
       <p style="color: #ccc; margin-bottom: 20px; text-align: center; line-height: 1.6;">
@@ -479,7 +479,7 @@
       <div id="entitlementsInfo" style="margin-bottom: 20px;"></div>
 
       <div style="margin: 20px 0;">
-        <h3 style="color: #ff9999; margin-bottom: 12px; font-size: 1.05rem;">История транзакций</h3>
+        <h3 style="color: #e8d5a3; margin-bottom: 12px; font-size: 1.05rem;">История транзакций</h3>
         <div id="albaModalTransactions">
           <% if (typeof albaTransactions !== 'undefined' && albaTransactions.length > 0) { %>
             <div class="alba-tx-list" style="max-height: 240px; overflow-y: auto;">
@@ -511,26 +511,26 @@
   <div id="referralModal" class="modal">
     <div class="modal-content">
       <span class="close" id="closeReferralModal">&times;</span>
-      <h2 style="color: #ff3333; margin-bottom: 20px;">Реферальная программа</h2>
+      <h2 style="color: #1f8a5a; margin-bottom: 20px;">Реферальная программа</h2>
       <p style="color: #ccc; margin-bottom: 20px; line-height: 1.6;">
         Приглашайте друзей по своей ссылке. После подтверждения email и вы, и новый пользователь
         получаете по <%= typeof referralBonusAlba !== 'undefined' ? referralBonusAlba : 10 %> ALBA.
       </p>
 
       <div style="margin-bottom: 20px;">
-        <label style="display: block; color: #ff9999; margin-bottom: 8px; font-weight: 600;">Ваша реферальная ссылка:</label>
+        <label style="display: block; color: #e8d5a3; margin-bottom: 8px; font-weight: 600;">Ваша реферальная ссылка:</label>
         <div style="display: flex; gap: 10px;">
           <input type="text" id="referralLink" value="" readonly
-                 style="flex: 1; padding: 12px; background: #2a2a2a; border: 1px solid rgba(255, 51, 51, 0.3); border-radius: 8px; color: white !important;">
+                 style="flex: 1; padding: 12px; background: #2a2a2a; border: 1px solid rgba(31, 138, 90, 0.3); border-radius: 8px; color: white !important;">
           <button id="copyReferralLink" class="btn primary" style="white-space: nowrap;">Копировать</button>
         </div>
       </div>
 
       <div style="margin-bottom: 20px;">
-        <label style="display: block; color: #ff9999; margin-bottom: 8px; font-weight: 600;">Ваш реферальный код:</label>
+        <label style="display: block; color: #e8d5a3; margin-bottom: 8px; font-weight: 600;">Ваш реферальный код:</label>
         <div style="display: flex; gap: 10px;">
           <input type="text" id="referralCode" value="<%= user.refCode || '' %>" readonly
-                 style="flex: 1; padding: 12px; background: #2a2a2a; border: 1px solid rgba(255, 51, 51, 0.3); border-radius: 8px; color: white !important;">
+                 style="flex: 1; padding: 12px; background: #2a2a2a; border: 1px solid rgba(31, 138, 90, 0.3); border-radius: 8px; color: white !important;">
           <button id="copyReferralCode" class="btn primary" style="white-space: nowrap;">Копировать</button>
         </div>
       </div>
@@ -611,7 +611,7 @@
           '</div>';
       }
 
-      var html = '<div class="alba-tx-list" style="max-height:420px;overflow-y:auto;border:1px solid rgba(255,51,51,0.25);border-radius:8px;padding:12px;">';
+      var html = '<div class="alba-tx-list" style="max-height:420px;overflow-y:auto;border:1px solid rgba(31,138,90,0.25);border-radius:8px;padding:12px;">';
       transactions.forEach(function (tx) {
         var amountNum = Number(tx.amount);
         var isCredit = amountNum > 0;
@@ -650,7 +650,7 @@
           balanceElement.textContent = balance + ' ALBA';
           balanceElement.style.fontSize = '2rem';
           balanceElement.style.fontWeight = 'bold';
-          balanceElement.style.color = '#ff3333';
+          balanceElement.style.color = '#1f8a5a';
         }
         const footerBal = document.getElementById('footerAlbaBalance');
         if (footerBal) footerBal.textContent = String(balance);

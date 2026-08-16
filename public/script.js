@@ -1948,8 +1948,8 @@ async function openChatModal(cardId) {
           color: #888;
           font-style: italic;
           padding: 15px;
-          border-bottom: 1px solid rgba(255, 51, 51, 0.2);
-          background: rgba(255, 51, 51, 0.05);
+          border-bottom: 1px solid rgba(31, 138, 90, 0.2);
+          background: rgba(31, 138, 90, 0.05);
           margin-bottom: 10px;
         `;
         guestInfo.textContent = 'Вы можете читать комментарии. Для отправки сообщений необходимо войти в систему.';
