@@ -37,7 +37,7 @@
       <div class="contact-form-section contact-form-only">
         <h2>Напишите нам</h2>
         <p class="contacts-description">Оставьте сообщение — оно сразу появится у администратора.</p>
-        <form class="contact-form" id="contactForm">
+        <form class="contact-form" id="contactForm" method="POST" action="/contacts/send-message">
           <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
           <div class="form-group">
             <label for="contact-name">Ваше имя *</label>
@@ -64,10 +64,10 @@
           </div>
           <button type="submit" class="btn primary contact-submit-btn">Отправить сообщение</button>
         </form>
-        <div id="contact-success" class="contact-message success" style="display: none;">
+        <div id="contact-success" class="contact-message success" style="display: <%= typeof sent !== 'undefined' && sent ? 'block' : 'none' %>;">
           Сообщение отправлено. Мы ответим в ближайшее время.
         </div>
-        <div id="contact-error" class="contact-message error" style="display: none;">
+        <div id="contact-error" class="contact-message error" style="display: <%= typeof sendError !== 'undefined' && sendError ? 'block' : 'none' %>;">
           Ошибка отправки. Попробуйте позже.
         </div>
       </div>

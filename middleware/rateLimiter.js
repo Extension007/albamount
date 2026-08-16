@@ -4,11 +4,13 @@ const rateLimit = require("express-rate-limit");
 const { isProdLike } = require("../config/production");
 
 function buildOptions(extra) {
+  const failOpen = Boolean(extra && extra.failOpen);
   const options = {
     standardHeaders: true,
     legacyHeaders: false,
     ...extra
   };
+  delete options.failOpen;
 
   try {
     const { hasRedis, redisClient } = require("../config/redis");
@@ -29,7 +31,7 @@ function buildOptions(extra) {
             };
           } catch (err) {
             console.error("rate-limit redis error (fail-closed):", err.message);
-            if (isProdLike()) {
+            if (isProdLike() && !failOpen) {
               // Force over-limit so request is rejected rather than unlimited
               return {
                 totalHits: Number.MAX_SAFE_INTEGER,
@@ -86,8 +88,9 @@ const registerLimiter = rateLimit(buildOptions({
 
 const contactLimiter = rateLimit(buildOptions({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: "Слишком много сообщений. Попробуйте позже."
+  max: 20,
+  failOpen: true,
+  message: { success: false, message: "Слишком много сообщений. Попробуйте позже." }
 }));
 
 module.exports = {

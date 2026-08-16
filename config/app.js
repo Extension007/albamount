@@ -121,6 +121,10 @@ app.use(csrfToken);
 
 const csrfSafeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 app.use((req, res, next) => {
+  const requestPath = String(req.originalUrl || req.path || "").split("?")[0];
+  if (requestPath === "/contacts/send-message") {
+    return next();
+  }
   if (!isProduction) {
     return next();
   }

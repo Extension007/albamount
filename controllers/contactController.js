@@ -33,7 +33,9 @@ exports.getContacts = async (req, res) => {
       categories: {},
       selectedCategory: "all",
       csrfToken: req.csrfToken ? req.csrfToken() : "",
-      activeTab: "contacts"
+      activeTab: "contacts",
+      sent: req.query.sent === "1",
+      sendError: req.query.error === "1"
     });
   } catch (err) {
     console.error("Ошибка получения контактов:", err);
@@ -135,15 +137,23 @@ exports.sendContactMessage = async (req, res) => {
     const message = sanitizeText(req.body.message, 4000);
 
     if (!name || !email || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "Имя, email и сообщение обязательны"
-      });
+      const wantsJson = String(req.get("accept") || "").includes("application/json");
+      if (wantsJson) {
+        return res.status(400).json({
+          success: false,
+          message: "Имя, email и сообщение обязательны"
+        });
+      }
+      return res.redirect("/contacts?error=1");
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ success: false, message: "Неверный формат email" });
+      const wantsJson = String(req.get("accept") || "").includes("application/json");
+      if (wantsJson) {
+        return res.status(400).json({ success: false, message: "Неверный формат email" });
+      }
+      return res.redirect("/contacts?error=1");
     }
 
     const subjectLabel = SUBJECT_LABELS[subjectKey] || subjectKey || "Без темы";
@@ -182,9 +192,17 @@ exports.sendContactMessage = async (req, res) => {
       }
     }
 
-    res.json({ success: true, message: "Сообщение отправлено" });
+    const wantsJson = String(req.get("accept") || "").includes("application/json");
+    if (wantsJson) {
+      return res.json({ success: true, message: "Сообщение отправлено", id: savedId });
+    }
+    return res.redirect("/contacts?sent=1");
   } catch (err) {
     console.error("Ошибка отправки сообщения:", err);
-    res.status(500).json({ success: false, message: "Ошибка отправки сообщения" });
+    const wantsJson = String(req.get("accept") || "").includes("application/json");
+    if (wantsJson) {
+      return res.status(500).json({ success: false, message: "Ошибка отправки сообщения" });
+    }
+    return res.redirect("/contacts?error=1");
   }
 };
