@@ -41,7 +41,8 @@ window.AppBootstrap = {
     this.setBoolean('IS_EMAIL_VERIFIED', config.isEmailVerified);
     this.setBoolean('SOCKET_IO_AVAILABLE', config.socketIoAvailable);
 
-    this.setString('USER_ROLE', config.userRole || null);
+    const role = config.userRole || (config.isAuth ? (config.isAdmin ? 'admin' : 'user') : '');
+    this.setString('USER_ROLE', role);
     this.setString('USER_EMAIL', config.userEmail || '');
     this.setString('USER_CREATED_AT', config.userCreatedAt || '');
     this.setString('USER_UPDATED_AT', config.userUpdatedAt || '');

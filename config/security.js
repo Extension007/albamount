@@ -46,7 +46,8 @@ function createSecurityMiddleware() {
       }
     },
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" }
   });
 
   return function securityMiddleware(req, res, next) {

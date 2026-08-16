@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Albamount — <%= typeof activeTab !== 'undefined' && activeTab === 'services' ? 'Услуги' : 'Реклама' %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.instagram.com https://graph.instagram.com wss://socket.io https://*.cloudinary.com https://localhost:* http://localhost:*; frame-src 'self' https://www.youtube.com https://vk.com https://instagram.com https://www.instagram.com; trusted-types youtube-widget-api;">
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
@@ -367,7 +368,7 @@
 <% } %>
 
 <!-- Подключаем основной скрипт (включает весь JS: youtube init, модалки, рейтинг, категории, регистрация) -->
-<script src="/script.js?v=1.0.2"></script>
+<script src="/script.js?v=1.0.4"></script>
 
 <!-- Подключаем скрипт для предотвращения перекрытия контента футером -->
 <script src="/fix-footer-overlap.js?v=1.0.1"></script>

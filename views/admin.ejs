@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Админка — Управление товарами</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="csrf-token" content=<%- JSON.stringify((typeof csrfToken !== 'undefined' && csrfToken) ? String(csrfToken) : '') %>>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -564,7 +565,7 @@
     });
   </script>
 
-  <script src="/script.js?v=1.0.2"></script>
+  <script src="/script.js?v=1.0.4"></script>
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     if (window.__ADMIN_BOOTSTRAP_DONE) return;
@@ -630,10 +631,14 @@
         if (m) id = m[1];
         box.innerHTML = '';
         var iframe = document.createElement('iframe');
-        iframe.src = id
-          ? ('https://www.youtube.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1')
-          : url;
-        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+        if (id) {
+          iframe.src = 'https://www.youtube.com/embed/' + encodeURIComponent(id) + '?rel=0&modestbranding=1&playsinline=1&origin=' + encodeURIComponent(window.location.origin);
+          iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+          iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+        } else {
+          iframe.src = url;
+        }
+        iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
         iframe.setAttribute('allowfullscreen', '');
         iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
         box.appendChild(iframe);

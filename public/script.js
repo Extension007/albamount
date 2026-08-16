@@ -78,6 +78,23 @@ function extractVideoId(url) {
   return match ? match[1] : null;
 }
 
+function youtubeEmbedSrc(videoId) {
+  const origin = encodeURIComponent(window.location.origin);
+  return 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) +
+    '?rel=0&modestbranding=1&playsinline=1&origin=' + origin;
+}
+
+function fillYoutubeIframe(iframe, videoId) {
+  iframe.src = youtubeEmbedSrc(videoId);
+  iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+  iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+  iframe.setAttribute('allowfullscreen', '');
+  iframe.setAttribute('title', 'Видеообзор');
+  iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
+}
+}
+
 // Функция для получения URL постера YouTube
 function getYoutubePosterUrl(url) {
   if (!url) return null;
@@ -261,11 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     videoIframeContainer.innerHTML = '';
     const iframe = document.createElement('iframe');
-    iframe.src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&playsinline=1';
-    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
-    iframe.setAttribute('allowfullscreen', '');
-    iframe.setAttribute('title', 'Видеообзор');
-    iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
+    fillYoutubeIframe(iframe, videoId);
     videoIframeContainer.appendChild(iframe);
     currentVideoIframe = iframe;
   }
@@ -1811,8 +1824,7 @@ function initializeSocket() {
 
 async function openChatModal(cardId) {
   try {
-    const userRole = window.USER_ROLE;
-    const isGuest = !userRole;
+    const isGuest = !window.IS_AUTH;
 
     currentChatCardId = cardId;
     const modal = document.getElementById(`chat-modal-${cardId}`);
@@ -2028,14 +2040,13 @@ window.sendChatMessage = async function(cardId) {
     console.log('🔍 IS_AUTH:', window.IS_AUTH);
     console.log('🔍 IS_ADMIN:', window.IS_ADMIN);
 
-    const userRole = window.USER_ROLE;
-    if (!userRole) {
+    if (!window.IS_AUTH) {
       console.log('❌ Пользователь не авторизован');
       showToast('Для отправки сообщений необходимо войти в систему', 'error');
       return;
     }
 
-    console.log('✅ Пользователь авторизован с ролью:', userRole);
+    console.log('✅ Пользователь авторизован');
 
     const input = document.getElementById(`chat-input-${cardId}`);
     if (!input) {
