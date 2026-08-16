@@ -121,40 +121,11 @@ app.use(csrfToken);
 
 const csrfSafeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 app.use((req, res, next) => {
-  const requestPath = String(req.originalUrl || req.path || "").split("?")[0];
-  if (requestPath === "/contacts/send-message") {
-    return next();
-  }
   if (!isProduction) {
     return next();
   }
   if (csrfSafeMethods.has(req.method)) {
     return next();
-  }
-
-  const baseUrl = process.env.BASE_URL;
-
-  // Build a set of allowed origins (support canonical BASE_URL and www/non-www variants)
-  const allowedOrigins = new Set();
-  // Always allow the current host origin
-  allowedOrigins.add(`${req.protocol}://${req.get("host")}`);
-
-  if (baseUrl) {
-    try {
-      const parsed = new URL(baseUrl).origin;
-      allowedOrigins.add(parsed);
-
-      // Add both www and non-www variants when applicable
-      if (parsed.includes('://www.')) {
-        allowedOrigins.add(parsed.replace('://www.', '://'));
-      } else {
-        // insert www variant
-        const withWww = parsed.replace('://', '://www.');
-        allowedOrigins.add(withWww);
-      }
-    } catch (error) {
-      console.warn("BASE_URL is invalid, falling back to request origin.");
-    }
   }
 
   const origin = req.get("origin");
@@ -165,46 +136,64 @@ app.use((req, res, next) => {
     try {
       return new URL(value).hostname.replace(/^www\./i, "").toLowerCase();
     } catch (e) {
-      return "";
+      return String(value).replace(/^www\./i, "").split(":")[0].toLowerCase();
     }
   }
 
-  function isAllowed(value) {
-    if (!value) return false;
-    try {
-      const originOnly = new URL(value).origin;
-      if (allowedOrigins.has(originOnly)) return true;
-    } catch (e) {
-      return false;
+  function requestHosts() {
+    const hosts = new Set();
+    const add = (raw) => {
+      if (!raw) return;
+      String(raw)
+        .split(",")
+        .forEach((part) => {
+          const host = part.trim().replace(/^www\./i, "").split(":")[0].toLowerCase();
+          if (host) hosts.add(host);
+        });
+    };
+    add(req.get("host"));
+    add(req.get("x-forwarded-host"));
+    if (process.env.BASE_URL) {
+      try {
+        add(new URL(process.env.BASE_URL).hostname);
+      } catch (e) { /* ignore */ }
     }
-    const reqHost = String(req.get("host") || "").replace(/^www\./i, "").split(":")[0].toLowerCase();
-    const valueHost = hostKey(value);
-    return Boolean(reqHost && valueHost && reqHost === valueHost);
+    hosts.add("albamount.xyz");
+    return hosts;
+  }
+
+  function isAllowed(value) {
+    const host = hostKey(value);
+    if (!host) return false;
+    const allowed = requestHosts();
+    if (allowed.has(host)) return true;
+    if (host.endsWith(".vercel.app")) return true;
+    return false;
   }
 
   if (origin && isAllowed(origin)) {
     return next();
   }
-  if (!origin && referer && isAllowed(referer)) {
+  if (referer && isAllowed(referer)) {
     return next();
   }
 
-  // If origin is absent/null and referer is absent, allow when a valid CSRF token was provided.
-  // The csurf middleware runs earlier; if the CSRF token was invalid the request would have been rejected already.
+  // csurf already ran; a token in header/body means this is a same-site form/API call.
   const hasCsrfToken = Boolean(
-    req.get('x-csrf-token') || req.get('x-xsrf-token') || req.get('x-xsrf') || (req.body && req.body._csrf)
+    req.get("x-csrf-token") ||
+    req.get("x-xsrf-token") ||
+    req.get("x-xsrf") ||
+    (req.body && req.body._csrf)
   );
-
-  if ((!origin || origin === 'null') && !referer && hasCsrfToken) {
+  if (hasCsrfToken) {
     return next();
   }
 
-  // Log mismatch to help debugging on Vercel
-  console.warn('Origin/referer mismatch', {
+  console.warn("Origin/referer mismatch", {
     origin,
     referer,
-    host: req.get('host'),
-    allowedOrigins: Array.from(allowedOrigins)
+    host: req.get("host"),
+    forwardedHost: req.get("x-forwarded-host")
   });
 
   const wantsJson = String(req.get("accept") || "").includes("application/json");

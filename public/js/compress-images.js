@@ -142,33 +142,109 @@
     return next();
   }
 
-  function replaceFormDataImages(form, fieldName, options) {
+  function copyFormWithoutFiles(form, fieldName) {
+    var fd = new FormData();
+    var source = new FormData(form);
+    source.forEach(function (value, key) {
+      if (key === fieldName && value && typeof value === 'object' && typeof value.size === 'number') {
+        return;
+      }
+      fd.append(key, value);
+    });
+    return fd;
+  }
+
+  function getCsrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    var field = document.querySelector('input[name="_csrf"]');
+    return (meta && meta.getAttribute('content'))
+      || (field && field.value)
+      || '';
+  }
+
+  function requestCloudinarySign() {
+    var csrf = getCsrfToken();
+    return fetch('/api/uploads/cloudinary-sign', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrf
+      },
+      body: JSON.stringify({ _csrf: csrf })
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        var data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
+        if (!res.ok || !data.success || !data.signature) return null;
+        return data;
+      });
+    }).catch(function () { return null; });
+  }
+
+  function uploadOneToCloudinary(file, sign) {
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('api_key', sign.apiKey);
+    fd.append('timestamp', String(sign.timestamp));
+    fd.append('signature', sign.signature);
+    fd.append('folder', sign.folder);
+    return fetch('https://api.cloudinary.com/v1_1/' + encodeURIComponent(sign.cloudName) + '/image/upload', {
+      method: 'POST',
+      body: fd
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!data || !data.secure_url) {
+          throw new Error((data && data.error && data.error.message) || 'Ошибка загрузки в Cloudinary');
+        }
+        return data.secure_url;
+      });
+    });
+  }
+
+  function prepareProductFormData(form, fieldName, options) {
     fieldName = fieldName || 'images';
     var input = form.querySelector('input[type="file"][name="' + fieldName + '"]')
       || form.querySelector('input[type="file"]');
-    if (!input || !input.files || !input.files.length) {
-      return Promise.resolve(new FormData(form));
-    }
+    var files = input && input.files ? Array.prototype.slice.call(input.files) : [];
+    var compressOpts = options || { maxBytesEach: 1500 * 1024, maxBytesTotal: 8 * 1024 * 1024, maxSide: 1920 };
 
-    return compressFiles(input.files, options).then(function (compressed) {
-      var fd = new FormData();
-      var source = new FormData(form);
-      source.forEach(function (value, key) {
-        if (key === fieldName && value && typeof value === 'object' && typeof value.size === 'number') {
-          return;
+    return Promise.resolve(files.length ? compressFiles(files, compressOpts) : []).then(function (compressed) {
+      var fd = copyFormWithoutFiles(form, fieldName);
+      if (!compressed.length) return fd;
+      return requestCloudinarySign().then(function (sign) {
+        if (!sign) {
+          compressed.forEach(function (file) {
+            fd.append(fieldName, file, file.name);
+          });
+          return fd;
         }
-        fd.append(key, value);
+        var chain = Promise.resolve([]);
+        compressed.forEach(function (file) {
+          chain = chain.then(function (urls) {
+            return uploadOneToCloudinary(file, sign).then(function (url) {
+              urls.push(url);
+              return urls;
+            });
+          });
+        });
+        return chain.then(function (urls) {
+          fd.append('image_urls', JSON.stringify(urls));
+          return fd;
+        });
       });
-      compressed.forEach(function (file) {
-        fd.append(fieldName, file, file.name);
-      });
-      return fd;
     });
+  }
+
+  function replaceFormDataImages(form, fieldName, options) {
+    return prepareProductFormData(form, fieldName, options);
   }
 
   global.ImageUploadCompress = {
     MAX_ORIGINAL: MAX_ORIGINAL,
     compressFiles: compressFiles,
-    replaceFormDataImages: replaceFormDataImages
+    replaceFormDataImages: replaceFormDataImages,
+    prepareProductFormData: prepareProductFormData
   };
 })(window);

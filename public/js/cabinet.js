@@ -203,7 +203,7 @@
         }
       }
 
-      msg.textContent = 'Сжатие фото...';
+      msg.textContent = 'Сжатие и загрузка фото...';
       msg.style.color = '#666';
 
       let formData;

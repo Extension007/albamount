@@ -955,6 +955,22 @@ router.get("/contacts/:id", async (req, res) => {
   }
 });
 
+router.post("/uploads/cloudinary-sign", requireUser, apiLimiter, async (req, res) => {
+  try {
+    const { createUploadSignature } = require("../services/cloudinaryDirect");
+    const sign = createUploadSignature();
+    res.json({ success: true, ...sign });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({
+      success: false,
+      message: status === 503
+        ? "Прямая загрузка изображений недоступна"
+        : "Не удалось получить подпись загрузки"
+    });
+  }
+});
+
 // =======================
 // User API Routes
 // =======================

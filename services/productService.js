@@ -75,8 +75,10 @@ async function createProduct(data, files = [], options = {}) {
   }
   const typeValue = (type === "service" || type === "product") ? type : "product";
 
-  // Обработка изображений
-  const images = processUploadedFiles(files);
+  const fromFiles = processUploadedFiles(files);
+  const { sanitizeCloudinaryImageUrls } = require("./cloudinaryDirect");
+  const fromUrls = sanitizeCloudinaryImageUrls(data.image_urls);
+  const images = [...fromUrls, ...fromFiles].slice(0, 5);
   const image_url = images.length > 0 ? images[0] : null;
 
   // Формируем объект контактов
@@ -180,6 +182,10 @@ async function updateProduct(productId, data, files = [], options = {}) {
   if (files && files.length > 0) {
     const uploadedImages = processUploadedFiles(files);
     newImages = [...newImages, ...uploadedImages].slice(0, 5);
+  }
+  if (data.image_urls) {
+    const { sanitizeCloudinaryImageUrls } = require("./cloudinaryDirect");
+    newImages = [...newImages, ...sanitizeCloudinaryImageUrls(data.image_urls)].slice(0, 5);
   }
 
   // Нормализуем URL для корректного сравнения (убираем параметры Cloudinary)

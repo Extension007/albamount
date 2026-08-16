@@ -373,7 +373,7 @@
               <label for="images">Изображения (до 5 шт.):</label>
               <input type="file" id="images" name="images" accept="image/png,image/jpeg,image/jpg,image/webp" multiple data-max-files="5">
               <div id="imagePreview" class="image-preview-container" style="display: none; margin-top: 10px;"></div>
-              <small class="form-hint">Можно выбрать до 5 изображений. Перед отправкой они автоматически сжимаются (лимит хостинга ~4.5 МБ на запрос).</small>
+              <small class="form-hint">До 5 фото. Они загружаются напрямую в хранилище, без лимита 4.5 МБ Vercel.</small>
             </div>
             
                         <div class="form-section">
@@ -593,8 +593,8 @@
     })();
   </script>
 
-  <script src="/js/compress-images.js?v=1.0.0"></script>
-  <script src="/js/cabinet.js?v=1.0.3"></script>
+  <script src="/js/compress-images.js?v=1.0.1"></script>
+  <script src="/js/cabinet.js?v=1.0.4"></script>
 
 <script>
     var tag = document.createElement('script');

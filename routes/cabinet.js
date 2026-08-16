@@ -177,8 +177,9 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
       return res.redirect('/user/login');
     }
 
-    // Проверка наличия изображений (если обязательны)
-    if (!req.files || req.files.length === 0) {
+    const { sanitizeCloudinaryImageUrls } = require("../services/cloudinaryDirect");
+    const imageUrls = sanitizeCloudinaryImageUrls(req.body.image_urls);
+    if ((!req.files || req.files.length === 0) && imageUrls.length === 0) {
       return res.status(400).json({ success: false, message: "Необходимо загрузить хотя бы одно изображение" });
     }
 
@@ -202,7 +203,8 @@ router.post("/product", requireUser, productLimiter, mobileOptimization, upload,
       whatsapp: req.body.whatsapp,
       contact_method: req.body.contact_method,
       ownerId: getAuthUserId(req.user),
-      status: "pending"
+      status: "pending",
+      image_urls: imageUrls
     };
 
     console.log(`📋 Creating product: device=${req.isMobile ? 'mobile' : 'desktop'}, filesCount=${req.files ? req.files.length : 0}`);
@@ -351,7 +353,8 @@ router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization
       telegram: req.body.telegram,
       whatsapp: req.body.whatsapp,
       contact_method: req.body.contact_method,
-      current_images: req.body.current_images
+      current_images: req.body.current_images,
+      image_urls: req.body.image_urls
     };
 
     const updated = await updateProduct(
