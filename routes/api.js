@@ -1,19 +1,20 @@
 // API роуты (рейтинг, Instagram oEmbed, удаление изображений)
 const express = require("express");
 const router = express.Router();
-const { Product, Banner, User } = require("../config/database");
+const { Product, User } = require("../config/database");
 const { Sequelize, Op } = require("../config/database");
 const { USE_POSTGRES } = require("../config/database");
 const { apiLimiter } = require("../middleware/rateLimiter");
 const { isRecordOwner } = require('../utils/ownership');
 const { isValidEntityId, isValidCardId } = require('../utils/idValidation');
-const { validateRating, validateProductId, validateServiceId, validateBannerId, validateInstagramUrl } = require("../middleware/validators");
+const { validateRating, validateProductId, validateServiceId, validateInstagramUrl } = require("../middleware/validators");
 const csrfProtection = require('csurf')({ cookie: true });
 const { deleteImage, deleteImages } = require("../utils/imageUtils");
 const { requireUser } = require("../middleware/auth");
 const { castVote } = require("../services/voteService");
 const { ensureGuestId } = require("../middleware/p1Guest");
 const { parsePagination } = require("../utils/pagination");
+const { publicProductWhere, publicServiceWhere, notDeletedClause } = require("../utils/catalogFilters");
 
 function setGuestVoteCookie(res, name) {
   res.cookie(name, '1', {
@@ -309,14 +310,7 @@ router.get("/products", apiLimiter, async (req, res) => {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
 
     const { page, limit, offset } = parsePagination(req.query);
-    const where = {
-      [Op.or]: [
-        { type: "product" },
-        { type: null }
-      ],
-      status: "approved",
-      deleted: false
-    };
+    const where = publicProductWhere();
 
     const { rows: products, count } = await Product.findAndCountAll({
       where,
@@ -430,262 +424,6 @@ router.put("/products/:id", apiLimiter, requireUser, csrfProtection, async (req,
 // router.post("/products/:id/vote" - используем существующий /api/rating/:id
 
 // =======================
-// API для баннеров (CRUD + голосование)
-// =======================
-
-// Получить все баннеры
-router.get("/banners", apiLimiter, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-
-    const { page, limit, offset } = parsePagination(req.query);
-    const where = { status: { [Op.in]: ["published", "approved"] } };
-
-    const { rows: banners, count } = await Banner.findAndCountAll({
-      where,
-      order: [['id', 'DESC']],
-      include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
-      limit,
-      offset,
-      distinct: true
-    });
-
-    const bannersWithVirtuals = banners.map((row) => {
-      const banner = row.get ? row.get({ plain: true }) : row;
-      return {
-        ...banner,
-        result: (banner.rating_up || 0) - (banner.rating_down || 0),
-        total: (banner.rating_up || 0) + (banner.rating_down || 0),
-        imageUrl: banner.images && banner.images.length > 0 ? banner.images[0] : banner.image_url
-      };
-    });
-
-    res.json({
-      success: true,
-      banners: bannersWithVirtuals,
-      page,
-      limit,
-      total: count,
-      totalPages: Math.max(1, Math.ceil(count / limit))
-    });
-  } catch (err) {
-    console.error("❌ Ошибка получения баннеров:", err);
-    res.status(500).json({ success: false, message: "Ошибка сервера" });
-  }
-});
-
-// Получить один баннер
-router.get("/banners/:id", apiLimiter, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-    if (!isValidEntityId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
-    }
-    
-     const banner = await Banner.findByPk(req.params.id, {
-       include: [{ model: User, as: 'owner', attributes: ['id', 'username'] }],
-       nest: true,
-       raw: true
-     });
-    
-    if (!banner) {
-      return res.status(404).json({ success: false, message: "Баннер не найден" });
-    }
-    
-    // Добавляем виртуальные поля
-    const bannerWithVirtuals = {
-      ...banner,
-      result: (banner.rating_up || 0) - (banner.rating_down || 0),
-      total: (banner.rating_up || 0) + (banner.rating_down || 0),
-      imageUrl: banner.images && banner.images.length > 0 ? banner.images[0] : banner.image_url
-    };
-    
-    res.json({ success: true, banner: bannerWithVirtuals });
-  } catch (err) {
-    console.error("❌ Ошибка получения баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка сервера" });
-  }
-});
-
-// Создать баннер
-router.post("/banners", apiLimiter, requireUser, csrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-    const { title, description, link, video_url, category, price, images } = req.body;
-    
-    // Валидация
-    if (!title || !title.trim()) {
-      return res.status(400).json({ success: false, message: "Название баннера обязательно" });
-    }
-    
-    // Ограничиваем количество изображений до 5
-    const bannerImages = Array.isArray(images) ? images.slice(0, 5) : (images ? [images] : []);
-    
-     const bannerData = {
-       title: title.trim(),
-       description: description ? description.trim() : "",
-       link: link ? link.trim() : "",
-       video_url: video_url ? video_url.trim() : "",
-       ownerId: req.user._id || req.user.id,
-       category: category ? category.trim() : "",
-       price: price ? Number(price) : 0,
-       status: "pending",
-       images: bannerImages,
-      image_url: bannerImages.length > 0 ? bannerImages[0] : null,
-      rating_up: 0,
-      rating_down: 0
-    };
-    
-    const banner = await Banner.create(bannerData);
-    
-    
-    res.json({ success: true, banner });
-  } catch (err) {
-    console.error("❌ Ошибка создания баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка создания баннера: " + err.message });
-  }
-});
-
-// Обновить баннер
-router.put("/banners/:id", apiLimiter, requireUser, csrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-    if (!isValidEntityId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
-    }
-    
-    const banner = await Banner.findByPk(req.params.id);;
-    if (!banner) {
-      return res.status(404).json({ success: false, message: "Баннер не найден" });
-    }
-    
-     // Проверка прав: админ или владелец
-     const isAdmin = req.user.role === "admin";
-     const isOwner = isRecordOwner(banner, req.user);
-     
-     if (!isAdmin && !isOwner) {
-       return res.status(403).json({ success: false, message: "Доступ запрещен" });
-     }
-     
-     const { title, description, link, video_url, category, price, status, images } = req.body;
-    
-    // Ограничиваем количество изображений до 5
-    const bannerImages = Array.isArray(images) ? images.slice(0, 5) : (images ? [images] : banner.images);
-
-    const updateData = {
-      title: title ? title.trim() : banner.title,
-      description: description !== undefined ? description.trim() : banner.description,
-      link: link !== undefined ? link.trim() : banner.link,
-      video_url: video_url !== undefined ? video_url.trim() : banner.video_url,
-      category: category !== undefined ? category.trim() : banner.category,
-      price: price !== undefined ? Number(price) : banner.price,
-      images: bannerImages,
-      image_url: bannerImages.length > 0 ? bannerImages[0] : null
-    };
-
-    // Status changes are admin-only
-    if (isAdmin && status && ["pending", "approved", "rejected", "published", "blocked"].includes(status)) {
-      updateData.status = status;
-    }
-    
-     await Banner.update(updateData, { where: { id: req.params.id } });
-     const updatedBanner = await Banner.findByPk(req.params.id);
-     
-     res.json({ success: true, banner: updatedBanner });
-  } catch (err) {
-    console.error("❌ Ошибка обновления баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка обновления баннера" });
-  }
-});
-
-// Удалить баннер
-router.delete("/banners/:id", apiLimiter, requireUser, csrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
-    
-    if (!isValidEntityId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
-    }
-    
-    const banner = await Banner.findByPk(req.params.id);;
-    if (!banner) {
-      return res.status(404).json({ success: false, message: "Баннер не найден" });
-    }
-    
-     // Проверка прав: админ или владелец
-     const isAdmin = req.user.role === "admin";
-     const isOwner = isRecordOwner(banner, req.user);
-     
-     if (!isAdmin && !isOwner) {
-       return res.status(403).json({ success: false, message: "Доступ запрещен" });
-     }
-     
-     // Удаляем изображения из Cloudinary
-    if (banner.images && banner.images.length > 0) {
-      const deletedCount = await deleteImages(banner.images);
-    } else if (banner.image_url) {
-      await deleteImage(banner.image_url);
-    }
-    
-    await Banner.destroy({ where: { id: req.params.id } });
-    
-    
-    res.json({ success: true, message: "Баннер удален" });
-  } catch (err) {
-    console.error("❌ Ошибка удаления баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка удаления баннера: " + err.message });
-  }
-});
-
-// Голосование за баннер
-router.post("/banners/:id/vote", apiLimiter, ensureGuestId, csrfProtection, validateBannerId, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Рейтинг недоступен: нет БД" });
-
-    if (!isValidEntityId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
-    }
-
-    const { vote } = req.body;
-    if (!req.user) {
-      const guestVoteCookie = req.cookies[`exto_banner_vote_${req.params.id}`];
-      if (guestVoteCookie) {
-        return res.status(409).json({ success: false, message: "Вы уже голосовали за этот баннер" });
-      }
-    }
-
-    const result = await castVote({
-      targetType: 'banner',
-      targetId: req.params.id,
-      vote,
-      user: req.user,
-      guestKey: req.user ? null : req.guestId
-    });
-
-    if (!result.ok) {
-      return res.status(result.status || 500).json({ success: false, message: result.message });
-    }
-
-    if (!req.user) setGuestVoteCookie(res, `exto_banner_vote_${req.params.id}`);
-
-    res.json({
-      success: true,
-      rating_up: result.rating_up,
-      rating_down: result.rating_down,
-      total: result.total,
-      result: result.result,
-      voted: true
-    });
-  } catch (err) {
-    console.error("❌ Ошибка голосования за баннер:", err);
-    res.status(500).json({ success: false, message: "Ошибка голосования: " + err.message });
-  }
-});
-
-// =======================
 // API для услуг (CRUD + голосование)
 // Используем модель Product с type: "service"
 // =======================
@@ -696,11 +434,7 @@ router.get("/services", apiLimiter, async (req, res) => {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: нет БД" });
 
     const { page, limit, offset } = parsePagination(req.query);
-    const where = {
-      type: "service",
-      status: "approved",
-      deleted: false
-    };
+    const where = publicServiceWhere();
 
     const { rows: services, count } = await Product.findAndCountAll({
       where,
@@ -746,7 +480,7 @@ router.get("/services/:id", apiLimiter, async (req, res) => {
     }
 
     const service = await Product.findOne({
-      where: { id: req.params.id, type: "service", deleted: false, status: "approved" },
+      where: { id: req.params.id, type: "service", status: "approved", ...notDeletedClause() },
       include: [{ model: User, as: "owner", attributes: ["id", "username"] }]
     });
 

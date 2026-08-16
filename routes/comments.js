@@ -3,7 +3,6 @@ const router = express.Router();
 const logger = require('../utils/logger');
 const Comment = require('../models/Comment');
 const Product = require('../models/Product');
-const Banner = require('../models/Banner');
 const { notifyAdmin } = require('../services/adminNotificationService');
 const { body, param, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
@@ -90,12 +89,7 @@ router.post('/:cardId', canWriteComments, commentLimiter, csrfProtection, async 
     if (card) {
       cardType = card.type === 'service' ? 'Service' : 'Product';
     } else {
-      card = await Banner.findByPk(cardId);
-      if (card) {
-        cardType = 'Banner';
-      } else {
         return res.status(404).json({ success: false, message: 'Карточка не найдена' });
-      }
     }
 
     // Проверяем статус карточки (только approved карточки могут иметь комментарии)

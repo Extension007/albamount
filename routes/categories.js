@@ -3,7 +3,6 @@ const express = require("express");
 const router = express.Router();
 const Category = require("../config/database").Category;
 const Product = require("../config/database").Product;
-const Banner = require("../config/database").Banner;
 const { requireAdmin } = require("../middleware/auth");
 const { isValidEntityId } = require("../utils/idValidation");
 const { csrfProtection } = require("../middleware/csrf");
@@ -124,12 +123,10 @@ router.delete('/:id', requireAdmin, csrfProtection, async (req, res) => {
     }
 
     const productsCount = await Product.count({ where: { categoryId: id } });
-    const bannersCount = await Banner.count({ where: { categoryId: id } });
-
-    if (productsCount > 0 || bannersCount > 0) {
+    if (productsCount > 0) {
       return res.status(400).json({
         success: false,
-        message: `Категория используется в ${productsCount + bannersCount} записях`
+        message: `Категория используется в ${productsCount} записях`
       });
     }
 

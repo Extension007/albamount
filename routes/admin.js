@@ -1,8 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const Product = require("../config/database").Product;
-const Banner = require("../config/database").Banner;
-const VideoPost = require("../config/database").VideoPost;
 const Category = require("../config/database").Category;
 const Statistics = require("../config/database").Statistics;
 const User = require("../config/database").User;
@@ -11,7 +9,7 @@ const { USE_POSTGRES } = require("../config/database");
 const { requireAdmin, requireAuth } = require("../middleware/auth");
 const { productLimiter } = require("../middleware/rateLimiter");
 const { isValidEntityId } = require('../utils/idValidation');
-const { validateProduct, validateProductId, validateService, validateServiceId, validateBanner, validateBannerId, validateModeration } = require("../middleware/validators");
+const { validateProduct, validateProductId, validateService, validateServiceId, validateModeration } = require("../middleware/validators");
 const { csrfProtection, csrfToken } = require("../middleware/csrf");
 const { upload } = require("../utils/upload");
 const { updateProduct, deleteProduct } = require("../services/productService");
@@ -72,7 +70,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
     
     // Cap dashboard payloads (full lists live on dedicated /admin/* pages)
     const DASH_LIMIT = 200;
-     const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, registeredUsers, users] = await Promise.all([
+     const [allProducts, allServices, pendingProducts, pendingServices, visitors, registeredUsers, users] = await Promise.all([
         Product.findAll({
           where: {
             deleted: false,
@@ -147,52 +145,6 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
           nest: true
         }),
 
-        Banner.findAll({
-          order: [['id', 'DESC']],
-          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
-          limit: DASH_LIMIT,
-          raw: true,
-          nest: true
-        }),
-
-        Banner.findAll({
-          where: {
-            [Op.and]: [
-              { ownerId: { [Op.not]: null } },
-              {
-                [Op.or]: [
-                  { status: "pending" },
-                  { status: null }
-                ]
-              }
-            ]
-          },
-          order: [['id', 'DESC']],
-          include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
-          limit: DASH_LIMIT,
-          raw: true,
-          nest: true
-        }),
-
-VideoPost.findAll({
-           order: [['id', 'DESC']],
-           include: [{ model: User, as: 'user', attributes: ['id','username','email'] }],
-           limit: DASH_LIMIT,
-           raw: true,
-           nest: true
-        }),
-
-        VideoPost.findAll({
-          where: {
-            status: "pending"
-         },
-         order: [['id', 'DESC']],
-         include: [{ model: User, as: 'user', attributes: ['id','username','email'] }],
-         limit: DASH_LIMIT,
-         raw: true,
-         nest: true
-        }),
-
        Statistics.increment('value', { by: 1, where: { key: 'visitors' } })
          .then(() => Statistics.findOne({ where: { key: 'visitors' } })),
 
@@ -209,8 +161,6 @@ VideoPost.findAll({
     console.log(`🎯 Всего услуг: ${allServices.length}`);
     console.log(`⏳ Товаров на модерации: ${pendingProducts.length}`);
     console.log(`⏳ Услуг на модерации: ${pendingServices.length}`);
-    console.log(`📋 Всего баннеров: ${allBanners.length}`);
-    console.log(`⏳ Баннеров на модерации: ${pendingBanners.length}`);
 
     const visitorCount = visitors ? visitors.value : 0;
     const userCount = users || 0;
@@ -247,10 +197,6 @@ VideoPost.findAll({
       services: normalizeCardMedia(allServices || []),
       pendingProducts: normalizeCardMedia(pendingProducts),
       pendingServices: normalizeCardMedia(pendingServices || []),
-      banners: allBanners || [],
-      pendingBanners: pendingBanners || [],
-      videos: allVideos || [],
-      pendingVideos: pendingVideos || [],
       visitorCount,
       userCount,
       registeredUsers: registeredUsers || [],
@@ -333,7 +279,7 @@ router.post("/products/:id/delete", requireAdmin, conditionalCsrfProtection, val
     
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) return res.json({ success: true, message: "Товар удален" });
-    res.redirect("/admin/products");
+    res.redirect("/admin");
   } catch (err) {
     console.error("❌ Ошибка удаления товара:", err);
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -414,12 +360,16 @@ router.post("/products/:id/edit", requireAdmin, productLimiter, upload, handleMu
 router.post("/products/:id/approve", requireAdmin, conditionalCsrfProtection, validateProductId, async (req, res) => {
   try {
     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-     await Product.update(
-       { status: "approved", rejection_reason: "" },
-       { where: { id: req.params.id } }
-     );
-     const product = await Product.findByPk(req.params.id);
+    const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: "Карточка не найдена" });
+    if (product.type === "service") {
+      return res.status(400).json({ success: false, message: "Это услуга — одобряйте в разделе услуг" });
+    }
+    await Product.update(
+      { status: "approved", rejectionReason: "", type: product.type || "product" },
+      { where: { id: req.params.id } }
+    );
+    await product.reload();
     
     // Отправляем уведомление администратору о модерации
     try {
@@ -518,116 +468,18 @@ router.post("/products/:id/toggle-visibility", requireAdmin, conditionalCsrfProt
     if (!product) return res.status(404).json({ success: false, message: "Карточка не найдена" });
     
      const newStatus = product.status === "approved" ? "rejected" : "approved";
-     await Product.update(
-       { status: newStatus, rejection_reason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
-       { where: { id: req.params.id } }
-     );
+     const patch = {
+       status: newStatus,
+       rejectionReason: newStatus === "rejected" ? "Заблокировано администратором" : ""
+     };
+     if (newStatus === "approved") patch.type = product.type || "product";
+     await Product.update(patch, { where: { id: req.params.id } });
      const updated = await Product.findByPk(req.params.id);
     
-    res.json({ success: true, status: updated.status, message: newStatus === "rejected" ? "Карточка заблокирована" : "Карточка разблокирована" });
+    return respondModeration(req, res, { success: true, status: updated.status, message: newStatus === "rejected" ? "Карточка заблокирована" : "Карточка разблокирована" });
   } catch (err) {
     console.error("❌ Ошибка блокировки карточки:", err);
     res.status(500).json({ success: false, message: "Ошибка блокировки карточки" });
-  }
-});
-
-// Блокировка/Разблокировка баннера
-router.post("/banners/:id/toggle-visibility", requireAdmin, conditionalCsrfProtection, validateBannerId, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-     const banner = await Banner.findByPk(req.params.id);
-    if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
-    
-    // Переключаем статус
-    if (banner.status === "published" || banner.status === "approved") {
-      banner.status = "blocked";
-    } else {
-      banner.status = "approved";
-    }
-    
-    await banner.save();
-    res.json({ success: true, message: `Баннер ${banner.status === "blocked" ? "заблокирован" : "разблокирован"}`, status: banner.status });
-  } catch (err) {
-    console.error("❌ Ошибка переключения видимости баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка изменения статуса баннера" });
-  }
-});
-
-// Модерация баннеров: одобрить баннер
-router.post("/banners/:id/approve", requireAdmin, conditionalCsrfProtection, validateBannerId, async (req, res) => {
-  try {
-     if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-     await Banner.update(
-        { status: "approved", rejection_reason: "" },
-        { where: { id: req.params.id } }
-      );
-      const banner = await Banner.findByPk(req.params.id);
-     if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
-     
-     // Отправляем уведомление администратору о модерации
-     try {
-       await notifyAdmin(
-         'Модерация баннера - Одобрение',
-         `Администратор одобрил баннер.`,
-         {
-           'ID баннера': banner.id.toString(),
-          'Заголовок': banner.title,
-          'Статус': 'approved',
-          'Одобрен администратором': req.user?.username || 'Неизвестно',
-          'Дата одобрения': new Date().toLocaleString('ru-RU')
-        }
-      );
-    } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
-    }
-    
-    res.json({ success: true, status: banner.status });
-  } catch (err) {
-    console.error("❌ Ошибка одобрения баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка одобрения баннера" });
-  }
-});
-
-// Модерация баннеров: отклонить баннер
-router.post("/banners/:id/reject", requireAdmin, conditionalCsrfProtection, validateBannerId, validateModeration, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-    const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
-    const adminComment = (req.body.adminComment || 'Отклонено администратором').toString().trim();
-    if (!rejectionReason) {
-      return res.status(400).json({ success: false, message: "rejectionReason required" });
-    }
-
-     await Banner.update(
-       { status: "rejected", adminComment, rejection_reason: rejectionReason },
-       { where: { id: req.params.id } }
-     );
-     const banner = await Banner.findByPk(req.params.id);
-    if (!banner) return res.status(404).json({ success: false, message: "Баннер не найден" });
-
-     // Отправляем уведомление администратору о модерации
-     try {
-       await notifyAdmin(
-         'Модерация баннера - Отклонение',
-         `Администратор отклонил баннер.`,
-         {
-           'ID баннера': banner.id.toString(),
-          'Заголовок': banner.title,
-          'Статус': 'rejected',
-          'Причина отклонения': rejectionReason,
-          'Комментарий администратора': adminComment,
-          'Отклонен администратором': req.user?.username || 'Неизвестно',
-          'Дата отклонения': new Date().toLocaleString('ru-RU')
-        }
-      );
-    } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
-    }
-
-    res.json({ success: true, status: banner.status, rejection_reason: banner.rejection_reason });
-  } catch (err) {
-    console.error("❌ Ошибка отклонения баннера:", err);
-    res.status(500).json({ success: false, message: "Ошибка отклонения баннера" });
   }
 });
 
@@ -635,16 +487,16 @@ router.post("/banners/:id/reject", requireAdmin, conditionalCsrfProtection, vali
 router.post("/services/:id/approve", requireAdmin, conditionalCsrfProtection, validateServiceId, async (req, res) => {
   try {
      if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-      await Product.update(
-        { status: "approved", rejection_reason: "" },
-        { where: { id: req.params.id } }
-      );
       const service = await Product.findByPk(req.params.id);
      if (!service) return res.status(404).json({ success: false, message: "Услуга не найдена" });
-     // Проверяем, что это действительно услуга
      if (service.type !== "service") {
        return res.status(400).json({ success: false, message: "Это не услуга" });
      }
+      await Product.update(
+        { status: "approved", rejectionReason: "", type: "service" },
+        { where: { id: req.params.id } }
+      );
+      await service.reload();
      
      // Отправляем уведомление администратору о модерации
      try {
@@ -752,12 +604,12 @@ router.post("/services/:id/toggle-visibility", requireAdmin, conditionalCsrfProt
     
      const newStatus = service.status === "approved" ? "rejected" : "approved";
      await Product.update(
-       { status: newStatus, rejection_reason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
+       { status: newStatus, rejectionReason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
        { where: { id: req.params.id } }
      );
      const updated = await Product.findByPk(req.params.id);
     
-    res.json({ success: true, status: updated.status, message: newStatus === "rejected" ? "Услуга заблокирована" : "Услуга разблокирована" });
+    return respondModeration(req, res, { success: true, status: updated.status, message: newStatus === "rejected" ? "Услуга заблокирована" : "Услуга разблокирована" });
   } catch (err) {
     console.error("❌ Ошибка блокировки услуги:", err);
     res.status(500).json({ success: false, message: "Ошибка блокировки услуги" });
@@ -892,7 +744,7 @@ router.post("/services/:id/delete", requireAdmin, conditionalCsrfProtection, val
 
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
     if (wantsJson) return res.json({ success: true, message: "Услуга удалена" });
-    res.redirect("/admin/services");
+    res.redirect("/admin");
   } catch (err) {
     console.error("❌ Ошибка удаления услуги:", err);
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
@@ -977,479 +829,8 @@ router.get("/services", requireAdmin, csrfToken, async (req, res) => {
   }
 });
 
-// Каталог баннеров
-router.get("/banners", requireAdmin, csrfToken, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
-      return res.status(503).send("Недоступно: отсутствует подключение к БД");
-    }
-    
-    // Получаем все баннеры (для админа показываем все, не только published)
-      const banners = await Banner.findAll({
-        order: [['createdAt', 'DESC']],
-        include: [{ model: User, as: 'owner', attributes: ['id','username','email'] }],
-        raw: true,
-        nest: true
-      })
-    
-    // Генерируем CSRF токен для формы и API запросов
-    const csrfTokenValue = res.locals.csrfToken || (req.csrfToken ? req.csrfToken() : '');
-    
-    res.render("admin-banners", {
-      banners: banners || [],
-      csrfToken: csrfTokenValue
-    });
-  } catch (err) {
-    console.error("❌ Ошибка получения баннеров:", err);
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка базы данных: " + err.message });
-    res.status(500).send("Ошибка базы данных");
-  }
-});
-
-// Добавление баннера (админом)
-router.post("/banners", requireAdmin, productLimiter, upload, handleMulterError, csrfProtection, validateBanner, async (req, res) => {
-  if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
-  try {
-    const { title, description, price, link, video_url, category, status } = req.body;
-    
-    // Валидация
-    if (!title || !title.trim()) {
-      return res.status(400).json({ success: false, message: "Название баннера обязательно" });
-    }
-    
-    // Обработка изображений
-    let images = [];
-    let image_url = null;
-    
-    if (req.files && req.files.length > 0) {
-      const filesToProcess = req.files.slice(0, 5);
-      filesToProcess.forEach(file => {
-        let imagePath = null;
-        if (file.path && !file.path.startsWith('http')) {
-          imagePath = '/uploads/' + file.filename;
-        } else {
-          imagePath = file.path;
-        }
-        if (imagePath) {
-          images.push(imagePath);
-        }
-      });
-      image_url = images.length > 0 ? images[0] : null;
-    }
-    
-    const bannerData = {
-      title: title.trim(),
-      description: description ? description.trim() : "",
-      price: price ? Number(price) : 0,
-      link: link ? link.trim() : "",
-      video_url: video_url ? video_url.trim() : "",
-      category: category ? category.trim() : "",
-      status: status || "published",
-      images: images,
-      image_url: image_url,
-      ownerId: null, // Админ создает без владельца
-      rating_up: 0,
-      rating_down: 0
-    };
-    
-    const banner = await Banner.create(bannerData);
-    
-     console.log("✅ Баннер создан:", { id: banner.id, title: banner.title });
-    
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) {
-      return res.json({ success: true, message: "Баннер успешно добавлен", banner });
-    }
-    res.redirect("/admin");
-  } catch (err) {
-    console.error("❌ Ошибка добавления баннера:", err);
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) {
-      return res.status(500).json({ success: false, message: "Ошибка добавления баннера: " + err.message });
-    }
-    res.status(500).send("Ошибка загрузки изображения или базы данных");
-  }
-});
-
-// Редактирование баннера (форма)
-router.get("/banners/:id/edit", requireAdmin, validateBannerId, csrfToken, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
-      return res.status(503).send("Недоступно: отсутствует подключение к БД");
-    }
-     const banner = await Banner.findByPk(req.params.id);
-    if (!banner) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(404).json({ success: false, message: "Баннер не найден" });
-      return res.redirect("/admin");
-    }
-    
-    // Генерируем CSRF токен для формы и API запросов
-    const csrfTokenValue = res.locals.csrfToken || '';
-    
-     res.render("products/edit", { 
-       product: {
-         id: banner.id,
-         name: banner.title,
-         description: banner.description,
-         price: banner.price,
-         link: banner.link,
-         video_url: banner.video_url,
-         category: banner.category,
-         images: banner.images || [],
-         image_url: banner.image_url,
-         status: banner.status,
-         owner: banner.owner,
-         type: "banner"
-       },
-      mode: "admin", 
-      csrfToken: csrfTokenValue 
-    });
-  } catch (err) {
-    console.error("❌ Ошибка получения баннера для редактирования:", err);
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка базы данных: " + err.message });
-    res.status(500).send("Ошибка базы данных");
-  }
-});
-
-// Редактирование баннера (сохранение)
-router.post("/banners/:id/edit", requireAdmin, productLimiter, upload, handleMulterError, csrfProtection, validateBannerId, validateBanner, async (req, res) => {
-  if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
-  try {
-     const banner = await Banner.findByPk(req.params.id);
-    if (!banner) {
-      return res.status(404).json({ success: false, message: "Баннер не найден" });
-    }
-
-    // Обновляем данные
-    banner.title = req.body.name || banner.title;
-    banner.description = req.body.description || "";
-    banner.price = req.body.price ? Number(req.body.price) : 0;
-    banner.link = req.body.link || "";
-    banner.video_url = req.body.video_url || "";
-    banner.category = req.body.category || "";
-
-    // Обработка изображений
-    if (req.body.current_images) {
-      const currentImages = Array.isArray(req.body.current_images) 
-        ? req.body.current_images 
-        : [req.body.current_images].filter(Boolean);
-      banner.images = currentImages;
-      banner.image_url = currentImages.length > 0 ? currentImages[0] : null;
-    }
-
-    if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(file => {
-        if (file.path && !file.path.startsWith('http')) {
-          return '/uploads/' + file.filename;
-        }
-        return file.path;
-      });
-      banner.images = [...(banner.images || []), ...newImages].slice(0, 5);
-      if (banner.images.length > 0 && !banner.image_url) {
-        banner.image_url = banner.images[0];
-      }
-    }
-
-    await banner.save();
-
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-     if (wantsJson) {
-       return res.json({ success: true, message: "Баннер успешно обновлен" });
-     }
-     res.redirect(`/admin/banners/${banner.id}/edit`);
-  } catch (err) {
-    console.error("❌ Ошибка редактирования баннера:", err);
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) {
-      return res.status(500).json({ success: false, message: "Ошибка редактирования баннера: " + err.message });
-    }
-    res.status(500).send("Ошибка базы данных");
-  }
-});
-
-// Удаление баннера (POST для форм)
-router.post("/banners/:id/delete", requireAdmin, conditionalCsrfProtection, validateBannerId, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
-      return res.status(503).send("Недоступно: отсутствует подключение к БД");
-    }
-
-     if (!isValidEntityId(req.params.id)) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
-      return res.status(400).send("Неверный формат ID баннера");
-    }
-
-    const bannerId = req.params.id;
-    console.log("🗑️ Удаление баннера", { bannerId });
-
-    // Найти баннер в базе
-     const banner = await Banner.findByPk(bannerId);
-    if (!banner) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(404).json({ success: false, message: "Баннер не найден" });
-      return res.status(404).send("Баннер не найден");
-    }
-
-    // Удалить изображения из Cloudinary
-    if (banner.images && banner.images.length > 0) {
-      for (const imageUrl of banner.images) {
-        try {
-          await deleteImage(imageUrl);
-        } catch (err) {
-          console.error("Ошибка удаления изображения:", err);
-        }
-      }
-    } else if (banner.image_url) {
-      try {
-        await deleteImage(banner.image_url);
-      } catch (err) {
-        console.error("Ошибка удаления изображения:", err);
-      }
-    }
-
-    // Удалить баннер из БД
-     await Banner.destroy({ where: { id: bannerId } });
-
-    // Отправляем уведомление администратору об удалении баннера
-    try {
-      await notifyAdmin(
-        'Удаление баннера',
-        `Администратор удалил баннер.`,
-        {
-          'ID баннера': bannerId,
-          'Заголовок': banner.title,
-          'Дата удаления': new Date().toLocaleString('ru-RU'),
-          'Удален администратором': req.user?.username || 'Неизвестно'
-        }
-      );
-    } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
-    }
-
-    console.log("✅ Баннер удален:", { bannerId });
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.json({ success: true, message: "Баннер удален" });
-    res.redirect("/admin/banners");
-  } catch (err) {
-    console.error("❌ Ошибка удаления баннера:", err);
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка удаления баннера: " + err.message });
-    res.status(500).send("Ошибка базы данных");
-  }
-});
-
-// Удаление баннера (DELETE для API)
-router.delete("/banners/:id", requireAdmin, conditionalCsrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) {
-      return res.status(503).json({ success: false, message: 'Недоступно: нет БД' });
-    }
-
-     if (!isValidEntityId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Неверный формат ID баннера" });
-    }
-
-    const bannerId = req.params.id;
-    console.log("🗑️ Удаление баннера", { bannerId });
-
-    // Найти баннер в базе
-     const banner = await Banner.findByPk(bannerId);
-    if (!banner) {
-      return res.status(404).json({ success: false, message: "Баннер не найден" });
-    }
-
-    // Удаляем изображения из Cloudinary (или локального хранилища)
-    if (banner.images && banner.images.length > 0) {
-      console.log(`🔄 Удаление ${banner.images.length} изображений баннера из хранилища`);
-      const deletedCount = await deleteImages(banner.images);
-      console.log(`✅ Удалено ${deletedCount} из ${banner.images.length} изображений баннера`);
-    } else if (banner.image_url) {
-      console.log(`🔄 Удаление изображения баннера из хранилища: ${banner.image_url}`);
-      const deleted = await deleteImage(banner.image_url);
-      if (deleted) {
-        console.log(`✅ Изображение баннера успешно удалено из хранилища`);
-      } else {
-        console.warn(`⚠️ Не удалось удалить изображение баннера из хранилища`);
-      }
-    }
-
-    // Полное удаление из MongoDB
-     await Banner.destroy({ where: { id: bannerId } });
-
-    console.log(`✅ Баннер ${bannerId} полностью удален из БД`);
-
-    return res.json({ success: true, message: "Баннер успешно удален" });
-  } catch (err) {
-    if (err.code === 'EBADCSRFTOKEN') {
-      console.error('❌ CSRF validation failed for banner deletion:', err);
-      return res.status(403).json({ success: false, message: "Неверный CSRF-токен. Обновите страницу и попробуйте снова." });
-    }
-    console.error('❌ Ошибка удаления баннера:', err);
-    return res.status(500).json({ success: false, message: "Ошибка сервера" });
-  }
-});
-
-// Управление категориями
-router.get("/categories", requireAdmin, conditionalCsrfToken, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) {
-      return res.status(503).send("Админка недоступна: отсутствует подключение к БД");
-    }
-
-    res.render("admin-categories", {
-      csrfToken: res.locals.csrfToken || null
-    });
-  } catch (err) {
-    console.error("❌ Ошибка загрузки админки категорий:", err);
-    res.status(500).send("Ошибка сервера");
-  }
-});
-
 // Подключаем маршруты для управления контактами
 const adminContactsRouter = require('./adminContacts');
 router.use('/contacts', adminContactsRouter);
-
-// Маршруты для модерации видео
-const { listPending, listAll, moderate } = require('../services/videoService');
-
-// Модерация видео: одобрить
-router.post('/videos/:id/approve', requireAdmin, conditionalCsrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-    const { moderate } = require('../services/videoService');
-    const video = await moderate({ id: req.params.id, action: 'approve', adminComment: req.body.adminComment || '' });
-    if (!video) return res.status(404).json({ success: false, message: "Видео не найдено" });
-    
-    // Отправляем уведомление администратору о модерации
-    try {
-      const { notifyAdmin } = require('../services/adminNotificationService');
-       await notifyAdmin(
-         'Модерация видео - Одобрение',
-         `Администратор одобрил видео.`,
-         {
-           'ID видео': video.id.toString(),
-           'Название': video.title,
-           'Статус': 'approved',
-           'Одобрено администратором': req.user?.username || 'Неизвестно',
-           'Дата одобрения': new Date().toLocaleString('ru-RU')
-         }
-       );
-    } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
-    }
-    
-    res.json({ success: true, status: video.status });
-  } catch (err) {
-    console.error("❌ Ошибка одобрения видео:", err);
-    res.status(500).json({ success: false, message: "Ошибка одобрения видео" });
-  }
-});
-
-// Модерация видео: отклонить
-router.post('/videos/:id/reject', requireAdmin, conditionalCsrfProtection, validateModeration, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-    const { moderate } = require('../services/videoService');
-    const rejectionReason = (req.body.rejectionReason || req.body.reason || 'Несоответствие правилам публикации').toString().trim();
-    const adminComment = (req.body.adminComment || 'Отклонено администратором').toString().trim();
-    if (!rejectionReason) {
-      return res.status(400).json({ success: false, message: "rejectionReason required" });
-    }
-
-    const video = await moderate({ id: req.params.id, action: 'reject', adminComment, rejectionReason });
-    if (!video) return res.status(404).json({ success: false, message: "Видео не найдено" });
-
-    // Отправляем уведомление администратору о модерации
-    try {
-      const { notifyAdmin } = require('../services/adminNotificationService');
-       await notifyAdmin(
-         'Модерация видео - Отклонение',
-         `Администратор отклонил видео.`,
-         {
-           'ID видео': video.id.toString(),
-           'Название': video.title,
-           'Статус': 'rejected',
-           'Причина отклонения': rejectionReason,
-           'Комментарий администратора': adminComment,
-           'Отклонено администратором': req.user?.username || 'Неизвестно',
-           'Дата отклонения': new Date().toLocaleString('ru-RU')
-         }
-       );
-    } catch (notificationError) {
-      console.error('Ошибка при отправке уведомления администратору:', notificationError);
-    }
-
-    res.json({ success: true, status: video.status, rejection_reason: video.rejectionReason });
-  } catch (err) {
-    console.error("❌ Ошибка отклонения видео:", err);
-    res.status(500).json({ success: false, message: "Ошибка отклонения видео" });
-  }
-});
-
-// Блокировка видео (переключение статуса)
-router.post('/videos/:id/toggle-visibility', requireAdmin, conditionalCsrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) return res.status(503).json({ success: false, message: "Нет БД" });
-     const video = await VideoPost.findByPk(req.params.id);
-    if (!video) return res.status(404).json({ success: false, message: "Видео не найдено" });
-    
-     const newStatus = video.status === "approved" ? "rejected" : "approved";
-     await VideoPost.update(
-       { status: newStatus, rejectionReason: newStatus === "rejected" ? "Заблокировано администратором" : "" },
-       { where: { id: req.params.id } }
-     );
-     const updated = await VideoPost.findByPk(req.params.id);
-    
-    res.json({ success: true, status: updated.status, message: newStatus === "rejected" ? "Видео заблокировано" : "Видео разблокировано" });
-  } catch (err) {
-    console.error("❌ Ошибка блокировки видео:", err);
-    res.status(500).json({ success: false, message: "Ошибка блокировки видео" });
-  }
-});
-
-// Удаление видео
-router.post('/videos/:id/delete', requireAdmin, conditionalCsrfProtection, async (req, res) => {
-  try {
-    if (!USE_POSTGRES) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(503).json({ success: false, message: "Недоступно: отсутствует подключение к БД" });
-      return res.status(503).send("Недоступно: отсутствует подключение к БД");
-    }
-
-    const videoId = req.params.id;
-    console.log("🗑️ Удаление видео", { videoId });
-
-    // Найти видео в базе
-     const video = await VideoPost.findByPk(videoId);
-    if (!video) {
-      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-      if (wantsJson) return res.status(404).json({ success: false, message: "Видео не найдено" });
-      return res.status(404).send("Видео не найдено");
-    }
-
-    // Удалить видео из БД
-     await VideoPost.destroy({ where: { id: videoId } });
-
-    console.log("✅ Видео удалено:", { videoId });
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.json({ success: true, message: "Видео удалено" });
-    res.redirect("/admin");
-  } catch (err) {
-    console.error("❌ Ошибка удаления видео:", err);
-    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка удаления видео: " + err.message });
-    res.status(500).send("Ошибка базы данных");
-  }
-});
 
 module.exports = router;

@@ -176,68 +176,7 @@ const validateProductId = [
 // Валидация ID услуги (использует ту же логику, что и товар)
 const validateServiceId = validateProductId;
 
-// Валидация ID баннера (integer Postgres id или legacy hex)
-const validateBannerId = [
-  param("id")
-    .notEmpty()
-    .withMessage("ID баннера обязателен")
-    .custom((value) => {
-      if (!isValidEntityId(value)) {
-        throw new Error("Некорректный ID баннера");
-      }
-      return true;
-    }),
-  handleValidationErrors
-];
-
-// Валидация создания/редактирования услуги (аналогично товару)
 const validateService = validateProduct;
-
-// Валидация создания/редактирования баннера
-const validateBanner = [
-  body("title")
-    .trim()
-    .notEmpty()
-    .withMessage("Название баннера обязательно")
-    .isLength({ min: 1, max: 200 })
-    .withMessage("Название должно быть от 1 до 200 символов"),
-  
-  body("price")
-    .optional()
-    .isString()
-    .withMessage("Цена должна быть строкой"),
-  
-  body("description")
-    .optional()
-    .trim()
-    .isLength({ max: 5000 })
-    .withMessage("Описание не должно превышать 5000 символов"),
-  
-  body("category")
-    .optional()
-    .isIn(CATEGORY_KEYS)
-    .withMessage("Некорректная категория"),
-  
-  body("link")
-    .optional({ checkFalsy: true })
-    .trim()
-    .isURL({ protocols: ["http", "https"], require_protocol: true })
-    .withMessage("Некорректный URL"),
-  
-  body("video_url")
-    .optional({ checkFalsy: true })
-    .trim()
-    .isURL({ protocols: ["http", "https"], require_protocol: true })
-    .withMessage("Некорректный URL видео"),
-  
-  // Улучшенная валидация статуса
-  body("status")
-    .optional()
-    .isIn(["pending", "approved", "rejected"])
-    .withMessage("Некорректный статус (допустимые: pending, approved, rejected)"),
-  
-  handleValidationErrors
-];
 
 // Валидация логина
 const validateLogin = [
@@ -378,8 +317,6 @@ module.exports = {
   validateProductId,
   validateService,
   validateServiceId,
-  validateBanner,
-  validateBannerId,
   validateLogin,
   validateRegister,
   validateRating,

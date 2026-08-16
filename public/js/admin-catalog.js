@@ -15,15 +15,12 @@
       catalogType = 'product';
     } else if (pathname.includes('/admin/services')) {
       catalogType = 'service';
-    } else if (pathname.includes('/admin/banners')) {
-      catalogType = 'banner';
     }
   } else if (isCabinetPage) {
     // Кабинет пользователя - определяем по активной вкладке или контексту
     // Проверяем, есть ли элементы на странице
     const hasProducts = document.querySelectorAll('.product-card[data-product-id], .catalog-item[data-product-id]').length > 0;
     const hasServices = document.querySelectorAll('.product-card[data-service-id], .catalog-item[data-service-id]').length > 0;
-    const hasBanners = document.querySelectorAll('.product-card[data-banner-id], .catalog-item[data-banner-id]').length > 0;
     
     // Определяем по активной вкладке
     const activeTab = document.querySelector('.tab.active');
@@ -31,14 +28,12 @@
       const tabData = activeTab.dataset && activeTab.dataset.tab;
       if (tabData === 'products') catalogType = 'product';
       else if (tabData === 'services') catalogType = 'service';
-      else if (tabData === 'banners') catalogType = 'banner';
     }
     
     // Если не определили по вкладке, определяем по наличию элементов
     if (!catalogType) {
-      if (hasProducts && !hasServices && !hasBanners) catalogType = 'product';
-      else if (hasServices && !hasProducts && !hasBanners) catalogType = 'service';
-      else if (hasBanners && !hasProducts && !hasServices) catalogType = 'banner';
+      if (hasProducts && !hasServices) catalogType = 'product';
+      else if (hasServices && !hasProducts) catalogType = 'service';
     }
   }
 
@@ -46,11 +41,9 @@
   if (!catalogType) {
     const productCards = document.querySelectorAll('.delete-product-btn, .edit-product-btn, .block-product-btn');
     const serviceCards = document.querySelectorAll('.delete-service-btn, .edit-service-btn, .block-service-btn');
-    const bannerCards = document.querySelectorAll('.delete-banner-btn, .edit-banner-btn, .block-banner-btn');
     
     if (productCards.length > 0) catalogType = 'product';
     else if (serviceCards.length > 0) catalogType = 'service';
-    else if (bannerCards.length > 0) catalogType = 'banner';
   }
 
   if (!catalogType) {
@@ -59,7 +52,7 @@
     // Функции будут работать с проверками на существование элементов
   }
 
-  const API_BASE = catalogType === 'product' ? '/api/products' : (catalogType === 'service' ? '/api/services' : '/api/banners');
+  const API_BASE = catalogType === 'service' ? '/api/services' : '/api/products';
   const ADMIN_BASE = '/admin';
   const DELETE_BASE = '/admin';
 

@@ -196,9 +196,7 @@ function requireOwnerOrAdmin(modelName = 'Product', paramName = 'id') {
     (async () => {
       try {
         const Product = require('../models/Product');
-        const Banner = require('../models/Banner');
-
-        const Model = modelName === 'Banner' ? Banner : Product;
+        const Model = Product;
         const itemId = req.params[paramName];
 
         if (!isValidEntityId(itemId)) {

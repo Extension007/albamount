@@ -1,7 +1,6 @@
 // Middleware для проверки прав доступа к комментариям
 
 const Product = require('../models/Product');
-const Banner = require('../models/Banner');
 
 function getUserId(user) {
   if (!user) return null;
@@ -29,10 +28,6 @@ async function loadDiscussionCard(cardId) {
   let card = await Product.findByPk(cardId);
   if (card) {
     return { card, cardType: card.type === 'service' ? 'Service' : 'Product' };
-  }
-  card = await Banner.findByPk(cardId);
-  if (card) {
-    return { card, cardType: 'Banner' };
   }
   return { card: null, cardType: null };
 }

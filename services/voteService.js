@@ -1,4 +1,4 @@
-const { sequelize, Product, Banner, VideoPost, Vote } = require('../config/database');
+const { sequelize, Product, Vote } = require('../config/database');
 const { getAuthUserId } = require('../middleware/auth');
 
 const TARGET_CONFIG = {
@@ -18,24 +18,6 @@ const TARGET_CONFIG = {
     downField: 'dislikes',
     find: (id, t) => Product.findOne({
       where: { id, type: 'service', deleted: false },
-      transaction: t,
-      lock: t.LOCK.UPDATE
-    })
-  },
-  banner: {
-    Model: Banner,
-    upField: 'rating_up',
-    downField: 'rating_down',
-    find: (id, t) => Banner.findByPk(id, {
-      transaction: t,
-      lock: t.LOCK.UPDATE
-    })
-  },
-  video: {
-    Model: VideoPost,
-    upField: 'rating_up',
-    downField: 'rating_down',
-    find: (id, t) => VideoPost.findByPk(id, {
       transaction: t,
       lock: t.LOCK.UPDATE
     })
@@ -79,10 +61,6 @@ async function castVote({ targetType, targetId, vote, user = null, guestKey = nu
       const target = await cfg.find(id, t);
       if (!target) {
         return { ok: false, status: 404, message: 'Не найдено' };
-      }
-
-      if (targetType === 'video' && target.status !== 'approved') {
-        return { ok: false, status: 403, message: 'Voting allowed only for approved videos' };
       }
 
       try {
@@ -135,8 +113,7 @@ async function castVote({ targetType, targetId, vote, user = null, guestKey = nu
         dislikes: down,
         total: up + down,
         result: up - down,
-        voted: true,
-        doc: targetType === 'video' ? target : undefined
+        voted: true
       };
     });
   } catch (err) {

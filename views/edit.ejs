@@ -29,7 +29,7 @@
   <main class="container">
     <section class="section">
       <h2>Редактировать товар/услугу</h2>
-      <form id="editProductForm" class="form-grid" enctype="multipart/form-data" method="POST" action="<%= typeof mode !== 'undefined' && mode === 'admin' ? (product.type === 'banner' ? `/admin/banners/${product._id}/edit` : (product.type === 'service' ? `/admin/services/${product._id}/edit` : `/admin/products/${product._id}/edit`)) : `/cabinet/product/${product._id}/edit` %>">
+      <form id="editProductForm" class="form-grid" enctype="multipart/form-data" method="POST" action="<%= typeof mode !== 'undefined' && mode === 'admin' ? (product.type === 'service' ? `/admin/services/${product._id}/edit` : `/admin/products/${product._id}/edit`) : `/cabinet/product/${product._id}/edit` %>">
         <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
         <input type="hidden" id="productId" value="<%= product._id %>">
         <!-- Селектор типа публикации -->

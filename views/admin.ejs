@@ -114,7 +114,7 @@
 <a class="btn small outline" href="<%= p.link %>" target="_blank" rel="noopener">Ссылка</a>
 <% } %>
 <% if (p.video_url) { %>
-<button class="btn small outline" data-video="<%= p.video_url %>">Видео</button>
+<button type="button" class="btn small outline" data-video="<%= p.video_url %>">Видео</button>
 <% } %>
 </div>
 </div>
@@ -173,7 +173,7 @@
 <a class="btn small outline" href="<%= s.link %>" target="_blank" rel="noopener">Ссылка</a>
 <% } %>
 <% if (s.video_url) { %>
-<button class="btn small outline" data-video="<%= s.video_url %>">Видео</button>
+<button type="button" class="btn small outline" data-video="<%= s.video_url %>">Видео</button>
 <% } %>
 </div>
 </div>
@@ -184,7 +184,6 @@
 <p class="empty-state">Нет услуг на модерации</p>
 <% } %>
 </section>
-
 
 <!-- Управление ALBA -->
 <section class="section">
@@ -375,12 +374,12 @@
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
-<!-- Блокировка/Разблокировка -->
-<button class="btn small toggle-visibility-btn status-<%= p.status %>"
-data-id="<%= p.id %>"
-data-status="<%= p.status %>">
-<%= p.status === 'approved' ? '🚫 Заблокировать' : '✅ Разблокировать' %>
+<form method="POST" action="/admin/products/<%= p.id %>/toggle-visibility" onsubmit="return confirm('Изменить видимость этой карточки?');">
+<input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+<button type="submit" class="btn small status-<%= p.status %>">
+<%= p.status === 'approved' ? 'Заблокировать' : 'Разблокировать' %>
 </button>
+</form>
 
 <a class="btn small outline" href="/admin/products/<%= p.id %>/edit">✏️ Редактировать</a>
 
@@ -393,7 +392,7 @@ data-status="<%= p.status %>">
 <a class="btn small outline" href="<%= p.link %>" target="_blank" rel="noopener">🔗 Ссылка</a>
 <% } %>
 <% if (p.video_url) { %>
-<button class="btn small outline" data-video="<%= p.video_url %>">▶️ Видео</button>
+<button type="button" class="btn small outline" data-video="<%= p.video_url %>">Видео</button>
 <% } %>
 </div>
 
@@ -482,12 +481,12 @@ data-status="<%= p.status %>">
 <% } %>
 
 <div class="product-actions" style="flex-direction:column;gap:6px;margin-top:10px;">
-<!-- Блокировка/Разблокировка -->
-<button class="btn small toggle-visibility-btn status-<%= s.status %>"
-data-id="<%= s.id %>"
-data-status="<%= s.status %>">
-<%= s.status === 'approved' ? '🚫 Заблокировать' : '✅ Разблокировать' %>
+<form method="POST" action="/admin/services/<%= s.id %>/toggle-visibility" onsubmit="return confirm('Изменить видимость этой карточки?');">
+<input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+<button type="submit" class="btn small status-<%= s.status %>">
+<%= s.status === 'approved' ? 'Заблокировать' : 'Разблокировать' %>
 </button>
+</form>
 
 <a class="btn small outline" href="/admin/services/<%= s.id %>/edit">✏️ Редактировать</a>
 
@@ -500,7 +499,7 @@ data-status="<%= s.status %>">
 <a class="btn small outline" href="<%= s.link %>" target="_blank" rel="noopener">🔗 Ссылка</a>
 <% } %>
 <% if (s.video_url) { %>
-<button class="btn small outline" data-video="<%= s.video_url %>">▶️ Видео</button>
+<button type="button" class="btn small outline" data-video="<%= s.video_url %>">Видео</button>
 <% } %>
 </div>
 
@@ -624,6 +623,15 @@ data-status="<%= s.status %>">
       });
     }
 
+    document.querySelectorAll('button[data-video]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var url = btn.getAttribute('data-video');
+        if (url) window.open(url, '_blank', 'noopener');
+      });
+    });
+
     const approveBtns = document.querySelectorAll('.approve-btn');
     approveBtns.forEach(function(btn) {
       btn.addEventListener('click', async function(e) {
@@ -681,6 +689,7 @@ data-status="<%= s.status %>">
 
     document.querySelectorAll('.reject-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
+        if (!rejectModal) return;
         currentRejectId = btn.getAttribute('data-id');
         currentRejectType = btn.getAttribute('data-type') || 'product';
 
@@ -718,9 +727,7 @@ data-status="<%= s.status %>">
         if (!currentRejectId) return;
         try {
           let rejectEndpoint;
-          if (currentRejectType === 'banner') rejectEndpoint = '/admin/banners/' + currentRejectId + '/reject';
-          else if (currentRejectType === 'service') rejectEndpoint = '/admin/services/' + currentRejectId + '/reject';
-          else if (currentRejectType === 'video') rejectEndpoint = '/admin/videos/' + currentRejectId + '/reject';
+          if (currentRejectType === 'service') rejectEndpoint = '/admin/services/' + currentRejectId + '/reject';
           else rejectEndpoint = '/admin/products/' + currentRejectId + '/reject';
 
           const formData = new FormData(rejectForm);
@@ -734,7 +741,7 @@ data-status="<%= s.status %>">
 
           const result = await postJSON(rejectEndpoint, payload);
           if (result.json.success) {
-            alert(currentRejectType === 'video' ? 'Видео отклонено' : 'Карточка отклонена');
+            alert('Карточка отклонена');
             location.reload();
           } else {
             alert('Ошибка: ' + (result.json.message || ('HTTP ' + result.status)));

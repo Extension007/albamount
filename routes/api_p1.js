@@ -8,7 +8,6 @@ const { httpError, publicErrorMessage } = require('../utils/httpError');
 const { notifyUser } = require('../services/notify');
 const { redeemSlotCode, createCodes, issuePaymentActivationCode, consumePaymentActivationCode } = require('../services/codeService');
 const { grantAlba, listTransactions, spendAlba } = require('../services/albaService');
-const { createVideo, listPublic, moderate, vote } = require('../services/videoService');
 const { assertVerified } = require('../services/p1Rules');
 
 // CODES
@@ -382,8 +381,7 @@ router.post('/payments/alba', requireAdmin, csrfProtection, async (req, res, nex
 
 async function upgradeCardToPaid(cardType, cardId, activationCodeId = null) {
   const Product = require('../models/Product');
-  const Banner = require('../models/Banner');
-  const Model = cardType === 'banner' ? Banner : Product;
+  const Model = Product;
   const card = await Model.findByPk(cardId);
   if (!card) return null;
 
@@ -440,87 +438,6 @@ router.post('/users/activate-paid', requireAuth, csrfProtection, async (req, res
 
     await notifyUser(req.user._id, { type: 'paid_activated', activationCode });
     res.json({ success: true, card });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// VIDEO API
-router.post('/videos', requireAuth, csrfProtection, async (req, res, next) => {
-  try {
-    assertVerified(req.user);
-    const video = await createVideo({ user: req.user, payload: req.body });
-    await notifyUser(req.user._id, { type: 'video_created', videoId: video.id || video._id });
-    res.json({ success: true, video });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get('/videos', async (req, res, next) => {
-  try {
-    const genres = req.query.genres?.split(',').filter(Boolean) || [];
-    const videos = await listPublic({ genres });
-    res.json({ success: true, videos });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/videos/:id/vote', ensureGuestId, guestRateLimit(), captchaHook, csrfProtection, async (req, res, next) => {
-  try {
-    const { vote } = req.body;
-    if (!vote || !['up', 'down'].includes(vote)) return res.status(400).json({ success: false, message: 'vote must be up or down' });
-
-    const voterKey = req.user ? `u:${req.user._id}` : `g:${req.guestId}`;
-    const result = await vote({ id: req.params.id, voterKey, vote });
-
-    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
-
-    res.json({ success: true, video: result.doc });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Admin moderation
-router.post('/videos/:id/approve', requireAdmin, csrfProtection, async (req, res, next) => {
-  try {
-    const { adminComment } = req.body;
-    // adminComment is optional for approve
-
-    const video = await moderate({ id: req.params.id, action: 'approve', adminComment });
-    await notifyUser(video.userId, { type: 'video_approved', videoId: video.id || video._id, adminComment });
-    res.json({ success: true, video });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/videos/:id/reject', requireAdmin, csrfProtection, async (req, res, next) => {
-  try {
-    const { adminComment, rejectionReason } = req.body;
-    if (!adminComment || !rejectionReason) return res.status(400).json({ success: false, message: 'adminComment and rejectionReason required' });
-
-    const video = await moderate({ id: req.params.id, action: 'reject', adminComment, rejectionReason });
-    if (!video) return res.status(404).json({ success: false, error: 'NotFound', message: 'Video not found' });
-    if (!video.userId) return res.status(400).json({ success: false, message: 'Video has no associated user' });
-
-    await notifyUser(video.userId, { type: 'video_rejected', videoId: video.id || video._id, adminComment, rejectionReason });
-    res.json({ success: true, video });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/videos/:id/block', requireAdmin, csrfProtection, async (req, res, next) => {
-  try {
-    const { adminComment } = req.body;
-    if (!adminComment) return res.status(400).json({ success: false, message: 'adminComment required' });
-
-    const video = await moderate({ id: req.params.id, action: 'block', adminComment });
-    await notifyUser(video.userId, { type: 'video_blocked', videoId: video.id || video._id, adminComment });
-    res.json({ success: true, video });
   } catch (err) {
     next(err);
   }

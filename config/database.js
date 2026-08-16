@@ -287,120 +287,6 @@ Product.prototype.total = function() {
   return (this.likes || 0) + (this.dislikes || 0);
 };
 
-// === BANNER MODEL ===
-const Banner = sequelize.define('Banner', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  title: {
-    type: DataTypes.STRING(255),
-    allowNull: false
-  },
-  description: {
-    type: DataTypes.TEXT,
-    defaultValue: ''
-  },
-  link: {
-    type: DataTypes.STRING(1000),
-    defaultValue: ''
-  },
-  video_url: DataTypes.STRING(1000),
-  ownerId: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
-  categoryId: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'categories',
-      key: 'id'
-    }
-  },
-  category: {
-    type: DataTypes.STRING(200),
-    defaultValue: ''
-  },
-  price: DataTypes.STRING,
-  images: {
-    type: DataTypes.JSONB,
-    defaultValue: [],
-    validate: {
-      maxFive(value) {
-        if (value == null) return;
-        if (!Array.isArray(value)) {
-          throw new Error('images must be an array');
-        }
-        if (value.length > 5) {
-          throw new Error('Maximum 5 images allowed');
-        }
-      }
-    }
-  },
-  image_url: DataTypes.STRING(1000),
-  status: {
-    type: DataTypes.STRING(20),
-    defaultValue: 'published',
-    validate: {
-      isIn: [['published', 'blocked', 'draft', 'pending', 'approved', 'rejected']]
-    }
-  },
-  rejection_reason: DataTypes.STRING,
-  tier: {
-    type: DataTypes.STRING(20),
-    defaultValue: 'free'
-  },
-  tierRequested: DataTypes.STRING(20),
-  editCount: DataTypes.INTEGER,
-  adminComment: DataTypes.STRING,
-  rejectionReason: DataTypes.STRING,
-  paymentStatus: DataTypes.STRING(20),
-  activationCodeId: DataTypes.INTEGER,
-  rating_up: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  },
-  rating_down: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  },
-  voters: {
-    type: DataTypes.JSON,
-    defaultValue: []
-  },
-  rating_updated_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  }
-}, {
-  indexes: [
-    { fields: ['status'] },
-    { fields: ['owner_id'] },
-    { fields: ['category'] },
-    { fields: ['created_at'] },
-    { fields: ['status', 'category'] }
-  ]
-});
-
-Banner.prototype.imageUrl = function() {
-  if (this.images && this.images.length > 0) {
-    return this.images[0];
-  }
-  return this.image_url;
-};
-
-Banner.prototype.result = function() {
-  return (this.rating_up || 0) - (this.rating_down || 0);
-};
-
-Banner.prototype.total = function() {
-  return (this.rating_up || 0) + (this.rating_down || 0);
-};
-
 // === CONTACTINFO MODEL ===
 const ContactInfo = sequelize.define('ContactInfo', {
   id: {
@@ -531,7 +417,7 @@ const AlbaTransaction = sequelize.define('AlbaTransaction', {
   relatedCardType: {
     type: DataTypes.STRING(20),
     validate: {
-      isIn: [['product', 'service', 'banner', null]]
+      isIn: [['product', 'service', null]]
     }
   },
   relatedCardId: DataTypes.INTEGER,
@@ -640,7 +526,7 @@ const Code = sequelize.define('Code', {
     type: DataTypes.STRING(20),
     allowNull: false,
     validate: {
-      isIn: [['product', 'service', 'banner']]
+      isIn: [['product', 'service']]
     },
     index: true
   },
@@ -721,7 +607,7 @@ const CodeUsage = sequelize.define('CodeUsage', {
     type: DataTypes.STRING(20),
     allowNull: false,
     validate: {
-      isIn: [['product', 'service', 'banner']]
+      isIn: [['product', 'service']]
     }
   },
   ip: DataTypes.STRING,
@@ -787,67 +673,6 @@ const AuditLog = sequelize.define('AuditLog', {
   ]
 });
 
-// === VIDEOPOST MODEL ===
-const VideoPost = sequelize.define('VideoPost', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  userId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'users',
-      key: 'id'
-    },
-    index: true
-  },
-  nickname: {
-    type: DataTypes.STRING(100),
-    defaultValue: ''
-  },
-  videoUrl: {
-    type: DataTypes.STRING(1000),
-    allowNull: false
-  },
-  platform: DataTypes.STRING(50),
-  title: DataTypes.STRING(255),
-  description: DataTypes.TEXT,
-  genres: {
-    type: DataTypes.ARRAY(DataTypes.STRING),
-    defaultValue: [],
-    index: true
-  },
-  status: {
-    type: DataTypes.STRING(20),
-    defaultValue: 'pending',
-    validate: {
-      isIn: [['pending', 'approved', 'rejected', 'blocked']]
-    }
-  },
-  adminComment: DataTypes.STRING,
-  rejectionReason: DataTypes.STRING,
-  rating_up: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  },
-  rating_down: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  },
-  voters: {
-    type: DataTypes.JSON,
-    defaultValue: []
-  }
-}, {
-  indexes: [
-    { fields: ['user_id'] },
-    { fields: ['status'] },
-    { fields: ['created_at'] }
-  ]
-});
-
 // === VOTE MODEL (atomic unique votes) ===
 const Vote = sequelize.define('Vote', {
   id: {
@@ -859,7 +684,7 @@ const Vote = sequelize.define('Vote', {
     type: DataTypes.STRING(20),
     allowNull: false,
     validate: {
-      isIn: [['product', 'service', 'banner', 'video']]
+      isIn: [['product', 'service']]
     }
   },
   targetId: {
@@ -901,30 +726,22 @@ const VerificationToken = require('../models/VerificationToken');
 
 // User associations
 User.hasMany(Product, { as: 'products', foreignKey: 'ownerId' });
-User.hasMany(Banner, { as: 'banners', foreignKey: 'ownerId' });
 User.hasMany(Comment, { as: 'comments', foreignKey: 'userId' });
 User.hasMany(Code, { as: 'createdCodes', foreignKey: 'createdById' });
 User.hasMany(Code, { as: 'usedCodes', foreignKey: 'usedById' });
 User.hasMany(AlbaTransaction, { as: 'transactions', foreignKey: 'userId' });
 User.hasMany(Entitlement, { as: 'entitlements', foreignKey: 'ownerId' });
-User.hasMany(VideoPost, { as: 'videoPosts', foreignKey: 'userId' });
 User.hasMany(VerificationToken, { as: 'verificationTokens', foreignKey: 'userId' });
 VerificationToken.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
 // Category associations
 Category.hasMany(Product, { as: 'products', foreignKey: 'categoryId' });
-Category.hasMany(Banner, { as: 'banners', foreignKey: 'categoryId' });
 Category.belongsTo(Category, { as: 'parent', foreignKey: 'parentId' });
 
 // Product associations
 Product.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
 Product.belongsTo(Category, { as: 'categoryRel', foreignKey: 'categoryId' });
 Product.hasMany(Comment, { as: 'comments', foreignKey: 'cardId' });
-
-// Banner associations
-Banner.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
-Banner.belongsTo(Category, { as: 'categoryRel', foreignKey: 'categoryId' });
-Banner.hasMany(Comment, { as: 'comments', foreignKey: 'cardId' });
 
 // Comment associations
 Comment.belongsTo(User, { as: 'user', foreignKey: 'userId' });
@@ -937,8 +754,6 @@ Code.belongsTo(User, { as: 'usedBy', foreignKey: 'usedById' });
 Entitlement.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
 Entitlement.belongsTo(AlbaTransaction, { as: 'transaction', foreignKey: 'relatedTransactionId' });
 
-// VideoPost associations
-VideoPost.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
 // AlbaTransaction associations
 AlbaTransaction.belongsTo(User, { as: 'user', foreignKey: 'userId' });
@@ -1025,7 +840,6 @@ module.exports = {
   // Models
   User,
   Product,
-  Banner,
   Category,
   Comment,
   ContactInfo,
@@ -1036,7 +850,6 @@ module.exports = {
   Code,
   CodeUsage,
   AuditLog,
-  VideoPost,
   VerificationToken,
   Vote
 };

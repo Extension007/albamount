@@ -26,13 +26,13 @@ function normalizeUser(user) {
 }
 
 const RENDER_LIST_KEYS = [
-  'products', 'services', 'banners',
-  'pendingProducts', 'pendingServices', 'pendingBanners',
-  'videos', 'pendingVideos', 'myProducts', 'myServices', 'myBanners',
+  'products', 'services',
+  'pendingProducts', 'pendingServices',
+  'myProducts', 'myServices',
   'contacts', 'albaTransactions'
 ];
 
-const RENDER_OBJECT_KEYS = ['product', 'service', 'banner', 'video', 'item'];
+const RENDER_OBJECT_KEYS = ['product', 'service', 'item'];
 
 function normalizeRenderLocals(locals) {
   if (!locals || typeof locals !== 'object') return locals;

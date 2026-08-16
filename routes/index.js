@@ -3,7 +3,6 @@ const router = express.Router();
 const cloudinary = require("cloudinary").v2;
 
 const Product = require("../config/database").Product;
-const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
 const Statistics = require("../config/database").Statistics;
@@ -12,6 +11,7 @@ const { CATEGORY_LABELS, CATEGORY_KEYS, HIERARCHICAL_CATEGORIES } = require("../
 const { requireAdmin } = require("../middleware/auth");
 const { buildVotedMap } = require("../services/voteService");
 const { isProdLike } = require("../config/production");
+const { publicProductWhere, publicServiceWhere } = require("../utils/catalogFilters");
 
 const CATALOG_PAGE_SIZE = 24;
 
@@ -128,8 +128,7 @@ router.get("/", async (req, res) => {
     const categories = CATEGORY_LABELS || {};
     const categoryKeys = CATEGORY_KEYS || [];
 
-    const isVercel = Boolean(process.env.VERCEL);
-    const hasDbAccess = isVercel ? req.dbConnected : USE_POSTGRES;
+    const hasDbAccess = USE_POSTGRES;
 
     const selectedCategoryDisplay = await resolveCategoryDisplay(selected, hasDbAccess);
 
@@ -137,7 +136,6 @@ router.get("/", async (req, res) => {
       return res.render("index", {
         products: [],
         services: [],
-        banners: [],
         visitorCount: 0,
         userCount: 0,
         page: 1,
@@ -155,30 +153,17 @@ router.get("/", async (req, res) => {
       });
     }
 
-    const productsFilter = {
-      status: "approved",
-      type: "product",
-      deleted: false
-    };
-    const servicesFilter = {
-      status: "approved",
-      type: "service",
-      deleted: false
-    };
+    const productsFilter = publicProductWhere();
+    const servicesFilter = publicServiceWhere();
 
     await applyCategoryFilter(selected, productsFilter, servicesFilter);
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const offset = (page - 1) * CATALOG_PAGE_SIZE;
 
-    const [products, services, banners, productCount, serviceCount, visitorsRow, users] = await Promise.all([
+    const [products, services, productCount, serviceCount, visitorsRow, users] = await Promise.all([
       Product.findAll({ where: productsFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE, offset }),
       Product.findAll({ where: servicesFilter, order: [['id', 'DESC']], limit: CATALOG_PAGE_SIZE, offset }),
-      Banner.findAll({
-        where: { status: { [Op.in]: ["approved", "published"] } },
-        order: [['id', 'DESC']],
-        limit: CATALOG_PAGE_SIZE
-      }),
       Product.count({ where: productsFilter }),
       Product.count({ where: servicesFilter }),
       Statistics.findOrCreate({
@@ -218,7 +203,6 @@ router.get("/", async (req, res) => {
     res.render("index", {
       products,
       services,
-      banners,
       visitorCount,
       userCount,
       page,

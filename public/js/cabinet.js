@@ -25,7 +25,6 @@
     initLogout();
     initProductForm();
     initImagePreview();
-    initBannerForm();
     initCategorySelector();
     initAlbaModal();
     initReferralModal();
@@ -373,102 +372,6 @@
     };
   }
 
-  function initBannerForm() {
-    const bannerForm = document.getElementById('createBannerForm');
-    const bannerMsg = document.getElementById('createBannerMsg');
-    const bannerPreview = document.getElementById('bannerPreview');
-    const bannerPreviewImg = document.getElementById('bannerPreviewImg');
-    const bannerImageInput = document.getElementById('bannerImage');
-
-    if (!bannerForm) return;
-
-    if (bannerImageInput && bannerPreviewImg && bannerPreview) {
-      bannerImageInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-          if (file.size > 20 * 1024 * 1024) {
-            alert(`Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`);
-            e.target.value = '';
-            bannerPreview.style.display = 'none';
-            return;
-          }
-
-          const reader = new FileReader();
-          reader.onload = function(loadEvent) {
-            bannerPreviewImg.src = loadEvent.target.result;
-            bannerPreview.style.display = 'block';
-          };
-          reader.readAsDataURL(file);
-        } else if (bannerPreview) {
-          bannerPreview.style.display = 'none';
-        }
-      });
-    }
-
-    bannerForm.addEventListener('submit', async function(e) {
-      e.preventDefault();
-
-      if (bannerImageInput && bannerImageInput.files.length > 0) {
-        const file = bannerImageInput.files[0];
-        if (file.size > 20 * 1024 * 1024) {
-          bannerMsg.textContent = `Файл "${file.name}" слишком большой (максимум 20MB до сжатия)`;
-          bannerMsg.style.color = '#b00020';
-          return;
-        }
-      }
-
-      bannerMsg.textContent = 'Сжатие фото...';
-      bannerMsg.style.color = '#666';
-
-      let formData;
-      try {
-        const field = bannerImageInput ? bannerImageInput.name : 'images';
-        if (window.ImageUploadCompress && window.ImageUploadCompress.replaceFormDataImages) {
-          formData = await window.ImageUploadCompress.replaceFormDataImages(bannerForm, field);
-        } else {
-          formData = new FormData(bannerForm);
-        }
-      } catch (compressErr) {
-        bannerMsg.textContent = 'Не удалось сжать изображение.';
-        bannerMsg.style.color = '#b00020';
-        return;
-      }
-
-      bannerMsg.textContent = 'Отправка...';
-
-      try {
-        const res = await csrfFetch('/cabinet/banner', {
-          method: 'POST',
-          body: formData
-        });
-
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await res.text();
-          bannerMsg.textContent = 'Ошибка: ' + (text || 'Неверный формат ответа');
-          bannerMsg.style.color = '#b00020';
-          return;
-        }
-
-        const json = await res.json();
-        if (json.success) {
-          bannerMsg.textContent = 'Баннер отправлен на модерацию.';
-          bannerMsg.style.color = 'green';
-          bannerForm.reset();
-          if (bannerPreview) bannerPreview.style.display = 'none';
-          setTimeout(() => location.reload(), 800);
-        } else {
-          bannerMsg.textContent = json.message || 'Ошибка при загрузке баннера';
-          bannerMsg.style.color = '#b00020';
-        }
-      } catch (err) {
-        console.error('Ошибка при отправке:', err);
-        bannerMsg.textContent = 'Ошибка сети: ' + err.message;
-        bannerMsg.style.color = '#b00020';
-      }
-    });
-  }
-
   function initCategorySelector() {
     const categorySelect = document.getElementById('categorySelect');
     const subcategorySelector = document.getElementById('subcategorySelector');
@@ -613,28 +516,21 @@
 
     if (
       target.classList.contains('edit-product-btn') ||
-      target.classList.contains('edit-service-btn') ||
-      target.classList.contains('edit-banner-btn')
+      target.classList.contains('edit-service-btn')
     ) {
       const id = target.getAttribute('data-id');
-      const isBanner = target.classList.contains('edit-banner-btn');
-      const url = isBanner ? `/cabinet/banner/${id}/edit` : `/cabinet/product/${id}/edit`;
-      window.location.href = url;
+      window.location.href = `/cabinet/product/${id}/edit`;
       return;
     }
 
     if (
       target.classList.contains('delete-product-btn') ||
-      target.classList.contains('delete-service-btn') ||
-      target.classList.contains('delete-banner-btn')
+      target.classList.contains('delete-service-btn')
     ) {
       const id = target.getAttribute('data-id');
-      const isBanner = target.classList.contains('delete-banner-btn');
-      const type = isBanner ? 'баннер' : 'карточку';
+      if (!confirm('Вы уверены, что хотите удалить эту карточку?')) return;
 
-      if (!confirm(`Вы уверены, что хотите удалить эту ${type}?`)) return;
-
-      const url = isBanner ? `/cabinet/banner/${id}` : `/cabinet/product/${id}`;
+      const url = `/cabinet/product/${id}`;
       csrfFetch(url, { method: 'DELETE' })
         .then(function(res) { return res.json(); })
         .then(function(data) {

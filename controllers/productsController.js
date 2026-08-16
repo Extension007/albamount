@@ -4,12 +4,13 @@ const Category = require("../models/Category");
 const { deleteImages } = require("../utils/imageUtils");
 const { sanitizeProductDescription, sanitizeContacts, sanitizeText } = require("../utils/sanitize");
 const { notifyAdmin } = require("../services/adminNotificationService");
+const { publicProductWhere } = require("../utils/catalogFilters");
 
 // FIX: Получение всех товаров для отображения
 exports.getAllProducts = async (req, res, next) => {
   try {
     const products = await Product.findAll({
-      where: { status: "approved", deleted: false },
+      where: publicProductWhere(),
       include: [
         { model: require("../models/User"), as: "owner", attributes: ["id", "username"] },
         { model: Category, as: "categoryRel", attributes: ["id", "name", "icon"] }

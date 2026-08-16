@@ -1,6 +1,6 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const { Product, Banner, User } = require('../config/database');
+const { Product, User } = require('../config/database');
 
 (async () => {
   const password = process.env.SEED_USER_PASSWORD;
@@ -42,16 +42,6 @@ const { Product, Banner, User } = require('../config/database');
   });
   console.log('Service:', s[0].id);
 
-  const b = await Banner.findOrCreate({
-    where: { title: 'Тестовый баннер' },
-    defaults: {
-      title: 'Тестовый баннер',
-      description: 'Описание баннера',
-      ownerId: u.id,
-      status: 'pending'
-    }
-  });
-  console.log('Banner:', b[0].id);
   console.log('DONE');
   process.exit(0);
 })().catch(e => { console.error(e); process.exit(1); });

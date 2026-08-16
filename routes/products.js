@@ -2,13 +2,13 @@ const express = require("express");
 const router = express.Router();
 
 const Product = require("../config/database").Product;
-const Banner = require("../config/database").Banner;
 const Category = require("../config/database").Category;
 const User = require("../config/database").User;
 const Statistics = require("../config/database").Statistics;
 const { USE_POSTGRES, sequelize } = require("../config/database");
 const { CATEGORY_LABELS, CATEGORY_KEYS } = require("../config/app");
 const { Op } = require("sequelize");
+const { publicProductWhere, publicServiceWhere } = require("../utils/catalogFilters");
 
 function resolveSelectedCategoryDisplay(selected, hasDbAccess, categoryFlat) {
   if (!selected || selected === "all") return "all";
@@ -33,15 +33,13 @@ router.get("/", async (req, res) => {
     const categories = CATEGORY_LABELS || {};
     const categoryKeys = CATEGORY_KEYS || [];
 
-    const isVercel = Boolean(process.env.VERCEL);
-    const hasDbAccess = isVercel ? req.dbConnected : USE_POSTGRES;
+    const hasDbAccess = USE_POSTGRES;
 
     if (!hasDbAccess) {
       const selectedCategoryDisplay = resolveSelectedCategoryDisplay(selected, hasDbAccess);
       return res.render("index", {
         products: [],
         services: [],
-        banners: [],
         visitorCount: 0,
         userCount: 0,
         page: 1,
@@ -60,23 +58,11 @@ router.get("/", async (req, res) => {
     }
 
     // Фильтры только для товаров
-    const productsFilter = {
-      [Op.and]: [
-        { [Op.or]: [ { status: "approved" }, { status: null } ] },
-        { [Op.or]: [ { type: "product" }, { type: null } ] },
-        { deleted: false }
-      ]
-    };
-
-    if (selected && selected !== 'all') {
-      // Если выбранная категория - это numeric ID (новая система), используем categoryId
-      if (/^\d+$/.test(selected)) {
-        productsFilter[Op.and].push({ categoryId: parseInt(selected, 10) });
-      } else {
-        // Для обратной совместимости - старые строковые категории
-        productsFilter[Op.and].push({ category: selected });
-      }
-    }
+    const productsFilter = publicProductWhere(
+      selected && selected !== "all"
+        ? (/^\d+$/.test(selected) ? { categoryId: parseInt(selected, 10) } : { category: selected })
+        : undefined
+    );
 
     // Получаем дерево категорий для товаров
     const categoryTree = await Category.getTree('product');
@@ -85,7 +71,7 @@ router.get("/", async (req, res) => {
 
     const PAGE_LIMIT = 48;
     // Запросы
-    const [products, services, banners, visitors, users] = await Promise.all([
+    const [products, services, visitors, users] = await Promise.all([
       Product.findAll({
         where: productsFilter,
         order: [['id', 'DESC']],
@@ -94,14 +80,7 @@ router.get("/", async (req, res) => {
         nest: true
       }),
       Product.findAll({
-        where: { type: "service", status: "approved", deleted: false },
-        order: [['id', 'DESC']],
-        limit: PAGE_LIMIT,
-        raw: true,
-        nest: true
-      }),
-      Banner.findAll({
-        where: { status: { [Op.in]: ["approved", "published"] } },
+        where: publicServiceWhere(),
         order: [['id', 'DESC']],
         limit: PAGE_LIMIT,
         raw: true,
@@ -125,7 +104,6 @@ router.get("/", async (req, res) => {
     res.render("index", {
       products,
       services,
-      banners,
       visitorCount,
       userCount,
       page: 1,
