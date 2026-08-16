@@ -4,7 +4,13 @@
 window.AppBootstrap = {
   // Безопасная установка булевых значений
   setBoolean: function(key, value) {
-    window[key] = Boolean(value);
+    if (value === true || value === 1 || value === '1' || value === 'true') {
+      window[key] = true;
+    } else if (value === false || value === 0 || value === '0' || value === 'false' || value == null) {
+      window[key] = false;
+    } else {
+      window[key] = Boolean(value);
+    }
   },
 
   // Безопасная установка строковых значений
@@ -37,6 +43,11 @@ window.AppBootstrap = {
   init: function(config) {
     // Типобезопасная установка переменных
     this.setBoolean('IS_AUTH', config.isAuth);
+    try {
+      if (document.body && document.body.getAttribute('data-logged-in') === '1') {
+        window.IS_AUTH = true;
+      }
+    } catch (err) {}
     this.setBoolean('IS_ADMIN', config.isAdmin);
     this.setBoolean('IS_EMAIL_VERIFIED', config.isEmailVerified);
     this.setBoolean('SOCKET_IO_AVAILABLE', config.socketIoAvailable);

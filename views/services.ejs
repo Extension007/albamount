@@ -10,10 +10,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.0.8">
+  <link rel="stylesheet" href="/styles.css?v=1.0.9">
   <link rel="stylesheet" href="/header-tabs.css?v=1.0.4">
 </head>
-<body>
+<body data-logged-in="<%= typeof isAuth !== 'undefined' && isAuth ? '1' : '0' %>">
+  <script>window.IS_AUTH = document.body.getAttribute('data-logged-in') === '1';</script>
   <div id="bg-animated" aria-hidden="true"></div>
   <!-- Одноэтажный header без вкладок -->
   <header class="main-header">
@@ -130,28 +131,16 @@
                     <h4 class="contacts-title">Контакты:</h4>
                     <div class="contacts-list">
                       <% if (contacts.phone) { %>
-                        <a href="tel:<%= contacts.phone %>" class="contact-item">
-                          <span class="contact-icon">📞</span>
-                          <span><%= contacts.phone %></span>
-                        </a>
+                        <a href="tel:<%= contacts.phone %>" class="contact-item"><%= contacts.phone %></a>
                       <% } %>
                       <% if (contacts.email) { %>
-                        <a href="mailto:<%= contacts.email %>" class="contact-item">
-                          <span class="contact-icon">✉️</span>
-                          <span><%= contacts.email %></span>
-                        </a>
+                        <a href="mailto:<%= contacts.email %>" class="contact-item"><%= contacts.email %></a>
                       <% } %>
                       <% if (contacts.telegram) { %>
-                        <a href="https://t.me/<%= contacts.telegram.replace('@', '') %>" target="_blank" rel="noopener" class="contact-item">
-                          <span class="contact-icon">✈️</span>
-                          <span><%= contacts.telegram %></span>
-                        </a>
+                        <a href="https://t.me/<%= contacts.telegram.replace('@', '') %>" target="_blank" rel="noopener" class="contact-item"><%= contacts.telegram %></a>
                       <% } %>
                       <% if (contacts.whatsapp) { %>
-                        <a href="https://wa.me/<%= contacts.whatsapp.replace(/[^0-9]/g, '') %>" target="_blank" rel="noopener" class="contact-item">
-                          <span class="contact-icon">💬</span>
-                          <span><%= contacts.whatsapp %></span>
-                        </a>
+                        <a href="https://wa.me/<%= contacts.whatsapp.replace(/[^0-9]/g, '') %>" target="_blank" rel="noopener" class="contact-item"><%= contacts.whatsapp %></a>
                       <% } %>
                     </div>
                     <!-- FIX: Отображение способа связи -->
@@ -188,10 +177,6 @@
                     </span>
 
                     <button class="dislike-btn btn icon" type="button" aria-label="Дизлайк">▼</button>
-
-                    <span class="votes">
-                      (<%= (s.likes || 0) + (s.dislikes || 0) %> голосов)
-                    </span>
                   </div>
                 </div>
               </div>
@@ -322,7 +307,7 @@
   </div>
 
   <!-- Bootstrap script for safe EJS → JS data transfer -->
-  <script src="/utils/bootstrap.js"></script>
+  <script src="/utils/bootstrap.js?v=1.0.2"></script>
   <script>
     window.AppBootstrap.init({
       isAuth: <%- JSON.stringify(typeof isAuth !== 'undefined' ? isAuth : false) %>,
@@ -350,7 +335,7 @@
 
 
   <!-- Подключаем основной скрипт (включает весь JS: youtube init, модалки, рейтинг, категории, регистрация) -->
-  <script src="/script.js?v=1.0.5"></script>
+  <script src="/script.js?v=1.0.6"></script>
 
   <!-- Подключаем скрипт для предотвращения перекрытия контента футером -->
   <script src="/fix-footer-overlap.js"></script>

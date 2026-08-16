@@ -254,7 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log('📊 Всего карточек (.product-card):', allCards.length);
 
   // Инициализация состояния голосования для гостей (проверка cookie)
-  if (!window.IS_AUTH) {
+  if (!isLoggedInClient()) {
     document.querySelectorAll(".product-rating").forEach(ratingBlock => {
       productId = ratingBlock.dataset.id;
       if (productId) {
@@ -1170,7 +1170,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (!window.IS_AUTH) {
+      if (!isLoggedInClient()) {
         const voteCookie = document.cookie.split(';').some(cookie => cookie.trim().startsWith(`exto_${itemType}_vote_${productId}=`));
         if (voteCookie) {
           ratingBlock.dataset.voted = "true";
@@ -1823,7 +1823,7 @@ function initializeSocket() {
 
 async function openChatModal(cardId) {
   try {
-    const isGuest = !window.IS_AUTH;
+    const isGuest = !isLoggedInClient();
 
     currentChatCardId = cardId;
     const modal = document.getElementById(`chat-modal-${cardId}`);
@@ -1875,6 +1875,8 @@ async function openChatModal(cardId) {
     } else {
       if (inputContainer) inputContainer.style.display = 'flex';
       if (sendBtn) sendBtn.disabled = false;
+      const leftoverGuest = document.getElementById(`chat-messages-${cardId}`)?.querySelector('.guest-info');
+      if (leftoverGuest) leftoverGuest.remove();
 
       const input = document.getElementById(`chat-input-${cardId}`);
       if (input) {
@@ -2032,6 +2034,24 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function isLoggedInClient() {
+  if (window.IS_AUTH === true || window.IS_AUTH === 1 || window.IS_AUTH === 'true') {
+    return true;
+  }
+  try {
+    const flag = document.body && document.body.getAttribute('data-logged-in');
+    if (flag === '1' || flag === 'true') {
+      window.IS_AUTH = true;
+      return true;
+    }
+    if (document.querySelector('.header-actions a[href="/cabinet"], .header-actions a[href="/admin"]')) {
+      window.IS_AUTH = true;
+      return true;
+    }
+  } catch (err) {}
+  return false;
+}
+
 window.sendChatMessage = async function(cardId) {
   try {
     console.log('💬 Попытка отправки сообщения в чат карточки:', cardId);
@@ -2039,7 +2059,7 @@ window.sendChatMessage = async function(cardId) {
     console.log('🔍 IS_AUTH:', window.IS_AUTH);
     console.log('🔍 IS_ADMIN:', window.IS_ADMIN);
 
-    if (!window.IS_AUTH) {
+    if (!isLoggedInClient()) {
       console.log('❌ Пользователь не авторизован');
       showToast('Для отправки сообщений необходимо войти в систему', 'error');
       return;
