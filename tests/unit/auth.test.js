@@ -53,6 +53,30 @@ describe('auth middleware', () => {
       const user = getUserFromRequest(req);
       expect(user._id).toBe('9');
     });
+
+    it('accepts Bearer authorization header', () => {
+      verifyToken.mockReturnValue({ _id: '11', username: 'hdr', role: 'user' });
+      const req = {
+        cookies: {},
+        headers: { authorization: 'Bearer abc.def' },
+        session: {}
+      };
+      const user = getUserFromRequest(req);
+      expect(verifyToken).toHaveBeenCalledWith('abc.def');
+      expect(user._id).toBe('11');
+    });
+
+    it('ignores non-Bearer authorization header', () => {
+      verifyToken.mockClear();
+      const req = {
+        cookies: {},
+        headers: { authorization: 'Basic abc' },
+        session: { user: { id: 4, username: 'sess', role: 'user' } }
+      };
+      const user = getUserFromRequest(req);
+      expect(verifyToken).not.toHaveBeenCalled();
+      expect(user._id).toBe('4');
+    });
   });
 
   describe('getUserFromRequestAsync', () => {

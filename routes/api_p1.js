@@ -4,7 +4,7 @@ const { ensureGuestId, guestRateLimit, captchaHook } = require('../middleware/p1
 const { requireAuth, requireAdmin, requireUser } = require('../middleware/auth');
 const { csrfProtection } = require('../middleware/csrf');
 const { apiCsrfProtection } = require('../middleware/apiCsrf');
-const { httpError } = require('../utils/httpError');
+const { httpError, publicErrorMessage } = require('../utils/httpError');
 const { notifyUser } = require('../services/notify');
 const { redeemSlotCode, createCodes, issuePaymentActivationCode, consumePaymentActivationCode } = require('../services/codeService');
 const { grantAlba, listTransactions, spendAlba } = require('../services/albaService');
@@ -211,7 +211,7 @@ router.post('/entitlements/purchase', requireAuth, apiCsrfProtection(), async (r
     console.error('Error purchasing entitlement:', err);
     res.status(500).json({
       success: false,
-      message: 'Error purchasing entitlement: ' + err.message
+      message: 'Error purchasing entitlement: ' + publicErrorMessage(err, 'внутренняя ошибка')
     });
   }
 });
@@ -238,7 +238,7 @@ router.get('/entitlements/available', requireAuth, async (req, res) => {
     console.error('Error getting available entitlements:', err);
     res.status(500).json({
       success: false,
-      message: 'Error getting available entitlements: ' + err.message
+      message: 'Error getting available entitlements: ' + publicErrorMessage(err, 'внутренняя ошибка')
     });
   }
 });
@@ -279,7 +279,7 @@ router.post('/referrals/set-binding', requireAuth, apiCsrfProtection(), async (r
     console.error('Error setting referral binding:', err);
     res.status(500).json({
       success: false,
-      message: 'Error setting referral binding: ' + err.message
+      message: 'Error setting referral binding: ' + publicErrorMessage(err, 'внутренняя ошибка')
     });
   }
 });
@@ -298,7 +298,7 @@ router.get('/referrals/stats', requireAuth, async (req, res) => {
     console.error('Error getting referral stats:', err);
     res.status(500).json({
       success: false,
-      message: 'Error getting referral stats: ' + err.message
+      message: 'Error getting referral stats: ' + publicErrorMessage(err, 'внутренняя ошибка')
     });
   }
 });
@@ -330,7 +330,7 @@ router.get('/alba/transactions-history', requireAdmin, async (req, res) => {
     console.error('Error fetching ALBA transactions:', err);
     res.status(500).json({
       success: false,
-      message: 'Error fetching ALBA transactions: ' + err.message
+      message: 'Error fetching ALBA transactions: ' + publicErrorMessage(err, 'внутренняя ошибка')
     });
   }
 });

@@ -19,8 +19,8 @@ app.set("views", path.join(__dirname, "../views"));
 const { formatPriceDisplay } = require("../utils/price");
 app.locals.formatPriceDisplay = formatPriceDisplay;
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: "512kb" }));
+app.use(express.json({ limit: "512kb" }));
 
 const USE_POSTGRES = Boolean(process.env.DATABASE_URL);
 
@@ -60,7 +60,14 @@ function buildSessionStore() {
     // Use conservative options: do not try to auto-create the sessions table
     // (createTableIfMissing: false) and set a short connection timeout so
     // failures are fast and won't surface as unhandled AggregateError.
-    const conObject = ssl ? { ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 2000 } : { connectionTimeoutMillis: 2000 };
+    const conObject = ssl
+      ? {
+          ssl: {
+            rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "true"
+          },
+          connectionTimeoutMillis: 2000
+        }
+      : { connectionTimeoutMillis: 2000 };
 
     const store = new pgSession({
       conString: process.env.DATABASE_URL,
@@ -91,7 +98,7 @@ if (usePgSession) {
   console.info("ℹ️ В режиме разработки используем in-memory сессии. Чтобы использовать PostgreSQL для сессий, установите USE_PG_SESSION=true");
 }
 
-app.use(cookieParser());
+app.use(cookieParser(process.env.SESSION_SECRET || "exto-secret-change-in-production"));
 
 if (!isVercel && USE_POSTGRES) {
   app.use(session(sessionOptions));
@@ -105,7 +112,8 @@ if (!isVercel && USE_POSTGRES) {
 }
 
 const csrf = require("csurf");
-const csrfProtection = csrf({ cookie: true });
+const { csrfCookieOptions } = require("../middleware/csrf");
+const csrfProtection = csrf({ cookie: csrfCookieOptions() });
 app.use(csrfProtection);
 
 const { csrfToken } = require("../middleware/csrf");

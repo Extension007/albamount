@@ -31,24 +31,15 @@ async function addTx(UserModel, {
   transaction = null
 }) {
   const run = async (t) => {
-    if (amount < 0) {
-      // Lock user row to serialize concurrent spends
-      await UserModel.findByPk(userId, {
-        transaction: t,
-        lock: t.LOCK.UPDATE
-      });
-
-      const currentBalance = await getUserAlbaBalance(userId, { transaction: t });
-      if (currentBalance + amount < 0) {
-        throw new Error('Transaction would result in negative balance');
-      }
-    }
-
-    await UserModel.increment('albaBalance', {
-      by: Number(amount) || 0,
-      where: { id: userId },
-      transaction: t
+    await UserModel.findByPk(userId, {
+      transaction: t,
+      lock: t.LOCK.UPDATE
     });
+
+    const currentBalance = await getUserAlbaBalance(userId, { transaction: t });
+    if (amount < 0 && currentBalance + amount < 0) {
+      throw new Error('Transaction would result in negative balance');
+    }
 
     const txRow = await AlbaTransaction.create({
       userId,
@@ -62,7 +53,14 @@ async function addTx(UserModel, {
       meta
     }, { transaction: t });
 
+    const ledgerBalance = await getUserAlbaBalance(userId, { transaction: t });
+    await UserModel.update(
+      { albaBalance: ledgerBalance },
+      { where: { id: userId }, transaction: t }
+    );
+
     const user = await UserModel.findByPk(userId, { transaction: t });
+    if (user) user.albaBalance = ledgerBalance;
     return { user, transaction: txRow };
   };
 

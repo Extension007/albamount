@@ -1,7 +1,7 @@
 // Middleware для проверки прав доступа к комментариям
 
-const Comment = require('../models/Comment');
 const Product = require('../models/Product');
+const Banner = require('../models/Banner');
 
 function getUserId(user) {
   if (!user) return null;
@@ -12,8 +12,45 @@ function getUserId(user) {
  * Проверяет, может ли пользователь читать комментарии карточки
  * Гости и авторизованные пользователи могут читать комментарии одобренных карточек
  */
+function isPublishedStatus(status) {
+  return status === 'approved' || status === 'published';
+}
+
+function canViewCardDiscussion(card, user) {
+  if (!card) return false;
+  if (isPublishedStatus(card.status)) return true;
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const uid = getUserId(user);
+  return Boolean(card.ownerId && uid && String(card.ownerId) === uid);
+}
+
+async function loadDiscussionCard(cardId) {
+  let card = await Product.findByPk(cardId);
+  if (card) {
+    return { card, cardType: card.type === 'service' ? 'Service' : 'Product' };
+  }
+  card = await Banner.findByPk(cardId);
+  if (card) {
+    return { card, cardType: 'Banner' };
+  }
+  return { card: null, cardType: null };
+}
+
 function canReadComments(req, res, next) {
-  next();
+  (async () => {
+    const cardId = req.params.cardId;
+    const { card, cardType } = await loadDiscussionCard(cardId);
+    if (!card) {
+      return res.status(404).json({ success: false, message: 'Карточка не найдена' });
+    }
+    if (!canViewCardDiscussion(card, req.user)) {
+      return res.status(403).json({ success: false, message: 'Комментарии доступны только для опубликованных карточек' });
+    }
+    req.discussionCard = card;
+    req.discussionCardType = cardType;
+    next();
+  })().catch(next);
 }
 
 /**
@@ -69,12 +106,12 @@ function canDeleteComments(req, res, next) {
  */
 async function checkChatAccess(cardId, user) {
   try {
-    const card = await Product.findByPk(cardId);
+    const { card, cardType } = await loadDiscussionCard(cardId);
     if (!card) {
       return { allowed: false, canWrite: false, canModerate: false, reason: 'Карточка не найдена' };
     }
 
-    if (card.status !== 'approved') {
+    if (!canViewCardDiscussion(card, user)) {
       return { allowed: false, canWrite: false, canModerate: false, reason: 'Чат доступен только для опубликованных карточек' };
     }
 
@@ -88,10 +125,10 @@ async function checkChatAccess(cardId, user) {
 
     return {
       allowed: true,
-      canWrite: Boolean(userId),
+      canWrite: Boolean(userId) && isPublishedStatus(card.status),
       canModerate: isAdmin,
       isOwner,
-      cardType: card.type === 'service' ? 'Service' : 'Product'
+      cardType
     };
   } catch (error) {
     console.error('❌ Ошибка проверки доступа к чату:', error);
@@ -105,5 +142,7 @@ module.exports = {
   canEditComments,
   canDeleteComments,
   checkChatAccess,
+  canViewCardDiscussion,
+  loadDiscussionCard,
   getUserId
 };

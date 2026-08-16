@@ -1,4 +1,5 @@
 const csrf = require('csurf');
+const { csrfCookieOptions } = require('./csrf');
 const { httpError } = require('../utils/httpError');
 
 // Custom CSRF middleware for API endpoints
@@ -9,7 +10,7 @@ const { httpError } = require('../utils/httpError');
 
 function apiCsrfProtection() {
   // Create standard CSRF protection
-  const csrfProtection = csrf({ cookie: true });
+  const csrfProtection = csrf({ cookie: csrfCookieOptions() });
 
   return function(req, res, next) {
     // For API requests, allow token from X-CSRF-Token header

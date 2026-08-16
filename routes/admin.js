@@ -43,7 +43,7 @@ router.get("/", requireAdmin, conditionalCsrfToken, async (req, res) => {
     
     // Cap dashboard payloads (full lists live on dedicated /admin/* pages)
     const DASH_LIMIT = 200;
-     const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, users] = await Promise.all([
+     const [allProducts, allServices, pendingProducts, pendingServices, allBanners, pendingBanners, allVideos, pendingVideos, visitors, registeredUsers, users] = await Promise.all([
         Product.findAll({
           where: {
             deleted: false,
@@ -167,6 +167,12 @@ VideoPost.findAll({
        Statistics.increment('value', { by: 1, where: { key: 'visitors' } })
          .then(() => Statistics.findOne({ where: { key: 'visitors' } })),
 
+       User.findAll({
+         attributes: ['id', 'username', 'email', 'role', 'accountType', 'emailVerified', 'createdAt'],
+         order: [['id', 'DESC']],
+         limit: 500
+       }),
+
        User.count()
     ]);
     
@@ -194,12 +200,38 @@ VideoPost.findAll({
       pendingVideos: pendingVideos || [],
       visitorCount,
       userCount,
+      registeredUsers: registeredUsers || [],
+      currentAdminId: req.user?.id || req.user?._id,
       categories: require("../config/categories").FLAT_CATEGORIES,
       csrfToken: csrfTokenValue
     });
   } catch (err) {
     console.error("❌ Ошибка получения товаров (админ):", err);
     res.status(500).send("Ошибка базы данных");
+  }
+});
+
+router.post("/users/:id/delete", requireAdmin, conditionalCsrfProtection, async (req, res) => {
+  try {
+    if (!USE_POSTGRES) {
+      const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
+      if (wantsJson) return res.status(503).json({ success: false, message: "Нет БД" });
+      return res.status(503).send("Нет БД");
+    }
+
+    const { deleteRegisteredUser } = require("../services/userAdminService");
+    const { getAuthUserId } = require("../middleware/auth");
+    await deleteRegisteredUser(req.params.id, { id: getAuthUserId(req.user) });
+
+    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
+    if (wantsJson) return res.json({ success: true, message: "Пользователь удалён" });
+    return res.redirect("/admin");
+  } catch (err) {
+    const status = err.status || 500;
+    const message = err.message || "Ошибка удаления пользователя";
+    const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
+    if (wantsJson) return res.status(status).json({ success: false, message });
+    return res.status(status).send(message);
   }
 });
 

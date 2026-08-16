@@ -19,7 +19,7 @@
     "test:coverage": "jest --coverage"
   },
   "engines": {
-    "node": "v22.20.0"
+    "node": ">=18"
   },
   "keywords": [
     "e-commerce",

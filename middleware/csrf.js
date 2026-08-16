@@ -1,16 +1,18 @@
-// CSRF защита
 const csrf = require('csurf');
-const cookieParser = require('cookie-parser');
 
-// Условная инициализация CSRF middleware в зависимости от среды
-const isVercel = Boolean(process.env.VERCEL);
+function csrfCookieOptions() {
+  const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction,
+    path: '/'
+  };
+}
 
-// CSRF protection uses cookie-based tokens in all environments.
-const csrfProtection = csrf({ cookie: true });
+const csrfProtection = csrf({ cookie: csrfCookieOptions() });
 
-// Middleware для генерации CSRF токена
 function csrfToken(req, res, next) {
-  // Generate a CSRF token when available.
   if (typeof req.csrfToken === 'function') {
     res.locals.csrfToken = req.csrfToken();
   } else {
@@ -19,4 +21,4 @@ function csrfToken(req, res, next) {
   next();
 }
 
-module.exports = { csrfToken, csrfProtection };
+module.exports = { csrfToken, csrfProtection, csrfCookieOptions };

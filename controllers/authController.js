@@ -29,12 +29,8 @@ exports.register = async (req, res) => {
     });
 
     if (existingUser) {
-      if (existingUser.email === email) {
-        logger.warn({ msg: 'register_duplicate_email', email });
-        return res.status(400).json({ success: false, message: "Пользователь с таким email уже существует" });
-      }
-      logger.warn({ msg: 'register_duplicate_username', username });
-      return res.status(400).json({ success: false, message: "Пользователь с таким именем уже существует" });
+      logger.warn({ msg: 'register_duplicate', email: existingUser.email === email });
+      return res.status(400).json({ success: false, message: "Не удалось зарегистрироваться. Проверьте данные или войдите." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);

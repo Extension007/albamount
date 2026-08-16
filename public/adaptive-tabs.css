@@ -1,6 +1,8 @@
 /* Дополнительная панель вкладок для desktop */
 .desktop-tabs-panel {
-  background: #1e1e1e;
+  background: rgba(20, 20, 24, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(25,0,0.25);
   position: relative;
   z-index: 999;
@@ -13,7 +15,9 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: #111;
+  background: rgba(12, 12, 16, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid rgba(255,0,0.25);
   z-index: 1000;
   display: none;

@@ -37,7 +37,7 @@ const requireAuth = (req, res, next) => {
 // GET /api/comments/:cardId - получить комментарии для карточки
 router.get('/:cardId', [
   param('cardId').isString().isLength({ min: 1 }).withMessage('Некорректный ID карточки'),
-], async (req, res) => {
+], canReadComments, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -47,23 +47,7 @@ router.get('/:cardId', [
     const { cardId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
-
-    // Определяем тип карточки (проверяем в Product и Banner)
-    let cardType = null;
-
-    // Сначала проверяем Product
-    let card = await Product.findByPk(cardId);
-    if (card) {
-      cardType = card.type === 'service' ? 'Service' : 'Product';
-    } else {
-      // Если не найден, проверяем Banner
-      card = await Banner.findByPk(cardId);
-      if (card) {
-        cardType = 'Banner';
-      } else {
-        return res.status(404).json({ success: false, message: 'Карточка не найдена' });
-      }
-    }
+    const cardType = req.discussionCardType;
 
     const comments = await Comment.getCommentsByCard(cardId, cardType, page, limit);
     const total = await Comment.getCommentCount(cardId, cardType);
@@ -115,7 +99,7 @@ router.post('/:cardId', canWriteComments, commentLimiter, csrfProtection, async 
     }
 
     // Проверяем статус карточки (только approved карточки могут иметь комментарии)
-    if (card.status !== 'approved') {
+    if (card.status !== 'approved' && card.status !== 'published') {
       return res.status(403).json({ success: false, message: 'Комментарии доступны только для опубликованных карточек' });
     }
 

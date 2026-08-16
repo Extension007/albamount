@@ -23,7 +23,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
  * @returns {string} - подписанный JWT токен
  */
 const generateToken = (payload, expiresIn = JWT_EXPIRES_IN) => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn, algorithm: 'HS256' });
 };
 
 /**
@@ -33,7 +33,7 @@ const generateToken = (payload, expiresIn = JWT_EXPIRES_IN) => {
  */
 const verifyToken = (token) => {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
   } catch (error) {
     logger.warn({
       msg: 'jwt.verify_failed',
@@ -45,7 +45,6 @@ const verifyToken = (token) => {
 };
 
 module.exports = {
- JWT_SECRET,
   JWT_EXPIRES_IN,
   generateToken,
   verifyToken

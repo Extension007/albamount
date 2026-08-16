@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=1.0.1">
+<link rel="stylesheet" href="/styles.css?v=1.0.4">
 </head>
 <body class="admin-page">
 
@@ -228,6 +228,59 @@
 <div id="albaTransactionsContainer">
 <p class="empty-state">Нажмите кнопку для загрузки истории транзакций</p>
 </div>
+</section>
+
+
+<!-- Зарегистрированные пользователи -->
+<section class="section">
+<div class="section-header">
+<h2>Пользователи</h2>
+<span class="badge" style="background:#666;color:#fff;padding:4px 12px;border-radius:6px;font-size:0.9rem;">
+Всего: <%= typeof registeredUsers !== 'undefined' && registeredUsers ? registeredUsers.length : 0 %>
+</span>
+</div>
+<% if (typeof registeredUsers !== 'undefined' && registeredUsers && registeredUsers.length) { %>
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
+<thead>
+<tr style="text-align:left;border-bottom:1px solid rgba(255,51,51,0.25);">
+<th style="padding:8px;">ID</th>
+<th style="padding:8px;">Логин</th>
+<th style="padding:8px;">Email</th>
+<th style="padding:8px;">Тип</th>
+<th style="padding:8px;">Роль</th>
+<th style="padding:8px;"></th>
+</tr>
+</thead>
+<tbody>
+<% registeredUsers.forEach(function (u) {
+  const uid = u.id;
+  const isSelf = String(uid) === String(typeof currentAdminId !== 'undefined' ? currentAdminId : '');
+%>
+<tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+<td style="padding:8px;"><%= uid %></td>
+<td style="padding:8px;"><%= u.username %></td>
+<td style="padding:8px;"><%= u.email %></td>
+<td style="padding:8px;"><%= u.accountType === 'services' ? 'Услуги' : 'Реклама' %></td>
+<td style="padding:8px;"><%= u.role %></td>
+<td style="padding:8px;text-align:right;">
+<% if (!isSelf) { %>
+<form method="POST" action="/admin/users/<%= uid %>/delete" style="display:inline;" onsubmit="return confirm('Удалить пользователя <%= (u.username || '').replace(/'/g, '') %> из базы? Карточки будут скрыты.');">
+<input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' && csrfToken ? csrfToken : '' %>">
+<button type="submit" class="btn small outline">Удалить</button>
+</form>
+<% } else { %>
+<span class="muted">это вы</span>
+<% } %>
+</td>
+</tr>
+<% }); %>
+</tbody>
+</table>
+</div>
+<% } else { %>
+<p class="empty-state">Нет пользователей</p>
+<% } %>
 </section>
 
 

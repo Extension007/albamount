@@ -8,13 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.0.1">
+  <link rel="stylesheet" href="/styles.css?v=1.0.4">
   <style>
     .tabs {
       display: flex;
       gap: 10px;
       margin-bottom: 20px;
-      border-bottom: 2px solid #ddd;
+      border-bottom: 2px solid rgba(255, 51, 51, 0.25);
     }
     .tab {
       padding: 12px 24px;
@@ -24,15 +24,15 @@
       cursor: pointer;
       font-size: 1rem;
       font-weight: 500;
-      color: #666;
+      color: #bbb;
       transition: all 0.2s;
     }
     .tab:hover {
-      color: #2196f3;
+      color: #ff6666;
     }
     .tab.active {
-      color: #2196f3;
-      border-bottom-color: #2196f3;
+      color: #ff6666;
+      border-bottom-color: #ff3333;
     }
     .tab-content {
       display: none;
@@ -43,7 +43,30 @@
     .empty-state {
       text-align: center;
       padding: 40px 20px;
-      color: #666;
+      color: #aaa;
+    }
+    .alba-balance-card {
+      background: rgba(255, 51, 51, 0.08);
+      border: 1px solid rgba(255, 51, 51, 0.25);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .alba-balance-card h3 {
+      color: #ff9999;
+      margin-bottom: 10px;
+    }
+    .alba-balance-card p {
+      color: #ccc;
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+    #tab-alba h2,
+    #tab-alba h3 {
+      color: #ff9999;
+    }
+    .alba-tx-list {
+      background: rgba(0, 0, 0, 0.25);
     }
 
     /* Стили для нового footer в кабинете */
@@ -112,7 +135,9 @@
     }
 
     .modal-content {
-      background: #111;
+      background: rgba(10, 10, 14, 0.78);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
       margin: 2% auto;
       padding: 20px;
       border-radius: 10px;
@@ -186,6 +211,7 @@
   </style>
 </head>
 <body>
+  <div id="bg-animated" aria-hidden="true"></div>
   <header class="main-header">
     <div class="container header-inner">
       <a class="logo" href="/"><img src="/albamount.png" alt="ALBAMOUNT" class="logo-img"></a>
@@ -257,20 +283,20 @@
       <!-- Вкладка: ALBA баланс -->
       <div class="tab-content" id="tab-alba">
         <h2>ALBA баланс</h2>
-        <div style="background: #f5f5f5; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-          <h3 style="color: #ff3333; margin-bottom: 10px;">💰 Ваш ALBA баланс</h3>
+        <div class="alba-balance-card">
+          <h3>Ваш ALBA баланс</h3>
           <% if (typeof user.albaBalance !== 'undefined') { %>
-            <div id="albaBalanceDisplay" style="font-size: 2rem; font-weight: bold; color: #ff3333; margin-bottom: 10px;">
+            <div id="albaBalanceDisplay" style="font-size: 2rem; font-weight: bold; color: #ff6666; margin-bottom: 10px;">
               <%= user.albaBalance %> ALBA
             </div>
           <% } else { %>
-            <div id="albaBalanceDisplay" style="font-size: 1.5rem; color: #666; margin-bottom: 10px;">
+            <div id="albaBalanceDisplay" style="font-size: 1.5rem; color: #ccc; margin-bottom: 10px;">
               Загрузка баланса...
             </div>
           <% } %>
-          <p style="color: #666; margin-bottom: 15px;">
-            ALBA - это внутренняя валюта платформы Albamount. Используйте её для специальных возможностей и бонусов.
-        </p>
+          <p>
+            ALBA — внутренняя валюта платформы Albamount. Используйте её для дополнительных карточек и бонусов.
+          </p>
         </div>
       
         <!-- История транзакций -->

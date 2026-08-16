@@ -33,6 +33,8 @@ function sanitizeHtml(html, options = {}) {
     html = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
     html = html.replace(/<script[\s\S]*?\/>/gi, '');
     html = html.replace(/javascript:/gi, '');
+    html = html.replace(/\son[a-z]+\s*=/gi, ' ');
+    html = html.replace(/data:/gi, '');
   }
 
   // Удаляем inline стили

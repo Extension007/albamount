@@ -99,13 +99,13 @@ const validateProduct = [
   body("link")
     .optional({ checkFalsy: true })
     .trim()
-    .isURL()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
     .withMessage("Некорректный URL"),
   
   body("video_url")
     .optional({ checkFalsy: true })
     .trim()
-    .isURL()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
     .withMessage("Некорректный URL видео"),
   
   // Улучшенная валидация телефона
@@ -221,13 +221,13 @@ const validateBanner = [
   body("link")
     .optional({ checkFalsy: true })
     .trim()
-    .isURL()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
     .withMessage("Некорректный URL"),
   
   body("video_url")
     .optional({ checkFalsy: true })
     .trim()
-    .isURL()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
     .withMessage("Некорректный URL видео"),
   
   // Улучшенная валидация статуса
@@ -361,7 +361,7 @@ const validateInstagramUrl = [
   query("url")
     .notEmpty()
     .withMessage("URL обязателен")
-    .isURL()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
     .withMessage("Некорректный URL")
     .custom((value) => {
       if (!value.includes('instagram.com')) {

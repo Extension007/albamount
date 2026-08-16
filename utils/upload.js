@@ -178,15 +178,20 @@ function createImageUpload(options = {}) {
         });
       });
 
-      // Magic-byte validation for disk uploads
-      if (!useCloudinary && req.files && req.files.length) {
+      // Magic-byte validation (disk path or in-memory buffer)
+      if (req.files && req.files.length) {
         const { validateImageType } = require("../services/imageService");
         for (const file of req.files) {
-          if (file.path) {
-            const buf = fs.readFileSync(file.path);
+          let buf = file.buffer;
+          if (!buf && file.path && !String(file.path).startsWith("http")) {
+            buf = fs.readFileSync(file.path);
+          }
+          if (buf) {
             const ok = await validateImageType(buf);
             if (!ok) {
-              try { fs.unlinkSync(file.path); } catch (_) {}
+              if (file.path && !String(file.path).startsWith("http")) {
+                try { fs.unlinkSync(file.path); } catch (_) {}
+              }
               return res.status(400).json({ success: false, message: "Файл не является изображением" });
             }
           }

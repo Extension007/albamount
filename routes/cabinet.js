@@ -12,7 +12,7 @@ const { productLimiter } = require("../middleware/rateLimiter");
 const { validateProduct, validateProductId } = require("../middleware/validators");
 const { csrfProtection, csrfToken } = require("../middleware/csrf");
 const { upload, mobileOptimization } = require("../utils/upload");
-const { assertCanCreateCardType, allowedCardType } = require("../utils/accountType");
+const { publicErrorMessage } = require("../utils/httpError");
 const { createProduct, updateProduct } = require("../services/productService");
 const { notifyAdmin } = require("../services/adminNotificationService");
 const { getUserAlbaBalance } = require("../services/albaService");
@@ -162,7 +162,7 @@ router.get("/", conditionalCsrfToken, requireUser, async (req, res) => {
   } catch (err) {
     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка загрузки кабинета: " + err.message });
+    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка загрузки кабинета: " + publicErrorMessage(err, "внутренняя ошибка") });
     res.status(500).send("Ошибка загрузки кабинета");
   }
 });
@@ -317,7 +317,7 @@ router.get("/product/:id/edit", requireUser, validateProductId, conditionalCsrfT
   } catch (err) {
     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
-    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка базы данных: " + err.message });
+    if (wantsJson) return res.status(500).json({ success: false, message: "Ошибка базы данных: " + publicErrorMessage(err, "внутренняя ошибка") });
     res.status(500).send("Ошибка базы данных");
   }
 });
@@ -379,7 +379,7 @@ router.post("/product/:id/edit", requireUser, productLimiter, mobileOptimization
     if (err.message.includes("не найден") || err.message.includes("нет прав")) {
       return res.status(404).json({ success: false, message: err.message });
     }
-    res.status(500).json({ success: false, message: "Ошибка редактирования карточки: " + err.message });
+    res.status(500).json({ success: false, message: "Ошибка редактирования карточки: " + publicErrorMessage(err, "внутренняя ошибка") });
   }
 });
 
@@ -430,7 +430,7 @@ router.delete("/product/:id", requireUser, conditionalCsrfProtection, async (req
     res.json({ success: true, message: "Карточка удалена" });
   } catch (err) {
     logger.error({ msg: 'cabinet_error', error: err.message, stack: err.stack, path: req.path });
-    res.status(500).json({ success: false, message: "Ошибка удаления карточки: " + err.message });
+    res.status(500).json({ success: false, message: "Ошибка удаления карточки: " + publicErrorMessage(err, "внутренняя ошибка") });
   }
 });
 

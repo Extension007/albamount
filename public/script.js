@@ -413,31 +413,20 @@ document.addEventListener("DOMContentLoaded", () => {
     videoIframeContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#fff;">Загрузка...</div>';
 
     try {
-      console.log('▶️ Загрузка Instagram embed для:', url);
-      const embedHtml = await getInstagramEmbed(url);
-      if (!embedHtml) {
-        console.warn('⚠️ Не удалось получить Instagram embed');
-        window.open(url, '_blank');
-        closeVideoOverlay();
-        return;
-      }
-
-      // Вставляем HTML от Instagram oEmbed API
-      videoIframeContainer.innerHTML = embedHtml;
-
-      // Находим iframe в вставленном HTML
-      const iframe = videoIframeContainer.querySelector('iframe');
-      if (iframe) {
-        iframe.setAttribute('allow', 'encrypted-media; fullscreen; picture-in-picture');
-        iframe.setAttribute('scrolling', 'no');
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        iframe.style.border = 'none';
-        iframe.style.display = 'block';
-        iframe.style.minHeight = '600px';
-        currentVideoIframe = iframe;
-        console.log('✅ Instagram iframe создан');
-      }
+      videoIframeContainer.textContent = '';
+      const iframe = document.createElement('iframe');
+      const cleanUrl = String(url).split('?')[0].replace(/\/$/, '');
+      iframe.src = cleanUrl + '/embed';
+      iframe.setAttribute('allow', 'encrypted-media; fullscreen; picture-in-picture');
+      iframe.setAttribute('scrolling', 'no');
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.display = 'block';
+      iframe.style.minHeight = '600px';
+      videoIframeContainer.appendChild(iframe);
+      currentVideoIframe = iframe;
+      console.log('✅ Instagram iframe создан');
     } catch (err) {
       console.error('❌ Ошибка загрузки Instagram:', err);
       window.open(url, '_blank');
@@ -2099,7 +2088,7 @@ function addCommentToChat(comment, autoScroll = true) {
 
     commentElement.innerHTML = `
       <div class="chat-message-header">
-        <strong>${comment.username || 'Пользователь'}</strong>
+        <strong>${escapeHtml(comment.username || 'Пользователь')}</strong>
         <span class="chat-message-time">${new Date(comment.createdAt || Date.now()).toLocaleString()}</span>
         <div class="chat-admin-actions">${adminButtons}</div>
       </div>

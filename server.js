@@ -26,56 +26,43 @@ const server = http.createServer(app);
 // Инициализируем Socket.IO сервер только если не на Vercel
 let io;
 if (!process.env.VERCEL) {
+  const socketOrigin = (origin, callback) => {
+    if (!origin || process.env.NODE_ENV !== "production") {
+      return callback(null, true);
+    }
+    const allowed = [process.env.FRONTEND_URL, process.env.BASE_URL].filter(Boolean);
+    if (!allowed.length) return callback(null, true);
+    for (const raw of allowed) {
+      try {
+        if (new URL(raw).origin === origin) return callback(null, true);
+      } catch (_) { /* ignore invalid env URL */ }
+    }
+    return callback(new Error("Not allowed by CORS"));
+  };
+
   io = new Server(server, {
     cors: {
-      origin: process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL || '' : '*', // В продакшене нужно указать конкретные домены
+      origin: socketOrigin,
       methods: ["GET", "POST"],
       credentials: true
     }
   });
 
-  // Подключаем маршруты с Socket.IO
   commentsRoutes.setSocketIO(io);
+  app.set("io", io);
   app.use("/", routes);
 
-  // Обработчик 404 для правильных CSP заголовков (для Chrome DevTools)
-  app.use((req, res, next) => {
-    // Применяем CSP заголовки для 404 ответов
-    const { createSecurityMiddleware } = require("./config/security");
-    createSecurityMiddleware()(req, res, () => {});
-    res.status(404).send('Not Found');
+  app.use((req, res) => {
+    res.status(404).send("Not Found");
   });
 
-  // Подключаем обработчики WebSocket событий
   require("./socket/commentChat")(io);
-   
-  // Make io available globally for access in views
-  app.set('io', io);
-   
-  // Also set socket_io_available to true for non-Vercel deployments
-  app.use((req, res, next) => {
-    res.locals.socket_io_available = true;
-    next();
-  });
 } else {
-  // На Vercel подключаем маршруты без Socket.IO
+  app.set("io", null);
   app.use("/", routes);
 
-  // Обработчик 404 для правильных CSP заголовков (для Chrome DevTools)
-  app.use((req, res, next) => {
-    // Применяем CSP заголовки для 404 ответов
-    const { createSecurityMiddleware } = require("./config/security");
-    createSecurityMiddleware()(req, res, () => {});
-    res.status(404).send('Not Found');
-  });
-
-  // Set io to null for Vercel deployments to indicate it's not available
-  app.set('io', null);
-
-  // Set socket_io_available to false for Vercel deployments
-  app.use((req, res, next) => {
-    res.locals.socket_io_available = false;
-    next();
+  app.use((req, res) => {
+    res.status(404).send("Not Found");
   });
 }
 

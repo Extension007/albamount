@@ -28,9 +28,19 @@ function getAuthUserId(user) {
   return (user._id || user.id)?.toString() || null;
 }
 
+function extractAccessToken(req) {
+  const cookieToken = req.cookies?.exto_token;
+  if (cookieToken) return cookieToken;
+  const header = req.headers?.authorization;
+  if (typeof header === 'string' && /^Bearer\s+\S+/i.test(header)) {
+    return header.replace(/^Bearer\s+/i, '').trim();
+  }
+  return null;
+}
+
 // Функция для получения пользователя из различных источников
 function getUserFromRequest(req) {
-  const token = req.cookies?.exto_token || req.headers?.authorization?.split(' ')[1];
+  const token = extractAccessToken(req);
   const sessionUser = req.session?.user;
 
   let tokenData = null;
@@ -44,7 +54,7 @@ function getUserFromRequest(req) {
 
 // Async version for routes that need real-time sync from database
 async function getUserFromRequestAsync(req) {
-  const token = req.cookies?.exto_token || req.headers?.authorization?.split(' ')[1];
+  const token = extractAccessToken(req);
   const sessionUser = req.session?.user;
 
   let tokenData = null;

@@ -1,10 +1,17 @@
 require('dotenv').config();
+const bcrypt = require('bcryptjs');
 const { Product, Banner, User } = require('../config/database');
 
 (async () => {
+  const password = process.env.SEED_USER_PASSWORD;
+  if (!password || String(password).length < 8) {
+    throw new Error('Set SEED_USER_PASSWORD (min 8 chars) before running seed-admin');
+  }
+  const password_hash = await bcrypt.hash(String(password), 12);
+
   const user = await User.findOrCreate({
     where: { email: 'seller@example.com' },
-    defaults: { username: 'seller', password: '123456', role: 'user' }
+    defaults: { username: 'seller', password_hash, role: 'user', emailVerified: true }
   });
   const [u] = user;
   console.log('User:', u.id, u.username);

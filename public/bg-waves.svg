@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" width="1920" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#02040a"/>
+      <stop offset="42%" stop-color="#05070e"/>
+      <stop offset="100%" stop-color="#090505"/>
+    </linearGradient>
+    <linearGradient id="blueFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a1c44" stop-opacity=".55"/>
+      <stop offset="55%" stop-color="#061018" stop-opacity=".9"/>
+      <stop offset="100%" stop-color="#030508" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="redFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a0a08" stop-opacity=".5"/>
+      <stop offset="50%" stop-color="#140606" stop-opacity=".92"/>
+      <stop offset="100%" stop-color="#050203" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="blueGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4db8ff" stop-opacity=".15"/>
+      <stop offset="35%" stop-color="#7ad0ff" stop-opacity="1"/>
+      <stop offset="62%" stop-color="#2f7dff" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#1a4aaa" stop-opacity=".2"/>
+    </linearGradient>
+    <linearGradient id="redGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff4a2a" stop-opacity=".2"/>
+      <stop offset="32%" stop-color="#ff6a2a" stop-opacity="1"/>
+      <stop offset="58%" stop-color="#ff9a28" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#c42810" stop-opacity=".25"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="wideGlow" x="-30%" y="-60%" width="160%" height="220%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="n"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.07"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+
+  <g fill="url(#blueFill)">
+    <path d="M0 210 C 220 90 480 320 760 180 C 1020 60 1280 210 1920 70 L 1920 1080 L 0 1080 Z"/>
+    <path d="M0 310 C 260 170 520 400 820 250 C 1100 120 1400 280 1920 160 L 1920 1080 L 0 1080 Z" opacity=".7"/>
+    <path d="M0 430 C 240 300 560 520 900 360 C 1200 220 1480 400 1920 290 L 1920 1080 L 0 1080 Z" opacity=".55"/>
+  </g>
+  <g fill="url(#redFill)">
+    <path d="M0 560 C 280 440 600 680 980 520 C 1280 390 1540 560 1920 470 L 1920 1080 L 0 1080 Z"/>
+    <path d="M0 680 C 300 560 640 800 1040 640 C 1360 510 1600 680 1920 600 L 1920 1080 L 0 1080 Z" opacity=".85"/>
+    <path d="M0 800 C 280 700 680 920 1120 780 C 1440 660 1660 820 1920 740 L 1920 1080 L 0 1080 Z" opacity=".7"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#wideGlow)">
+    <path d="M-40 210 C 220 90 480 320 760 180 C 1020 60 1280 210 1960 70" stroke="url(#blueGlow)" stroke-width="3" opacity=".55"/>
+    <path d="M-40 310 C 260 170 520 400 820 250 C 1100 120 1400 280 1960 160" stroke="url(#blueGlow)" stroke-width="2.4" opacity=".4"/>
+    <path d="M-40 430 C 240 300 560 520 900 360 C 1200 220 1480 400 1960 290" stroke="url(#blueGlow)" stroke-width="2" opacity=".32"/>
+    <path d="M-40 560 C 280 440 600 680 980 520 C 1280 390 1540 560 1960 470" stroke="url(#redGlow)" stroke-width="3.2" opacity=".55"/>
+    <path d="M-40 680 C 300 560 640 800 1040 640 C 1360 510 1600 680 1960 600" stroke="url(#redGlow)" stroke-width="2.6" opacity=".42"/>
+    <path d="M-40 800 C 280 700 680 920 1120 780 C 1440 660 1660 820 1960 740" stroke="url(#redGlow)" stroke-width="2.2" opacity=".32"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" filter="url(#softGlow)">
+    <path d="M-40 210 C 220 90 480 320 760 180 C 1020 60 1280 210 1960 70" stroke="url(#blueGlow)" stroke-width="2.2"/>
+    <path d="M-40 310 C 260 170 520 400 820 250 C 1100 120 1400 280 1960 160" stroke="#9ad8ff" stroke-width="1.4" opacity=".85"/>
+    <path d="M-40 430 C 240 300 560 520 900 360 C 1200 220 1480 400 1960 290" stroke="#6eb8ff" stroke-width="1.2" opacity=".7"/>
+    <path d="M-40 560 C 280 440 600 680 980 520 C 1280 390 1540 560 1960 470" stroke="url(#redGlow)" stroke-width="2.4"/>
+    <path d="M-40 680 C 300 560 640 800 1040 640 C 1360 510 1600 680 1960 600" stroke="#ffb056" stroke-width="1.5" opacity=".9"/>
+    <path d="M-40 800 C 280 700 680 920 1120 780 C 1440 660 1660 820 1960 740" stroke="#ff7a3a" stroke-width="1.2" opacity=".75"/>
+  </g>
+
+  <rect width="1920" height="1080" filter="url(#grain)" opacity=".55"/>
+</svg>

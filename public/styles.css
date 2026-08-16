@@ -1,8 +1,10 @@
 /* === GLOBAL FIX === */
 :root {
-  --color-bg: #07080a;
-  --color-surface: #1a1a1a;
-  --color-surface-alt: #2a2a2a;
+  --color-bg: transparent;
+  --color-surface: rgba(16, 16, 20, 0.42);
+  --color-surface-alt: rgba(26, 26, 32, 0.55);
+  --color-glass: rgba(14, 14, 18, 0.32);
+  --color-glass-strong: rgba(10, 10, 14, 0.78);
   --color-text: #ffffff;
   --color-muted: #999999;
   --color-accent: #ff3333;
@@ -27,9 +29,20 @@
 
 html, body { height: 100%; margin: 0; }
 
+html {
+  background-color: #07060a;
+  background-image:
+    linear-gradient(180deg, rgba(8, 6, 12, 0.28) 0%, rgba(6, 5, 10, 0.55) 100%),
+    url("/bg-scene.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
 body{
    min-height:100vh;
-   background:var(--color-bg);
+   background: transparent;
    color:var(--color-text);
    position:relative;
    overflow-x:hidden;
@@ -46,58 +59,20 @@ body.admin-page.loaded #bg-animated{
   opacity:.92;
 }
 
-/* === ULTRA NEON GLASS WAVES === */
+/* Vector wave backdrop — fixed, cover, no tiling seams on scroll/zoom */
 #bg-animated{
   position:fixed;
-  inset:-35%;
+  inset:0;
   pointer-events:none;
   z-index:-1;
-
-  background:
-    /* Глубина + виньетка */
-    radial-gradient(1400px 1000px at 50% 120%, rgba(0,0,0,.90), rgba(0,0,0,1) 60%),
-
-    /* Холодный верхний свет */
-    radial-gradient(1200px 800px at 50% -10%, rgba(80,140,255,.18), transparent 62%),
-
-    /* Тёплый нижний свет */
-    radial-gradient(1200px 900px at 60% 110%, rgba(255,60,60,.18), transparent 65%),
-
-    /* Каустика (внутренние "световые ленты" стекла) */
-    conic-gradient(
-      from 230deg at 55% 45%,
-      transparent 0 18%,
-      rgba(255,255,255,.10) 20%,
-      rgba(160,200,255,.16) 24%,
-      transparent 28% 55%,
-      rgba(255,120,90,.12) 58%,
-      transparent 62% 100%
-    ),
-
-    /* Волны (SVG) */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Cdefs%3E%3Cfilter id='g' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeGaussianBlur stdDeviation='7' result='b'/%3E%3CfeMerge%3E%3CfeMergeNode in='b'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3ClinearGradient id='blue' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%236ec0ff' stop-opacity='0'/%3E%3Cstop offset='0.25' stop-color='%236ec0ff' stop-opacity='1'/%3E%3Cstop offset='0.55' stop-color='%232f6bff' stop-opacity='.92'/%3E%3Cstop offset='1' stop-color='%232f6bff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='red' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23ff3b3b' stop-opacity='0'/%3E%3Cstop offset='0.28' stop-color='%23ff3b3b' stop-opacity='1'/%3E%3Cstop offset='0.62' stop-color='%23ff7a18' stop-opacity='.92'/%3E%3Cstop offset='1' stop-color='%23ff7a18' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg filter='url(%23g)' stroke-linecap='round' fill='none'%3E%3Cpath d='M-60 250 C 260 120 520 430 820 290 C 1030 200 1200 230 1700 130' stroke='url(%23blue)' stroke-width='5.5'/%3E%3Cpath d='M-60 380 C 280 250 560 540 860 385 C 1100 260 1240 300 1700 240' stroke='url(%23blue)' stroke-opacity='.75' stroke-width='4.5'/%3E%3Cpath d='M-60 520 C 240 440 560 720 900 530 C 1140 410 1340 450 1700 390' stroke='url(%23blue)' stroke-opacity='.55' stroke-width='3.5'/%3E%3Cpath d='M-60 600 C 300 520 560 770 900 620 C 1160 520 1360 560 1700 500' stroke='url(%23red)' stroke-width='5.5'/%3E%3Cpath d='M-60 710 C 280 640 600 900 980 730 C 1240 620 1380 660 1700 610' stroke='url(%23red)' stroke-opacity='.78' stroke-width='4.5'/%3E%3Cpath d='M-60 820 C 260 760 640 990 1040 830 C 1300 730 1440 780 1700 740' stroke='url(%23red)' stroke-opacity='.55' stroke-width='3.5'/%3E%3C/g%3E%3C/svg%3E"),
-
-    /* Микрозерно */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.08'/%3E%3C/svg%3E");
-
-  background-repeat: no-repeat;
-  background-size: 100% 100%, 140% 140%, 140% 140%, 140% 140%, 125% 125%, 220px 220px;
-  background-position: center, 50% 0%, 60% 100%, 50% 45%, 50% 50%, 0 0;
-
-  background-blend-mode: normal, screen, screen, screen, screen, overlay;
-
-  opacity: .92;
-  filter: saturate(1.08) contrast(1.08);
-
-  transform: translate3d(0,0,0) scale(1.07);
-  animation: NEON_DRIFT 16s ease-in-out infinite alternate;
-  will-change: transform;
-}
-
-/* движение только transform — как у твоего рабочего теста */
-@keyframes NEON_DRIFT{
-  from { transform: translate3d(-2.6%, -1.4%, 0) scale(1.07); }
-  to   { transform: translate3d( 2.6%,  1.4%, 0) scale(1.07); }
+  background-color: transparent;
+  background-image:
+    linear-gradient(180deg, rgba(8, 6, 12, 0.22) 0%, rgba(6, 5, 10, 0.5) 100%),
+    url("/bg-scene.png");
+  background-repeat:no-repeat;
+  background-position:center center;
+  background-size:cover;
+  opacity:.95;
 }
 
 /* мягкое "дыхание" без мерцания */
@@ -147,7 +122,7 @@ textarea:focus {
 
 /* Шапка */
 .main-header {
-  background: linear-gradient(to top, transparent, rgba(17, 17, 0.8));
+  background: linear-gradient(to top, transparent, rgba(8, 8, 12, 0.28));
   border-bottom: 1px solid rgba(255,0,0,0.25);
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
   position: fixed;
@@ -165,7 +140,7 @@ textarea:focus {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to bottom, transparent, rgba(30, 46, 0.8));
+  background: linear-gradient(to bottom, transparent, rgba(12, 8, 8, 0.35));
   border-top: 1px solid rgba(255,0,0,0.25);
   box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
   z-index: 1000;
@@ -681,7 +656,9 @@ textarea:focus {
 
 /* Панель вкладок */
 .tabs-panel {
-  background: #1e1e1e;
+  background: rgba(20, 20, 24, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255,0,0.25);
   position: relative;
   z-index: 999;
@@ -1032,13 +1009,16 @@ button:disabled {
 
 /* Секции */
 .section {
-  background: #1e1e1e;
+  background: var(--color-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   margin: 40px auto 60px auto;
   padding: 30px 20px;
   border-radius: 15px;
   max-width: 1400px;
   width: 96%;
-  box-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.28), 0 0 20px rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 51, 51, 0.18);
   position: relative;
 }
 
@@ -1151,6 +1131,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 51, 51, 0.16);
   border-radius: var(--radius-md);
   padding: 15px;
   text-align: center;
@@ -1950,7 +1933,9 @@ body::after {
 }
 
 .modal-content {
-  background: #111;
+  background: var(--color-glass-strong);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   margin: 5% auto;
   padding: 20px;
   border-radius: 10px;
@@ -2891,13 +2876,16 @@ body::after {
 
 /* Убедимся, что секция правильно ограничивает меню */
 .section {
-  background: #1e1e1e;
+  background: var(--color-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   margin: 120px auto 160px auto;
   padding: 40px 20px;
   border-radius: 15px;
  max-width: 1400px;
   width: 96%;
-  box-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.28), 0 0 20px rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 51, 51, 0.18);
   position: relative; /* Для корректного позиционирования выпадающих элементов */
   overflow: visible; /* Позволяем выпадающим меню выходить за пределы секции при необходимости */
   overflow-x: clip; /* Обрезаем элементы, которые выходят за пределы ширины */
@@ -2918,7 +2906,7 @@ body::after {
 /* ======= Стили для страницы контактов ======= */
 
 .contacts-section {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+  background: var(--color-glass);
 }
 
 .contacts-description {
@@ -3021,7 +3009,7 @@ body::after {
 .contact-form .form-group textarea {
   width: 100%;
   padding: 12px 14px;
-  background: #2a2a2a;
+  background: var(--color-surface-alt);
   border: 1px solid rgba(255, 51, 51, 0.3);
   border-radius: 8px;
   color: #fff;
