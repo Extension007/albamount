@@ -1,16 +1,84 @@
 const { sequelize, User } = require('../config/database');
 const logger = require('../utils/logger');
 
+function pgCode(err) {
+  return err.parent?.code || err.original?.code || err.code;
+}
+
 async function runSql(t, sql, id) {
   try {
     await sequelize.query(sql, { replacements: { id }, transaction: t });
   } catch (err) {
-    const code = err.parent?.code || err.original?.code;
+    const code = pgCode(err);
     if (code === '42P01' || code === '42703') {
       logger.warn({ msg: 'user_delete_skip_sql', sql, code, error: err.message });
       return;
     }
     throw err;
+  }
+}
+
+async function listUserForeignKeys(t) {
+  const [rows] = await sequelize.query(
+    `
+    SELECT
+      rel.relname AS table_name,
+      att.attname AS column_name,
+      NOT att.attnotnull AS is_nullable
+    FROM pg_constraint con
+    JOIN pg_class rel ON rel.oid = con.conrelid
+    JOIN pg_namespace n ON n.oid = rel.relnamespace
+    JOIN LATERAL unnest(con.conkey) AS cols(attnum) ON true
+    JOIN pg_attribute att
+      ON att.attrelid = rel.oid
+     AND att.attnum = cols.attnum
+    WHERE con.contype = 'f'
+      AND con.confrelid = 'public.users'::regclass
+      AND n.nspname = 'public'
+      AND att.attnum > 0
+      AND NOT att.attisdropped
+    `,
+    { transaction: t }
+  );
+  return rows || [];
+}
+
+async function detachUserReferences(t, id) {
+  await runSql(t, 'UPDATE products SET owner_id = NULL, deleted = true WHERE owner_id = :id', id);
+  await runSql(
+    t,
+    `UPDATE entitlements
+        SET related_transaction_id = NULL
+      WHERE related_transaction_id IN (
+        SELECT id FROM alba_transactions
+         WHERE user_id = :id OR related_user_id = :id
+      )`,
+    id
+  );
+
+  for (let pass = 0; pass < 12; pass += 1) {
+    const fks = await listUserForeignKeys(t);
+    let ops = 0;
+
+    for (const fk of fks) {
+      const table = String(fk.table_name || '');
+      const column = String(fk.column_name || '');
+      if (!table || !column) continue;
+      if (table === 'users' && column === 'id') continue;
+      if (table === 'products' && column === 'owner_id') continue;
+
+      const quoted = `"${table.replace(/"/g, '')}"`;
+      const col = `"${column.replace(/"/g, '')}"`;
+      const mustDelete = table !== 'users' && (fk.is_nullable === false || fk.is_nullable === 'f');
+      if (mustDelete) {
+        await runSql(t, `DELETE FROM ${quoted} WHERE ${col} = :id`, id);
+      } else {
+        await runSql(t, `UPDATE ${quoted} SET ${col} = NULL WHERE ${col} = :id`, id);
+      }
+      ops += 1;
+    }
+
+    if (ops === 0) break;
   }
 }
 
@@ -47,32 +115,8 @@ async function deleteRegisteredUser(userId, actorUser) {
   }
 
   await sequelize.transaction(async (t) => {
-    await runSql(t, 'UPDATE users SET referred_by = NULL WHERE referred_by = :id', id);
-    await runSql(t, 'UPDATE categories SET created_by = NULL WHERE created_by = :id', id);
-
-    await runSql(t, 'DELETE FROM entitlements WHERE owner_id = :id', id);
-    await runSql(t, 'UPDATE alba_transactions SET related_user_id = NULL WHERE related_user_id = :id', id);
-    await runSql(t, 'DELETE FROM alba_transactions WHERE user_id = :id', id);
-
-    await runSql(t, 'DELETE FROM comments WHERE user_id = :id', id);
-    await runSql(t, 'DELETE FROM votes WHERE user_id = :id', id);
-    await runSql(t, 'DELETE FROM verification_tokens WHERE user_id = :id', id);
-    await runSql(t, 'DELETE FROM video_posts WHERE user_id = :id', id);
-    await runSql(t, 'DELETE FROM code_usage WHERE user_id = :id', id);
-    await runSql(t, 'DELETE FROM code_usages WHERE user_id = :id', id);
-
-    await runSql(t, 'UPDATE codes SET created_by = NULL WHERE created_by = :id', id);
-    await runSql(t, 'UPDATE codes SET used_by = NULL WHERE used_by = :id', id);
-    await runSql(t, 'UPDATE codes SET reserved_for_user_id = NULL WHERE reserved_for_user_id = :id', id);
-
-    await runSql(t, 'UPDATE audit_logs SET user_id = NULL WHERE user_id = :id', id);
-    await runSql(t, 'UPDATE audit_logs SET target_user_id = NULL WHERE target_user_id = :id', id);
-    await runSql(t, 'UPDATE audit_logs SET admin_id = NULL WHERE admin_id = :id', id);
-
-    await runSql(t, 'UPDATE products SET owner_id = NULL, deleted = true WHERE owner_id = :id', id);
-    await runSql(t, 'DELETE FROM banners WHERE owner_id = :id', id);
-
-    await User.destroy({ where: { id }, transaction: t });
+    await detachUserReferences(t, id);
+    await runSql(t, 'DELETE FROM users WHERE id = :id', id);
   });
 
   return { username: user.username, id };

@@ -228,7 +228,15 @@ router.post("/users/:id/delete", requireAdmin, conditionalCsrfProtection, async 
     return res.redirect("/admin");
   } catch (err) {
     const logger = require("../utils/logger");
-    logger.error({ msg: 'admin_user_delete_failed', error: err.message, stack: err.stack, userId: req.params.id });
+    logger.error({
+      msg: 'admin_user_delete_failed',
+      error: err.message,
+      stack: err.stack,
+      userId: req.params.id,
+      pgCode: err.parent?.code || err.original?.code,
+      pgDetail: err.parent?.detail || err.original?.detail,
+      pgConstraint: err.parent?.constraint || err.original?.constraint
+    });
     const status = err.status || 500;
     const message = status >= 500 ? "Ошибка удаления пользователя" : (err.message || "Ошибка удаления пользователя");
     const wantsJson = req.xhr || req.get("accept")?.includes("application/json");
