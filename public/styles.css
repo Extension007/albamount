@@ -1036,39 +1036,24 @@ button:disabled {
 /* Выпадающее меню категорий */
 .hierarchical-categories {
   position: absolute;
-  right: 0; /* Прикрепляем к правой стороне кнопки */
-  top: calc(100% + 6px); /* Размещаем сразу под кнопкой */
-  background: #111;
-  border: 1px solid rgba(31, 138, 90,0.25);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(31, 138, 90,0.2) inset;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--color-glass-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: var(--border-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-accent), 0 12px 28px rgba(0, 0, 0, 0.35);
   min-width: 200px;
-  width: max-content; /* Ширина по содержимому */
-  max-width: 100%; /* Не выходит за пределы родительского контейнера */
-  padding: 8px;
+  width: max-content;
+  max-width: min(500px, 100%, calc(100vw - 40px));
+  padding: 10px;
   display: none;
   z-index: 1500;
-  overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
-  word-wrap: break-word; /* Переносим слова при необходимости */
-  /* Ограничиваем ширину с учетом ширины родительской секции */
-  max-width: calc(100vw - 32px); /* Ограничиваем ширину viewport за вычетом отступов */
-  /* Убедимся, что меню не выходит за пределы контейнера секции */
-  max-width: 100%;
-  width: -moz-fit-content; /* Для Firefox */
-  width: fit-content; /* Ширина по содержимому */
-  min-width: 200px; /* Минимальная ширина для удобства использования */
-  /* Ограничиваем ширину, чтобы не выходило за границы секции */
-  max-width: 100%;
-  box-sizing: border-box; /* Учитываем padding в ширине */
-  /* Позиционируем меню, чтобы оно было строго внутри границ секции */
-  position: absolute;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  box-sizing: border-box;
   left: auto;
-  right: 0;
-  /* Убедимся, что ширина не превышает ширину родительского контейнера */
-  max-width: 100%;
-  width: max-content;
-  /* Ограничиваем максимальную ширину, чтобы не выходило за границы */
-  max-width: min(500px, 100%, calc(100vw - 40px));
 }
 
 /* Дополнительный отступ внизу секции для предотвращения перекрытия футером */
@@ -1083,12 +1068,14 @@ button:disabled {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  background: #111;
-  border: 1px solid rgba(31, 138, 90,0.25);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(31, 138, 90,0.2) inset;
+  background: var(--color-glass-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: var(--border-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-accent), 0 12px 28px rgba(0, 0, 0, 0.35);
   min-width: 220px;
-  padding: 8px;
+  padding: 10px;
   display: none;
   z-index: 1500;
 }
@@ -2759,36 +2746,26 @@ body::after {
 /* Стили для иерархического меню категорий */
 .hierarchical-categories {
   position: absolute;
-  right: 0; /* Выравниваем по правой стороне кнопки */
-  top: calc(100% + 6px); /* Размещаем сразу под кнопкой */
-  background: #111;
-  border: 1px solid rgba(31, 138, 90,0.25);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 12px rgba(31, 138, 90,0.2) inset;
-  min-width: 200px;
-  width: max-content; /* Ширина по содержимому */
-  max-width: 100%; /* Не выходит за пределы родительского контейнера */
-  padding: 8px;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--color-glass-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: var(--border-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-accent), 0 12px 28px rgba(0, 0, 0, 0.35);
+  min-width: 220px;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 10px;
   display: none;
   z-index: 1500;
-  /* Ограничиваем ширину по ширине секции */
-  max-width: 100%; /* Важно: меню не может быть шире родительского контейнера */
-  /* Убедимся, что меню не выходит за пределы ширины секции */
-  left: auto; /* Отключаем автоматическое позиционирование слева */
-  right: 0; /* Выравниваем по правому краю родительского контейнера */
-  /* Ограничиваем максимальную ширину, чтобы не выходило за пределы секции */
-  max-width: 90%; /* Ограничиваем ширину 90% от родительского контейнера */
-  /* Также ограничиваем ширину по ширине секции */
-  width: fit-content;
-  min-width: 200px;
-  max-width: min(500px, 100%, calc(100% - 20px)); /* Максимальная ширина: 500px или 100% ширины родительского контейнера за вычетом отступов */
+  left: auto;
   box-sizing: border-box;
-  word-wrap: break-word; /* Переносим слова при необходимости */
-  word-break: break-word; /* Разрешаем перенос слов */
-  overflow-wrap: break-word; /* Дополнительный перенос слов */
-  /* Скрываем полосы прокрутки */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE и Edge */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .hierarchical-categories::-webkit-scrollbar {
@@ -2842,52 +2819,66 @@ body::after {
 .back-to-blocks-btn {
   width: 100%;
   text-align: left;
-  background:
-    linear-gradient(#0a1f16, #0a1f16) padding-box,
-    linear-gradient(45deg, var(--color-accent-strong), #e6c96a) border-box;
-  color: #fff;
+  background: var(--btn-bg-outline);
+  color: var(--color-text);
   border: 2px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--btn-radius);
   padding: 10px 12px;
   cursor: pointer;
   margin-bottom: 8px;
   font-size: 0.9rem;
-  box-sizing: border-box; /* Учитывает padding в ширине элемента */
+  box-sizing: border-box;
+  box-shadow: var(--btn-shadow);
 }
 
-/* Элементы внутри меню - ограничиваем ширину и добавляем перенос слов */
+.hierarchical-categories #subcategoriesList h4 {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+/* Элементы внутри меню — тот же стиль, что у кнопок сайта */
 .hierarchical-categories .dropdown-item,
 .hierarchical-categories .category-block,
-.hierarchical-categories .subcategory-item {
-  white-space: nowrap; /* Не переносим текст на новую строку */
-  overflow: hidden; /* Скрываем текст, который не помещается */
-  text-overflow: ellipsis; /* Добавляем многоточие для текста, который не помещается */
-  max-width: 100%; /* Ограничиваем максимальную ширину */
-  box-sizing: border-box; /* Учитываем padding в ширине элемента */
-  min-width: 180px; /* Минимальная ширина для удобства чтения */
-  width: -moz-fit-content; /* Для Firefox */
-  width: fit-content; /* Позволяем элементу занимать столько ширины, сколько нужно для содержимого */
-  /* Применяем немного отличающийся стиль от основной кнопки */
-  background:
-    linear-gradient(#250909, #250909) padding-box, /* Более темный внутренний фон */
-    linear-gradient(45deg, #cc0000, #cc3d3d) border-box; /* Более темный градиент */
-  color: #fff;
+.hierarchical-categories .subcategory-item,
+.hierarchical-categories .back-to-blocks-btn {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  background: var(--btn-bg-outline);
+  color: var(--color-text);
   border: 2px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--btn-radius);
   padding: 10px 12px;
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(204, 0, 0, 0.25), 0 0 18px rgba(204, 0, 0, 0.15); /* Более мягкая подсветка */
+  box-shadow: var(--btn-shadow);
   transition: box-shadow .2s ease, transform .15s ease, filter .2s ease, background .2s ease;
-  word-wrap: break-word; /* Разрешаем перенос слов */
-  hyphens: auto; /* Разрешаем переносы слов */
+  word-wrap: break-word;
+  text-align: left;
+}
+
+.hierarchical-categories .dropdown-item + .dropdown-item,
+.hierarchical-categories .category-block + .category-block,
+.hierarchical-categories .subcategory-item + .subcategory-item {
+  margin-top: 8px;
 }
 
 .hierarchical-categories .dropdown-item:hover,
 .hierarchical-categories .category-block:hover,
-.hierarchical-categories .subcategory-item:hover {
-  filter: brightness(1.1); /* Немного более яркая подсветка */
-  box-shadow: 0 0 12px rgba(204, 0, 0, 0.45), 0 0 24px rgba(204, 0, 0, 0.24); /* Более мягкая тень */
+.hierarchical-categories .subcategory-item:hover,
+.hierarchical-categories .back-to-blocks-btn:hover {
+  box-shadow: var(--btn-shadow-hover);
   transform: translateY(-1px);
+  filter: brightness(1.03);
+  color: var(--color-text);
 }
 
 /* Убедимся, что секция правильно ограничивает меню */
@@ -3245,6 +3236,8 @@ input[type="submit"]:hover,
 .tab-button:hover,
 .mobile-tab-button:hover,
 .dropdown-item:hover,
+.category-block:hover,
+.subcategory-item:hover,
 .back-to-main-btn:hover,
 .back-to-blocks-btn:hover {
   box-shadow: var(--btn-shadow-hover);
@@ -3319,102 +3312,147 @@ body:has(#siteIntroDismiss:not(:checked)) {
 .site-intro-inner {
   position: relative;
   z-index: 1;
-  width: min(100%, 34rem);
+  width: min(94vw, 52rem);
   max-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 2.4vh, 22px);
+  gap: clamp(0.35rem, 1.8vmin, 1.15rem);
   text-align: center;
   pointer-events: none;
   animation: siteIntroRise 0.8s ease both;
   box-sizing: border-box;
+  font-size: clamp(0.95rem, 2.2vmin + 0.42rem, 1.15rem);
+  line-height: 1.4;
 }
 
 .site-intro-logo {
   display: block;
-  width: min(58vw, 38vh, 280px);
+  width: min(72vw, 48vmin, 400px);
   max-width: 100%;
   height: auto;
-  max-height: min(36vh, 280px);
+  max-height: min(44vmin, 400px);
   object-fit: contain;
-  margin: 0;
+  margin: 0 0 clamp(0.1rem, 0.8vmin, 0.4rem);
   filter: drop-shadow(0 8px 28px rgba(201, 162, 39, 0.28));
 }
 
 .site-intro-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-}
-
-.site-intro-text {
   display: block;
-  width: min(100%, 36ch);
   margin: 0;
-  font-size: clamp(0.95rem, 1.6vw + 0.7rem, 1.35rem);
-  line-height: 1.4;
+  font-size: inherit;
+  line-height: inherit;
   font-weight: 400;
+  letter-spacing: 0;
   color: var(--color-text);
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
 }
 
+.site-intro-title::after {
+  content: "";
+  display: block;
+  width: min(4.5rem, 18vw);
+  height: 1px;
+  margin: clamp(0.45rem, 1.4vmin, 0.85rem) auto 0;
+  background: linear-gradient(90deg, transparent, var(--color-accent-strong), transparent);
+}
+
+.site-intro-text {
+  display: block;
+  width: min(100%, 62ch);
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 400;
+  color: var(--color-muted);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+}
+
+.site-intro-steps {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.4rem, 1.4vmin, 0.75rem);
+  width: min(100%, 64ch);
+  max-width: 100%;
+  margin: clamp(0.15rem, 0.8vmin, 0.4rem) 0;
+  text-align: left;
+}
+
+.site-intro-steps > span {
+  display: block;
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 1.15em;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--color-text);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+.site-intro-steps > span::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-strong);
+  box-shadow: 0 0 8px rgba(201, 162, 39, 0.7);
+}
+
 .site-intro-hint {
   display: block;
-  margin: 0;
-  font-size: clamp(0.7rem, 1.2vw + 0.5rem, 0.85rem);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin: clamp(0.2rem, 1vmin, 0.55rem) 0 0;
+  font-size: inherit;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--color-accent-strong);
   animation: siteIntroHint 2.4s ease-in-out infinite;
 }
 
 @media (max-width: 640px) {
   .site-intro {
-    padding-left: max(12px, env(safe-area-inset-left, 0px));
-    padding-right: max(12px, env(safe-area-inset-right, 0px));
-  }
-
-  .site-intro-logo {
-    width: min(70vw, 32vh, 220px);
-    max-height: min(30vh, 220px);
+    padding:
+      max(12px, env(safe-area-inset-top, 0px))
+      max(18px, env(safe-area-inset-right, 0px))
+      max(64px, env(safe-area-inset-bottom, 0px))
+      max(18px, env(safe-area-inset-left, 0px));
   }
 }
 
-@media (max-height: 560px) {
+@media (max-height: 620px) {
   .site-intro {
-    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
   }
 
   .site-intro-logo {
-    width: min(42vw, 28vh, 180px);
-    max-height: 28vh;
+    width: min(68vw, 32vmin, 280px);
+    max-height: 32vmin;
+  }
+}
+
+@media (max-height: 480px) {
+  .site-intro-logo {
+    width: min(44vw, 24vmin, 192px);
+    max-height: 24vmin;
   }
 
-  .site-intro-text {
-    font-size: clamp(0.88rem, 2.4vh, 1.1rem);
+  .site-intro-title::after {
+    margin-top: 0.35rem;
   }
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
   .site-intro-inner {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px 20px;
+    flex-direction: column;
+    gap: 0.45rem;
   }
 
   .site-intro-logo {
-    width: min(28vw, 46vh, 160px);
-    max-height: 46vh;
-  }
-
-  .site-intro-text,
-  .site-intro-hint {
-    flex: 1 1 16rem;
+    width: min(36vw, 36vmin, 220px);
+    max-height: 36vmin;
   }
 }
 
