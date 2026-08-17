@@ -565,7 +565,7 @@
     });
   </script>
 
-  <script src="/script.js?v=1.0.6"></script>
+  <script src="/script.js?v=1.0.7"></script>
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     if (window.__ADMIN_BOOTSTRAP_DONE) return;
@@ -623,6 +623,11 @@
         e.preventDefault();
         e.stopPropagation();
         var url = btn.getAttribute('data-video');
+        if (!url) return;
+        if (typeof window.openVideoOverlay === 'function') {
+          window.openVideoOverlay(url);
+          return;
+        }
         var overlay = document.getElementById('videoOverlay');
         var box = document.getElementById('videoIframeContainer');
         if (!url || !overlay || !box) return;

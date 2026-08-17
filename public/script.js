@@ -39,41 +39,62 @@ function isIOS() {
 // Определение типа видео по URL
 function getVideoType(url) {
   if (!url) return null;
-  const urlLower = url.toLowerCase();
-  if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) return 'youtube';
-  if (urlLower.includes('vk.com') || urlLower.includes('vkontakte.ru')) return 'vk';
-  if (urlLower.includes('instagram.com')) return 'instagram';
+  const urlLower = String(url).toLowerCase();
+  if (
+    urlLower.includes('youtube.com') ||
+    urlLower.includes('youtu.be') ||
+    urlLower.includes('youtube-nocookie.com')
+  ) {
+    return 'youtube';
+  }
+  if (
+    urlLower.includes('vk.com') ||
+    urlLower.includes('vk.ru') ||
+    urlLower.includes('vkontakte.ru') ||
+    urlLower.includes('vkvideo.ru')
+  ) {
+    return 'vk';
+  }
+  if (urlLower.includes('instagram.com') || urlLower.includes('instagr.am')) {
+    return 'instagram';
+  }
   return null;
 }
 
-// Извлечение videoId из разных форматов ссылок YouTube (включая Shorts)
 function extractVideoId(url) {
   if (!url) return null;
 
-  // https://www.youtube.com/watch?v=VIDEO_ID
-  // https://youtu.be/VIDEO_ID
-  // https://www.youtube.com/embed/VIDEO_ID
-  // https://www.youtube.com/shorts/VIDEO_ID
-  // https://youtube.com/shorts/VIDEO_ID
-  // https://m.youtube.com/shorts/VIDEO_ID
-  // https://m.youtube.com/watch?v=VIDEO_ID
+  try {
+    const parsed = new URL(url, 'https://youtube.com');
+    const host = parsed.hostname.replace(/^www\./, '').replace(/^m\./, '');
+    if (host === 'youtu.be') {
+      return parsed.pathname.split('/').filter(Boolean)[0] || null;
+    }
+    if (host.includes('youtube')) {
+      const fromQuery = parsed.searchParams.get('v');
+      if (fromQuery) return fromQuery;
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const markers = ['embed', 'shorts', 'live', 'v', 'e'];
+      for (let i = 0; i < parts.length; i++) {
+        if (markers.includes(parts[i]) && parts[i + 1]) {
+          return parts[i + 1];
+        }
+      }
+    }
+  } catch (err) {}
 
-  // Проверяем embed формат
   if (url.includes('/embed/')) {
     return url.split('/embed/')[1].split(/[?#]/)[0];
   }
-
-  // Проверяем shorts формат (YouTube Shorts)
   if (url.includes('/shorts/')) {
     return url.split('/shorts/')[1].split(/[?#]/)[0];
   }
-
-  // Проверяем короткий формат youtu.be
+  if (url.includes('/live/')) {
+    return url.split('/live/')[1].split(/[?#]/)[0];
+  }
   if (url.includes('youtu.be/')) {
     return url.split('youtu.be/')[1].split(/[?#]/)[0];
   }
-
-  // Проверяем стандартный формат watch?v=
   const match = url.match(/[?&]v=([^&]+)/);
   return match ? match[1] : null;
 }
@@ -109,57 +130,61 @@ function getYoutubePosterUrl(url) {
 function extractVKVideoParams(url) {
   if (!url) return null;
 
-  // Формат: https://vk.com/video{owner_id}_{video_id}
-  // Формат: https://vk.com/video?z=video{owner_id}_{video_id}
-  // Формат: https://vk.com/clip{owner_id}_{clip_id}
-  // Формат: https://vk.com/video_ext.php?oid=...&id=...
-
-  // Проверяем формат video{owner_id}_{video_id}
-  let match = url.match(/video(-?\d+)_(\d+)/);
+  let match = String(url).match(/video(-?\d+)_(\d+)/);
   if (match) {
-    return { ownerId: match[1], videoId: match[2], type: 'video' };
+    return { ownerId: match[1], videoId: match[2], hash: vkHashFromUrl(url) };
   }
 
-  // Проверяем формат clip{owner_id}_{clip_id}
-  match = url.match(/clip(-?\d+)_(\d+)/);
+  match = String(url).match(/clip(-?\d+)_(\d+)/);
   if (match) {
-    return { ownerId: match[1], videoId: match[2], type: 'clip' };
+    return { ownerId: match[1], videoId: match[2], hash: vkHashFromUrl(url) };
   }
 
-  // Альтернативный формат: https://vk.com/video_ext.php?oid=...&id=...
-  match = url.match(/[?&]oid=(-?\d+).*[?&]id=(\d+)/);
+  match = String(url).match(/[?&]oid=(-?\d+).*[?&]id=(\d+)/);
   if (match) {
-    return { ownerId: match[1], videoId: match[2], type: 'video' };
+    return { ownerId: match[1], videoId: match[2], hash: vkHashFromUrl(url) };
+  }
+
+  match = String(url).match(/[?&]id=(\d+).*[?&]oid=(-?\d+)/);
+  if (match) {
+    return { ownerId: match[2], videoId: match[1], hash: vkHashFromUrl(url) };
   }
 
   return null;
 }
 
-// Извлечение ID публикации из URL Instagram
+function vkHashFromUrl(url) {
+  const match = String(url).match(/[?&]hash=([^&]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
 function extractInstagramPostId(url) {
   if (!url) return null;
-
-  // Формат: https://www.instagram.com/p/{post_id}/
-  // Формат: https://www.instagram.com/reel/{reel_id}/
-  // Формат: https://www.instagram.com/tv/{tv_id}/
-  // Формат: https://instagram.com/p/{post_id}/
-
-  const match = url.match(/\/(p|reel|tv)\/([A-Za-z0-9_-]+)/);
+  const match = String(url).match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
   if (match) {
-    return { postId: match[2], type: match[1] };
+    const type = match[1] === 'reels' ? 'reel' : match[1];
+    return { postId: match[2], type };
   }
   return null;
 }
 
-// Формирование URL для ВКонтакте embed
 function buildVKEmbedUrl(params) {
   if (!params || !params.ownerId || !params.videoId) return '';
-  const type = params.type || 'video';
-  // Для clip используем другой формат
-  if (type === 'clip') {
-    return `https://vk.com/video_ext.php?oid=${params.ownerId}&id=${params.videoId}&hash=${Date.now()}&hd=1`;
+  let src = 'https://vk.com/video_ext.php?oid=' + encodeURIComponent(params.ownerId) +
+    '&id=' + encodeURIComponent(params.videoId) + '&hd=2';
+  if (params.hash) {
+    src += '&hash=' + encodeURIComponent(params.hash);
   }
-  return `https://vk.com/video_ext.php?oid=${params.ownerId}&id=${params.videoId}&hash=${Date.now()}&hd=1`;
+  return src;
+}
+
+function instagramEmbedSrc(url) {
+  const postData = extractInstagramPostId(url);
+  if (postData) {
+    return 'https://www.instagram.com/' + postData.type + '/' + postData.postId + '/embed/';
+  }
+  const cleanUrl = String(url).split('?')[0].replace(/\/$/, '');
+  return cleanUrl + '/embed/';
 }
 
 // Получение Instagram embed через oEmbed API
@@ -354,8 +379,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       videoIframeContainer.textContent = '';
       const iframe = document.createElement('iframe');
-      const cleanUrl = String(url).split('?')[0].replace(/\/$/, '');
-      iframe.src = cleanUrl + '/embed';
+      iframe.src = instagramEmbedSrc(url);
       iframe.setAttribute('allow', 'encrypted-media; fullscreen; picture-in-picture');
       iframe.setAttribute('scrolling', 'no');
       iframe.style.width = '100%';
@@ -426,7 +450,16 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log('✅ Overlay показан, класс show добавлен');
 
       // Обработка разных типов видео
-      if (videoType === 'vk') {
+      if (videoType === 'youtube') {
+        const videoId = extractVideoId(videoUrl);
+        if (!videoId) {
+          window.open(videoUrl, '_blank');
+          closeVideoOverlay();
+          return;
+        }
+        createYouTubeIframe(videoId);
+
+      } else if (videoType === 'vk') {
         const vkParams = extractVKVideoParams(videoUrl);
         if (!vkParams) {
           console.warn('⚠️ Не удалось извлечь параметры VK из URL:', videoUrl);
@@ -458,6 +491,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 500);
     }
   }
+  window.openVideoOverlay = openVideoOverlay;
 
   // Функция закрытия видео overlay
   function closeVideoOverlay() {
@@ -688,80 +722,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Обработчик клика на кнопку "Обзор" и закрытия overlay
   document.addEventListener('click', (e) => {
     // Клик на кнопку видео
-    const videoBtn = e.target.closest('.btn[data-video]');
+    const videoBtn = e.target.closest('button[data-video], .btn[data-video], .btn-video-link[data-video]');
     if (videoBtn) {
       e.preventDefault();
       e.stopPropagation();
 
       const videoUrl = videoBtn.getAttribute('data-video');
       if (videoUrl) {
-        console.log('🎬 Клик на кнопку видео, URL:', videoUrl);
-
-        const videoType = getVideoType(videoUrl);
-
-        if (videoType === 'youtube') {
-          const videoId = extractVideoId(videoUrl);
-          videoOverlay = document.getElementById('videoOverlay');
-          videoIframeContainer = document.getElementById('videoIframeContainer');
-          if (!videoId || !videoOverlay || !videoIframeContainer) {
-            return false;
-          }
-
-          videoIframeContainer.innerHTML = '';
-          videoOverlay.classList.add('show');
-          videoOverlay.setAttribute('aria-hidden', 'false');
-          videoOverlay.style.display = 'flex';
-          document.body.style.overflow = 'hidden';
-          currentVideoUrl = videoUrl;
-          createYouTubeIframe(videoId);
-        } else if (videoType === 'vk') {
-          if (!videoOverlay || !videoIframeContainer) {
-            console.error('❌ Video overlay elements not found');
-            window.open(videoUrl, '_blank');
-            return false;
-          }
-
-          const vkParams = extractVKVideoParams(videoUrl);
-          if (!vkParams) {
-            console.warn('⚠️ Не удалось извлечь параметры VK из URL:', videoUrl);
-            window.open(videoUrl, '_blank');
-            return false;
-          }
-
-          const embedUrl = buildVKEmbedUrl(vkParams);
-          console.log('▶️ Открытие VK видео:', embedUrl);
-
-          // Показываем overlay
-          videoOverlay.classList.add('show');
-          videoOverlay.setAttribute('aria-hidden', 'false');
-          videoOverlay.style.display = 'flex';
-          document.body.style.overflow = 'hidden';
-
-          currentVideoUrl = videoUrl;
-          createVkIframe(embedUrl);
-        } else if (videoType === 'instagram') {
-          console.log('▶️ Открытие Instagram видео:', videoUrl);
-          openVideoOverlay(videoUrl).catch(err => {
-            console.error('❌ Ошибка при открытии Instagram видео:', err);
-            window.open(videoUrl, '_blank');
-          });
-        } else {
-          videoOverlay = document.getElementById('videoOverlay');
-          videoIframeContainer = document.getElementById('videoIframeContainer');
-          if (!videoOverlay || !videoIframeContainer) return false;
-          videoIframeContainer.innerHTML = '';
-          const iframe = document.createElement('iframe');
-          iframe.src = videoUrl;
-          iframe.setAttribute('allow', 'autoplay; fullscreen');
-          iframe.setAttribute('allowfullscreen', '');
-          iframe.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;border:0;';
-          videoIframeContainer.appendChild(iframe);
-          videoOverlay.classList.add('show');
-          videoOverlay.style.display = 'flex';
-          videoOverlay.setAttribute('aria-hidden', 'false');
-          document.body.style.overflow = 'hidden';
-          currentVideoUrl = videoUrl;
-        }
+        openVideoOverlay(videoUrl).catch(function (err) {
+          console.error('Ошибка при открытии видео:', err);
+          window.open(videoUrl, '_blank');
+        });
       }
       return false;
     }
